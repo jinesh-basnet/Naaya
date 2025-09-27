@@ -1,0 +1,9 @@
+{
+  "validationFailed": "Validation failed",
+  "serverError": "Something went wrong",
+  "notFound": "Resource not found",
+  "unauthorized": "Unauthorized",
+  "forbidden": "Forbidden",
+  "rateLimited": "Too many requests, please try again later"
+}
+

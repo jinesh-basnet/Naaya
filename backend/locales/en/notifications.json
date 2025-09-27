@@ -1,0 +1,12 @@
+{
+  "notifications": "Notifications",
+  "newLike": "liked your post",
+  "newComment": "commented on your post",
+  "newFollower": "started following you",
+  "newMention": "mentioned you",
+  "newMessage": "sent you a message",
+  "storyReply": "replied to your story",
+  "markAllRead": "Mark all as read",
+  "noNotifications": "No notifications yet"
+}
+

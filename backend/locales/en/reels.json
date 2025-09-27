@@ -1,0 +1,13 @@
+{
+  "reels": "Reels",
+  "createReel": "Create Reel",
+  "reelCreated": "Reel created successfully",
+  "reelDeleted": "Reel deleted successfully",
+  "like": "Like",
+  "unlike": "Unlike",
+  "comment": "Comment",
+  "share": "Share",
+  "save": "Save",
+  "unsave": "Unsave"
+}
+
