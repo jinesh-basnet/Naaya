@@ -1,0 +1,42 @@
+:root {
+  --primary-main: #D32F2F; /* Nepali red */
+  --primary-light: #FF7043;
+  --primary-dark: #B71C1C;
+  --secondary-main: #1976D2; /* Nepali blue */
+  --secondary-light: #64B5F6;
+  --secondary-dark: #0D47A1;
+  --background-default: #FAFAFA;
+  --background-paper: #FFFFFF;
+  --text-primary: #212121;
+  --text-secondary: #757575;
+  --border-radius: 12px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans Devanagari', 'Mukta', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-default);
+  color: var(--text-primary);
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  text-transform: none;
+  font-weight: 600;
+  border-radius: var(--border-radius);
+}
+
+.card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: var(--border-radius);
+}

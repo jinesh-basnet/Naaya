@@ -1,0 +1,426 @@
+import React, { useState, useEffect } from 'react';
+import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV, FaMapMarkerAlt } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import { postsAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { locationService, LocationData } from '../services/locationService';
+import { offlineQueueService } from '../services/offlineQueueService';
+import toast from 'react-hot-toast';
+import StoriesBar from '../components/StoriesBar';
+import CreatePostModal from '../components/CreatePostModal';
+import PullToRefresh from 'react-pull-to-refresh';
+import './HomePage.css';
+
+interface Post {
+  _id: string;
+  content: string;
+  media: Array<{
+    type: string;
+    url: string;
+    thumbnail?: string;
+  }>;
+  author: {
+    _id: string;
+    username: string;
+    fullName: string;
+    profilePicture: string;
+    isVerified: boolean;
+  };
+  location: {
+    city: string;
+    district: string;
+  };
+  language: string;
+  likes: Array<{ user: string }>;
+  comments: Array<{
+    _id: string;
+    author: {
+      username: string;
+      fullName: string;
+      profilePicture: string;
+    };
+    content: string;
+    createdAt: string;
+  }>;
+  createdAt: string;
+  likesCount: number;
+  commentsCount: number;
+}
+
+const BACKEND_BASE_URL = 'http://localhost:5000';
+
+const HomePage: React.FC = () => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const [showLocationAlert, setShowLocationAlert] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const initializeLocation = async () => {
+      try {
+        const storedLocation = locationService.loadLocationFromStorage();
+        if (storedLocation) {
+          setLocationData(storedLocation);
+          setLocationPermission('granted');
+        } else {
+          const permission = await locationService.requestPermission();
+          setLocationPermission(permission.granted ? 'granted' : permission.denied ? 'denied' : 'prompt');
+
+          if (permission.granted) {
+            const location = await locationService.getCurrentPosition();
+            if (location) {
+              setLocationData(location);
+              toast.success(`Location detected: ${location.city || 'Unknown location'}`);
+            }
+          } else if (permission.denied) {
+            setShowLocationAlert(true);
+          }
+        }
+      } catch (error) {
+        console.error('Location initialization failed:', error);
+        setLocationPermission('denied');
+        setShowLocationAlert(true);
+      }
+    };
+
+    initializeLocation();
+  }, []);
+
+  const { data: feedData, isLoading, refetch } = useQuery({
+    queryKey: ['feed', 'fyp', locationData?.city],
+    queryFn: () => postsAPI.getFeed('fyp'),
+  });
+
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
+  const handleLike = async (postId: string) => {
+    const isOnline = offlineQueueService.getIsOnline();
+
+    if (!isOnline) {
+      offlineQueueService.addToQueue({
+        type: 'like',
+        data: { postId }
+      });
+      toast.success('Like queued - will sync when online!');
+      return;
+    }
+
+    try {
+      await postsAPI.likePost(postId);
+      refetch();
+      toast.success('Post liked!');
+    } catch (error) {
+      toast.error('Failed to like post');
+    }
+  };
+
+
+  const handleModalPost = async (post: {
+    caption: string;
+    media: File | null;
+    tags: string[];
+    location: string;
+    filter?: string;
+    brightness?: number;
+    contrast?: number;
+  }) => {
+    try {
+      const formData = new FormData();
+      formData.append('content', post.caption);
+      if (post.media) formData.append('media', post.media);
+      formData.append('tags', JSON.stringify(post.tags));
+      if (post.location.trim()) {
+        formData.append('location', JSON.stringify({ name: post.location }));
+      }
+      if (post.filter && post.filter !== 'none') {
+        formData.append('filter', post.filter);
+      }
+      if (post.brightness && post.brightness !== 100) {
+        formData.append('brightness', post.brightness.toString());
+      }
+      if (post.contrast && post.contrast !== 100) {
+        formData.append('contrast', post.contrast.toString());
+      }
+      const language = user?.languagePreference === 'both' ? 'mixed' : (user?.languagePreference || 'english');
+      formData.append('language', language);
+      await postsAPI.createPost(formData);
+      refetch();
+      toast.success('Post shared!');
+    } catch (error: any) {
+      console.error('Error sharing post:', error);
+      if (error.response && error.response.data) {
+        toast.error(`Failed to share post: ${error.response.data.message || 'Unknown error'}`);
+      } else {
+        toast.error('Failed to share post');
+      }
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const posts = feedData?.data?.posts || [];
+
+  const handleDoubleTap = (postId: string) => {
+    const isLiked = posts.find((p: Post) => p._id === postId)?.likes.some((like: { user: string }) => like.user === user?._id);
+    if (!isLiked) {
+      handleLike(postId);
+    }
+  };
+
+  return (
+    <div className="home-page">
+      <div className="container">
+        <StoriesBar />
+
+        {showLocationAlert && locationPermission === 'denied' && (
+          <div className="alert">
+            Enable location to see posts from people near you and discover local content!
+            <button
+              className="button"
+              onClick={async () => {
+                try {
+                  const permission = await locationService.requestPermission();
+                  setLocationPermission(permission.granted ? 'granted' : 'denied');
+
+                  if (permission.granted) {
+                    const location = await locationService.getCurrentPosition();
+                    if (location) {
+                      setLocationData(location);
+                      setShowLocationAlert(false);
+                      toast.success(`Location detected: ${location.city || 'Unknown location'}`);
+                    }
+                  }
+                } catch (error) {
+                  toast.error('Failed to get location permission');
+                }
+              }}
+            >
+              <FaMapMarkerAlt style={{ fontSize: 16, marginRight: 4 }} />
+              Enable Location
+            </button>
+          </div>
+        )}
+
+        {locationData && (
+          <div className="location-box">
+            <FaMapMarkerAlt style={{ fontSize: 16, color: '#1976d2' }} />
+            <span style={{ fontSize: '0.875rem', color: '#666' }}>
+              Showing content near {locationData.city || 'your location'}
+            </span>
+            <span className="chip" style={{ borderColor: '#1976d2', color: '#1976d2' }}>
+              Local
+            </span>
+          </div>
+        )}
+
+        <PullToRefresh
+          onRefresh={handleRefresh}
+          distanceToRefresh={60}
+          resistance={2}
+          className="pull-to-refresh"
+        >
+          {isLoading ? (
+            <div className="loading-skeleton">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="skeleton-card">
+                  <div className="skeleton-content">
+                    <div className="skeleton-header">
+                      <div className="skeleton-avatar"></div>
+                      <div className="skeleton-text">
+                        <div style={{ width: '60%', height: 20, background: '#f5f5f5', borderRadius: 4 }}></div>
+                        <div style={{ width: '40%', height: 16, background: '#f5f5f5', borderRadius: 4 }}></div>
+                      </div>
+                    </div>
+                    <div className="skeleton-rect"></div>
+                    <div className="skeleton-actions">
+                      <div style={{ width: '20%', height: 16, background: '#f5f5f5', borderRadius: 4 }}></div>
+                      <div style={{ width: '30%', height: 16, background: '#f5f5f5', borderRadius: 4 }}></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="posts-container">
+              {posts.map((post: Post) => {
+                const isLiked = post.likes.some(like => like.user === user?._id);
+
+                return (
+                  <motion.div
+                    key={post._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="card">
+                      <div className="card-content">
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+                          <img
+                            src={post.author.profilePicture}
+                            alt={post.author.username}
+                            className="avatar"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                          <div className="avatar-fallback" style={{ display: 'none', width: 32, height: 32, border: '1px solid #e0e0e0', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: '#f0f0f0', fontSize: 14, fontWeight: 'bold' }}>
+                            {typeof post.author.fullName === 'string' ? post.author.fullName.charAt(0) : 'U'}
+                          </div>
+                          <div className="author-box">
+                            <div className="name-box">
+                              <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
+                                {typeof post.author.fullName === 'string' ? post.author.fullName : ''}
+                              </span>
+                              {post.author.isVerified && (
+                                <div className="verified-badge">
+                                  ✓
+                                </div>
+                              )}
+                            </div>
+                            <div className="time-box">
+                              <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                                {formatTimeAgo(post.createdAt)}
+                              </span>
+                              {post.location?.city && (
+                                <>
+                                  <span style={{ fontSize: '0.75rem', color: '#666' }}>·</span>
+                                  <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                                    📍 {post.location.city}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <button className="icon-button">
+                            <FaEllipsisV className="icon" />
+                          </button>
+                        </div>
+
+                        {post.content && (
+                          <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
+                            {typeof post.content === 'string' ? post.content : ''}
+                          </p>
+                        )}
+
+                        {post.media && post.media.length > 0 && (
+                          <div
+                            className="media-box"
+                            onDoubleClick={() => handleDoubleTap(post._id)}
+                          >
+                            {post.media.map((media, index) => {
+                              const normalizedUrl = media.url.replace(/\\/g, '/').replace(/^\/?/, '/');
+                              const fullUrl = `${BACKEND_BASE_URL}${normalizedUrl}`;
+
+                              return (
+                                <div
+                                  key={index}
+                                  className="media-item"
+                                  style={media.type === 'video' ? { paddingTop: '56.25%' } : {}}
+                                >
+                                  {media.type === 'image' ? (
+                                    <img
+                                      src={fullUrl}
+                                      alt="Post content"
+                                      className="media-img"
+                                    />
+                                  ) : (
+                                    <video
+                                      src={fullUrl}
+                                      controls
+                                      className="media-video"
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Post Actions */}
+                        <div className="actions-box">
+                          <div className="left-actions">
+                            <button
+                              className="icon-button"
+                              onClick={() => handleLike(post._id)}
+                            >
+                              {isLiked ? (
+                                <FaHeart className="liked-icon" />
+                              ) : (
+                                <FaRegHeart className="icon" />
+                              )}
+                            </button>
+                            <button className="icon-button">
+                              <FaComment className="icon" />
+                            </button>
+                            <button className="icon-button">
+                              <FaShare className="icon" />
+                            </button>
+                          </div>
+                          <button className="icon-button">
+                            <FaRegBookmark className="icon" />
+                          </button>
+                        </div>
+
+                        <div style={{ marginBottom: 8 }}>
+                          {post.likesCount > 0 && (
+                            <p style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: 4 }}>
+                              {post.likesCount.toLocaleString()} {post.likesCount === 1 ? 'like' : 'likes'}
+                            </p>
+                          )}
+                          {post.commentsCount > 0 && (
+                            <p
+                              style={{ fontSize: '0.875rem', color: '#666', cursor: 'pointer' }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
+                              onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+                            >
+                              View all {post.commentsCount} comments
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </PullToRefresh>
+
+        {posts.length === 0 && !isLoading && (
+          <div className="no-posts">
+            <h6 style={{ color: '#666', marginBottom: 8 }}>
+              No posts yet
+            </h6>
+            <p style={{ color: '#666' }}>
+              Be the first to share something amazing!
+            </p>
+          </div>
+        )}
+      </div>
+
+      <CreatePostModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onPost={handleModalPost}
+      />
+    </div>
+  );
+};
+
+export default HomePage;
