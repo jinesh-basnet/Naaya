@@ -11,5 +11,6 @@
   "settings": "Settings",
   "english": "English",
   "nepali": "Nepali",
-  "tagline": "Connecting Nepali People"
+  "tagline": "Connecting Nepali People",
+  "searchPlaceholder": "Search posts, people, or places..."
 }
