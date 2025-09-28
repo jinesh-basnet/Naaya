@@ -1,26 +1,30 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getNepaliDate } from '../utils/nepaliDateUtils';
-import { FaHome, FaHeart, FaBell, FaUser, FaCog, FaSignOutAlt, FaVideo, FaPlus } from 'react-icons/fa';
-import { MdChat } from 'react-icons/md';
+import { FaUser, FaCog, FaSignOutAlt, FaPlus, FaBars, FaSearch } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useFestival } from '../contexts/FestivalContext';
+import { useCreatePost } from '../contexts/CreatePostContext';
 import api from '../services/api';
+import { getNavItems } from '../utils/navItems';
 import './Navbar.css';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  setSidebarOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen }) => {
 
   const { t, i18n } = useTranslation();
   const language = (i18n.language as 'ne' | 'en') || 'en';
-  const [festivalMode, setFestivalMode] = useState(false);
+  const { festivalMode, setFestivalMode } = useFestival();
   const nepaliDate = useMemo(() => getNepaliDate(), []);
 
-  const navItems = useMemo(() => [
-    { icon: <FaHome className="icon" />, label: t('nav.home'), path: '/home' },
-    { icon: <MdChat className="icon" />, label: t('nav.messages'), path: '/messages' },
-    { icon: <FaBell className="icon" />, label: t('nav.notifications'), path: '/notifications' },
-    { icon: <FaVideo className="icon" />, label: t('nav.reels'), path: '/reels' },
-  ], [t]);
+  const navItems = getNavItems(t).map(item => ({
+    ...item,
+    label: t(item.labelKey)
+  }));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -28,22 +32,23 @@ const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { openModal } = useCreatePost();
 
   useEffect(() => {
     let isMounted = true;
-    const fetchUnreadCount = async () => {
+    const fetchUnreadCounts = async () => {
       try {
-        const response = await api.get('/notifications/unread-count');
+        const notifRes = await api.get('/notifications/unread-count');
         if (isMounted) {
-          setUnreadNotifications(response.data.unreadCount);
+          setUnreadNotifications(notifRes.data.unreadCount || 0);
         }
       } catch (err) {
-        console.error('Failed to fetch unread notifications count');
+        console.error('Failed to fetch unread counts');
       }
     };
 
     if (user) {
-      fetchUnreadCount();
+      fetchUnreadCounts();
     }
     return () => {
       isMounted = false;
@@ -76,12 +81,21 @@ const Navbar: React.FC = () => {
 
   return (
     <div className={`navbar-sidebar ${festivalMode ? 'festival-mode' : ''}`}>
-      <div className="navbar-header" onClick={() => navigate('/home')}>
-        <img src="https://upload.wikimedia.org/wikipedia/commons/9/9b/Flag_of_Nepal.svg" alt="Nepal" />
-        <div>
-          <h5>{t('common.appName')}</h5>
-          <p>{t('nav.tagline')}</p>
+      <div className="navbar-header">
+        <div onClick={() => navigate('/home')} style={{ cursor: 'pointer', flex: 1 }}>
+          <img src="/logo.png" alt="Naaya" />
+          <div>
+            <h5>{t('common.appName')}</h5>
+            <p>{t('nav.tagline')}</p>
+          </div>
         </div>
+        <button
+          className="navbar-close-btn"
+          onClick={() => setSidebarOpen && setSidebarOpen(false)}
+          aria-label="Toggle Sidebar"
+        >
+          <FaBars />
+        </button>
       </div>
 
       <hr className="navbar-divider" />
@@ -100,7 +114,10 @@ const Navbar: React.FC = () => {
         </button>
         <button
           className={`navbar-festival-btn ${festivalMode ? 'contained' : ''}`}
-          onClick={() => setFestivalMode(!festivalMode)}
+          onClick={() => {
+            setFestivalMode(!festivalMode);
+            document.body.classList.toggle('festival-mode', !festivalMode);
+          }}
         >
           {festivalMode
             ? (language === 'ne' ? 'दशैं/तिहार मोड' : 'Dashain/Tihar Mode')
@@ -111,14 +128,24 @@ const Navbar: React.FC = () => {
       <hr className="navbar-divider" />
 
       <form className="navbar-search" onSubmit={handleSearch}>
-        <input
-          className="navbar-search-input"
-          placeholder={language === 'ne' ? 'खोज्नुहोस्...' : 'Search...'}
-          aria-label="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <div className="navbar-search-wrapper">
+          <input
+            className="navbar-search-input"
+            placeholder={t('nav.searchPlaceholder')}
+            aria-label="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <button type="submit" className="navbar-search-btn">
+            <FaSearch className="search-icon" />
+          </button>
+        </div>
       </form>
+
+      <button className="navbar-create-btn" onClick={openModal}>
+        <FaPlus className="icon" />
+        {t('nav.createPost')}
+      </button>
 
       <hr className="navbar-divider" />
 
@@ -129,36 +156,38 @@ const Navbar: React.FC = () => {
             className={`navbar-nav-btn ${location.pathname === item.path ? 'active' : ''}`}
             onClick={() => navigate(item.path)}
           >
-            {item.path === '/notifications' ? (
-              <div style={{ position: 'relative' }}>
-                {item.icon}
-                <span className="badge-overlay">{unreadNotifications}</span>
-              </div>
-            ) : (
-              item.icon
-            )}
+            <div style={{ position: 'relative' }}>
+              {React.createElement(item.icon, { className: "icon" })}
+              {item.showBadge && (
+                <span className="badge-overlay">
+                  {unreadNotifications}
+                </span>
+              )}
+            </div>
             {item.label}
           </button>
         ))}
-        <button className="navbar-more-btn" onClick={() => navigate('/more')}>
-          {t('nav.more')}
+        <button
+          className={`navbar-nav-btn ${location.pathname.startsWith('/profile') ? 'active' : ''}`}
+          onClick={() => { navigate(`/profile/${user?.username}`); }}
+        >
+          <FaUser className="icon" />
+          {t('nav.profile')}
         </button>
-        <button className="navbar-create-btn" onClick={() => navigate('/create')}>
-          <FaPlus className="icon" />
-          {t('nav.createPost')}
-        </button>
-        <button className="navbar-logout-btn" onClick={handleLogout}>
-          <FaSignOutAlt className="icon" />
-          {t('nav.logout')}
+        <button
+          className="navbar-nav-btn"
+          onClick={() => { navigate('/settings'); }}
+        >
+          <FaCog className="icon" />
+          {t('nav.settings')}
         </button>
       </div>
 
       <hr className="navbar-divider" />
 
       <div className="navbar-footer">
-        <button className="navbar-icon-btn">
-          <FaHeart className="icon" />
-          <span className="badge-overlay">4</span>
+        <button className="navbar-icon-btn" onClick={handleLogout}>
+          <FaSignOutAlt className="icon" />
         </button>
         <button className="navbar-icon-btn" onClick={handleMenuOpen}>
           {user?.profilePicture ? (

@@ -1,7 +1,7 @@
 /* Navbar.css - Custom styles to replace MUI */
 
 :root {
-  --normal-gradient: linear-gradient(180deg, #D32F2F 0%, #FF7043 50%, #1976D2 100%);
+  --normal-gradient: linear-gradient(180deg, #B22222 0%, #FF7043 50%, #1976D2 100%);
   --festival-gradient: linear-gradient(180deg, #FFD700 0%, #FF7043 50%, #D32F2F 100%);
   --white-alpha-15: rgba(255, 255, 255, 0.15);
   --white-alpha-25: rgba(255, 255, 255, 0.25);
@@ -28,10 +28,18 @@
   background: var(--festival-gradient);
 }
 
+.navbar-sidebar.festival-mode .navbar-nav-btn:hover {
+  background: rgba(255, 215, 0, 0.3);
+}
+
+.navbar-sidebar.festival-mode .navbar-nav-btn.active {
+  background: rgba(255, 215, 0, 0.2);
+}
+
 .navbar-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  cursor: pointer;
   margin-bottom: 16px;
   padding: 16px;
 }
@@ -55,6 +63,26 @@
   font-weight: 500;
   margin: 0;
   font-size: 0.75rem;
+}
+
+.navbar-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.navbar-close-btn:hover {
+  background: var(--white-alpha-15);
+}
+
+.navbar-close-btn:focus {
+  outline: 2px solid #B22222;
+  outline-offset: 2px;
 }
 
 .navbar-date {
@@ -103,12 +131,17 @@
   background-color: var(--white-alpha-25);
 }
 
+.navbar-search-wrapper {
+  display: flex;
+  align-items: center;
+}
+
 .navbar-search-input {
   color: inherit;
-  padding: 8px 8px 8px 48px;
+  padding: 8px 8px 8px 16px;
   border: none;
   background: transparent;
-  width: 100%;
+  flex: 1;
   font-family: 'Mukta';
   font-size: 1rem;
   outline: none;
@@ -116,6 +149,25 @@
 
 .navbar-search-input::placeholder {
   color: white;
+}
+
+.navbar-search-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-search-btn:hover {
+  background: var(--white-alpha-15);
+}
+
+.navbar-search-btn .search-icon {
+  font-size: 1rem;
 }
 
 .navbar-nav-btn {
@@ -143,6 +195,11 @@
 
 .navbar-nav-btn.active {
   background: var(--white-alpha-20);
+}
+
+.navbar-nav-btn:focus {
+  outline: 2px solid #B22222;
+  outline-offset: 2px;
 }
 
 .navbar-nav-btn .icon {
