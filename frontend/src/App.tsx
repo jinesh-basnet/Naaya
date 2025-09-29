@@ -1,9 +1,12 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { FestivalProvider } from './contexts/FestivalContext';
+import { CreatePostProvider } from './contexts/CreatePostContext';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -20,14 +23,18 @@ import NotificationsPage from './pages/NotificationsPage';
 import MessagesPage from './pages/MessagesPage';
 import StoriesPage from './pages/StoriesPage';
 import ReelsPage from './pages/ReelsPage';
-import CivicPage from './pages/CivicPage';
+
 import ExplorePage from './pages/ExplorePage';
-import CreatePostPage from './pages/CreatePostPage';
+import SearchPage from './pages/SearchPage';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
+import TopHeader from './components/TopHeader';
+import BottomNavigation from './components/BottomNavigation';
+import MobileMenuDrawer from './components/MobileMenuDrawer';
 
 // Create query client
 const queryClient = new QueryClient({
@@ -40,10 +47,9 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  // Removed push notification initialization from here to avoid multiple registrations
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <InnerApp />
     </Router>
   );
@@ -52,11 +58,39 @@ function AppContent() {
 function InnerApp() {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+  const [isMobile, setIsMobile] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsDesktop(width > 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const isPublicPath = ['/', '/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname);
+
+  const showNav = isAuthenticated && !isPublicPath;
+
+  const mainStyle = {
+    flexGrow: 1,
+    padding: '76px 16px 80px', // padding-top for TopHeader (60px + 16px), padding-bottom for BottomNavigation
+    marginLeft: showNav && isDesktop && sidebarOpen ? 280 : 0,
+  };
 
   return (
     <div className="App" style={{ display: 'flex', minHeight: '100vh' }}>
-      {location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/' && isAuthenticated && <Navbar />}
-      <main style={{ flexGrow: 1, padding: 16, marginLeft: (location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/' && isAuthenticated) ? 280 : 0 }}>
+      {showNav && <TopHeader isMobile={isMobile} drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+      {showNav && isDesktop && sidebarOpen && <Navbar setSidebarOpen={setSidebarOpen} />}
+      {showNav && isMobile && <BottomNavigation isMobile={isMobile} drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />}
+      <main style={mainStyle}>
         <Toaster
           position="top-right"
           toastOptions={{
@@ -77,14 +111,14 @@ function InnerApp() {
             </ProtectedRoute>
           }
         />
-        {/* Public Routes */}
+        // public Routes
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Protected Routes */}
+        // Protected Routes
         <Route
           path="/messages"
           element={
@@ -117,14 +151,7 @@ function InnerApp() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/civic"
-          element={
-            <ProtectedRoute>
-              <CivicPage />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/explore"
           element={
@@ -134,10 +161,10 @@ function InnerApp() {
           }
         />
         <Route
-          path="/create"
+          path="/search"
           element={
             <ProtectedRoute>
-              <CreatePostPage />
+              <SearchPage />
             </ProtectedRoute>
           }
         />
@@ -157,11 +184,25 @@ function InnerApp() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Redirect to home for authenticated users */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </main>
+      {showNav && isMobile && (
+        <MobileMenuDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          isMobile={isMobile}
+        />
+      )}
     </div>
   );
 }
@@ -172,7 +213,11 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <SocketProvider>
-            <AppContent />
+            <FestivalProvider>
+              <CreatePostProvider>
+                <AppContent />
+              </CreatePostProvider>
+            </FestivalProvider>
           </SocketProvider>
         </AuthProvider>
       </QueryClientProvider>
