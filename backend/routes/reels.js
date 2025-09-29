@@ -8,9 +8,6 @@ const { generatePersonalizedFeed, updateInteractionHistory } = require('../utils
 
 const router = express.Router();
 
-// @route   POST /api/reels
-// @desc    Create a new reel
-// @access  Private
 router.post('/', authenticateToken, uploadSingle('video'), [
   body('caption').optional().isString().isLength({ max: 2200 }),
   body('hashtags').optional().isArray(),
@@ -45,18 +42,16 @@ router.post('/', authenticateToken, uploadSingle('video'), [
       author: req.user._id
     };
 
-    // Handle uploaded video
     reelData.video = {
       url: `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`, // Absolute URL
-      publicId: req.file.filename, // Cloudinary public ID
-      duration: req.file.duration || 0, // Will be set by Cloudinary
+      publicId: req.file.filename, 
+      duration: req.file.duration || 0, 
       size: req.file.size,
       width: req.file.width,
       height: req.file.height,
       format: req.file.format
     };
 
-    // Parse optional fields
     if (req.body.hashtags) {
       try {
         reelData.hashtags = JSON.parse(req.body.hashtags);
@@ -112,7 +107,6 @@ router.post('/', authenticateToken, uploadSingle('video'), [
       }
     }
 
-    // Validate and assign new video editing fields
     if (req.body.filter) {
       reelData.filter = req.body.filter;
     }
@@ -126,7 +120,6 @@ router.post('/', authenticateToken, uploadSingle('video'), [
     const reel = new Reel(reelData);
     await reel.save();
 
-    // Populate author details
     await reel.populate('author', 'username fullName profilePicture isVerified location languagePreference');
 
     res.status(201).json({
@@ -143,16 +136,12 @@ router.post('/', authenticateToken, uploadSingle('video'), [
   }
 });
 
-// @route   GET /api/reels/feed
-// @desc    Get reels feed with algorithm
-// @access  Private
 router.get('/feed', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const userId = req.user._id;
     const user = await User.findById(userId).populate('following');
 
-    // Always include user's own reels first
     const userReels = await Reel.find({
       author: userId,
       isDeleted: false,
@@ -162,19 +151,17 @@ router.get('/feed', authenticateToken, async (req, res) => {
     .sort({ createdAt: -1 })
     .lean();
 
-    // Get other candidate reels from last 30 days (excluding user's own reels)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const candidateReels = await Reel.find({
       createdAt: { $gte: thirtyDaysAgo },
-      author: { $ne: userId }, // Exclude user's own reels
+      author: { $ne: userId }, 
       isDeleted: false,
       isArchived: false
     })
     .populate('author', 'username fullName profilePicture isVerified location languagePreference')
     .lean()
-    .limit(limit * 5); // Get more reels than needed for better ranking
+    .limit(limit * 5); 
 
-    // Score other reels using the algorithm
     const scoredReels = candidateReels.map(reel => {
       const scoreData = reel.calculateFinalScore(
         user.location,
@@ -189,22 +176,29 @@ router.get('/feed', authenticateToken, async (req, res) => {
       };
     });
 
-    // Sort other reels by score
     const sortedOtherReels = scoredReels
       .sort((a, b) => b.score - a.score)
-      .slice(0, limit * 2); // Keep more for mixing with user reels
+      .slice(0, limit * 2); 
 
-    // Combine user's own reels with algorithm-sorted reels
     const allReels = [
-      ...userReels.map(reel => ({ reel, score: 9999 })), // Give user's reels highest score
+      ...userReels.map(reel => ({ reel, score: 9999 })), 
       ...sortedOtherReels
     ];
 
-    // Sort combined reels by score and take the requested page
     const finalReels = allReels
       .sort((a, b) => b.score - a.score)
       .slice((page - 1) * limit, page * limit)
-      .map(item => item.reel);
+      .map(item => {
+        const reel = item.reel;
+        return {
+          ...reel,
+          likesCount: reel.likes.length,
+          commentsCount: reel.comments.length,
+          sharesCount: reel.shares.length,
+          savesCount: reel.saves.length,
+          viewsCount: reel.views.length
+        };
+      });
 
     res.json({
       message: 'Reels feed retrieved successfully',
@@ -225,9 +219,6 @@ router.get('/feed', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/reels/:reelId
-// @desc    Get a specific reel
-// @access  Public
 router.get('/:reelId', optionalAuth, async (req, res) => {
   try {
     const { reelId } = req.params;
@@ -245,7 +236,6 @@ router.get('/:reelId', optionalAuth, async (req, res) => {
       });
     }
 
-    // Add view if user is authenticated
     if (req.user && !reel.views.some(view => view.user.toString() === req.user._id.toString())) {
       reel.addView(req.user._id);
       await reel.save();
@@ -265,9 +255,6 @@ router.get('/:reelId', optionalAuth, async (req, res) => {
   }
 });
 
-// @route   POST /api/reels/:reelId/like
-// @desc    Like/unlike a reel
-// @access  Private
 router.post('/:reelId/like', authenticateToken, async (req, res) => {
   try {
     const { reelId } = req.params;
@@ -284,7 +271,6 @@ router.post('/:reelId/like', authenticateToken, async (req, res) => {
     const wasLiked = reel.addLike(userId);
     await reel.save();
 
-    // Update interaction history for algorithm
     if (wasLiked) {
       await updateInteractionHistory(userId, reel.author._id, 'like');
     }
@@ -304,9 +290,6 @@ router.post('/:reelId/like', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   POST /api/reels/:reelId/comment
-// @desc    Add comment to a reel
-// @access  Private
 router.post('/:reelId/comment', authenticateToken, [
   body('content').isString().isLength({ min: 1, max: 500 }).withMessage('Comment must be between 1 and 500 characters')
 ], async (req, res) => {
@@ -334,10 +317,8 @@ router.post('/:reelId/comment', authenticateToken, [
     const comment = reel.addComment(userId, content);
     await reel.save();
 
-    // Update interaction history for algorithm
     await updateInteractionHistory(userId, reel.author._id, 'comment');
 
-    // Populate the comment author
     await reel.populate('comments.author', 'username fullName profilePicture');
 
     const newComment = reel.comments[reel.comments.length - 1];
@@ -356,9 +337,6 @@ router.post('/:reelId/comment', authenticateToken, [
   }
 });
 
-// @route   POST /api/reels/:reelId/share
-// @desc    Share a reel
-// @access  Private
 router.post('/:reelId/share', authenticateToken, async (req, res) => {
   try {
     const { reelId } = req.params;
@@ -375,7 +353,6 @@ router.post('/:reelId/share', authenticateToken, async (req, res) => {
     reel.addShare(userId);
     await reel.save();
 
-    // Update interaction history for algorithm
     await updateInteractionHistory(userId, reel.author._id, 'share');
 
     res.json({
@@ -392,9 +369,6 @@ router.post('/:reelId/share', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   POST /api/reels/:reelId/save
-// @desc    Save/unsave a reel
-// @access  Private
 router.post('/:reelId/save', authenticateToken, async (req, res) => {
   try {
     const { reelId } = req.params;
@@ -411,7 +385,6 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
     const wasSaved = reel.addSave(userId);
     await reel.save();
 
-    // Update interaction history for algorithm
     if (wasSaved) {
       await updateInteractionHistory(userId, reel.author._id, 'save');
     }
@@ -431,9 +404,6 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/reels/user/:userId
-// @desc    Get user's reels
-// @access  Private
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -468,9 +438,6 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/reels/:reelId
-// @desc    Delete a reel
-// @access  Private
 router.delete('/:reelId', authenticateToken, async (req, res) => {
   try {
     const { reelId } = req.params;
@@ -488,7 +455,6 @@ router.delete('/:reelId', authenticateToken, async (req, res) => {
       });
     }
 
-    // Soft delete
     reel.isDeleted = true;
     reel.deletedAt = new Date();
     await reel.save();

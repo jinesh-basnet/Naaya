@@ -9,23 +9,36 @@ import {
   MdVolumeUp,
   MdVolumeOff,
   MdPlayArrow,
+  MdVisibility,
 } from 'react-icons/md';
 import './ReelsPage.css';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { safeRender } from '../utils/safeRender';
 
 interface Reel {
   _id: string;
   content: string;
-  media: Array<{
-    type: string;
+  video: {
     url: string;
     thumbnail?: string;
-  }>;
+    duration?: number;
+    size?: number;
+    width?: number;
+    height?: number;
+    format?: string;
+  };
+  audio?: {
+    title: string;
+    artist: string;
+    url: string;
+    startTime: number;
+    duration: number;
+    isOriginal: boolean;
+  };
   author: {
     _id: string;
     username: string;
@@ -52,6 +65,7 @@ interface Reel {
   createdAt: string;
   likesCount: number;
   commentsCount: number;
+  viewsCount: number;
 }
 
 const BACKEND_BASE_URL = 'http://localhost:5000';
@@ -61,8 +75,22 @@ const ReelsPage: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [pendingAdvance, setPendingAdvance] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const previousReelsLength = useRef(0);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const likeMutation = useMutation({
+    mutationFn: (reelId: string) => reelsAPI.likeReel(reelId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reels'] });
+      toast.success('Reel liked!');
+    },
+    onError: () => {
+      toast.error('Failed to like reel');
+    },
+  });
 
   const { data: reelsData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['reels'],
@@ -76,18 +104,74 @@ const ReelsPage: React.FC = () => {
   const reels = reelsData?.pages?.flatMap(page => page.data?.reels || []) || [];
 
   useEffect(() => {
+    previousReelsLength.current = reels.length;
+  }, [reels.length]);
+
+  useEffect(() => {
+    if (pendingAdvance && !isFetchingNextPage && reels.length > previousReelsLength.current) {
+      setCurrentReelIndex(reels.length - 1);
+      setPendingAdvance(false);
+    }
+  }, [isFetchingNextPage, reels.length, pendingAdvance]);
+
+  // Touch swipe support
+  const touchStartY = useRef<number>(0);
+  const touchEndY = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartY.current || !touchEndY.current) return;
+
+    const touchDistance = touchStartY.current - touchEndY.current;
+    const minSwipeDistance = 50;
+
+    if (Math.abs(touchDistance) < minSwipeDistance) return;
+
+    if (touchDistance > 0) {
+      if (currentReelIndex < reels.length - 1) {
+        setCurrentReelIndex(prev => prev + 1);
+      } else if (hasNextPage && !isFetchingNextPage) {
+        setPendingAdvance(true);
+        fetchNextPage();
+      }
+    } else if (touchDistance < 0 && currentReelIndex > 0) {
+      setCurrentReelIndex(prev => prev - 1);
+    }
+
+    touchStartY.current = 0;
+    touchEndY.current = 0;
+  };
+
+  useEffect(() => {
     const handleScroll = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.deltaY > 0 && currentReelIndex < reels.length - 1) {
-        setCurrentReelIndex(prev => prev + 1);
+      if (e.deltaY > 0) {
+        if (currentReelIndex < reels.length - 1) {
+          setCurrentReelIndex(prev => prev + 1);
+        } else if (hasNextPage && !isFetchingNextPage) {
+          setPendingAdvance(true);
+          fetchNextPage();
+        }
       } else if (e.deltaY < 0 && currentReelIndex > 0) {
         setCurrentReelIndex(prev => prev - 1);
       }
     };
 
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown' && currentReelIndex < reels.length - 1) {
-        setCurrentReelIndex(prev => prev + 1);
+      if (e.key === 'ArrowDown') {
+        if (currentReelIndex < reels.length - 1) {
+          setCurrentReelIndex(prev => prev + 1);
+        } else if (hasNextPage && !isFetchingNextPage) {
+          setPendingAdvance(true);
+          fetchNextPage();
+        }
       } else if (e.key === 'ArrowUp' && currentReelIndex > 0) {
         setCurrentReelIndex(prev => prev - 1);
       }
@@ -100,10 +184,9 @@ const ReelsPage: React.FC = () => {
       window.removeEventListener('wheel', handleScroll);
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [currentReelIndex, reels.length]);
+  }, [currentReelIndex, reels.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   useEffect(() => {
-    // Pause all videos except current one
     videoRefs.current.forEach((video, index) => {
       if (video) {
         if (index === currentReelIndex) {
@@ -126,13 +209,8 @@ const ReelsPage: React.FC = () => {
     }
   }, [isMuted, currentReelIndex]);
 
-  const handleLike = async (reelId: string) => {
-    try {
-      await reelsAPI.likeReel(reelId);
-      toast.success('Reel liked!');
-    } catch (error) {
-      toast.error('Failed to like reel');
-    }
+  const handleLike = (reelId: string) => {
+    likeMutation.mutate(reelId);
   };
 
   const handleVideoProgress = (e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -166,13 +244,16 @@ const ReelsPage: React.FC = () => {
   }
 
   return (
-    <div className="reels-container">
+    <div 
+      className="reels-container"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {reels.map((reel: Reel, index: number) => {
         const isActive = index === currentReelIndex;
         const isLiked = reel.likes.some(like => like.user === user?._id);
-        const mediaUrl = reel.media?.[0]?.url;
-        const normalizedUrl = mediaUrl?.replace(/\\/g, '/').replace(/^\/?/, '/');
-        const fullUrl = mediaUrl ? `${BACKEND_BASE_URL}${normalizedUrl}` : '';
+        const videoUrl = reel.video?.url || '';
 
         return (
           <motion.div
@@ -192,49 +273,66 @@ const ReelsPage: React.FC = () => {
               display: isActive ? 'block' : 'none',
             }}
           >
-            {/* Video */}
             <div
               className="video-container"
               onClick={handleVideoClick}
             >
-              <video
-                ref={(el) => {
-                  if (el) {
-                    videoRefs.current[index] = el;
-                  }
-                }}
-                src={fullUrl}
-                loop
-                muted={isMuted}
-                playsInline
-                onTimeUpdate={handleVideoProgress}
-                onLoadedData={() => {
-                  if (isActive && isPlaying) {
-                    videoRefs.current[index]?.play();
-                  }
-                }}
-                className="reel-video"
-              />
+              {videoUrl ? (
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      videoRefs.current[index] = el;
+                    }
+                  }}
+                  src={videoUrl}
+                  loop
+                  muted={isMuted}
+                  playsInline
+                  onTimeUpdate={handleVideoProgress}
+                  onLoadedData={() => {
+                    if (isActive && isPlaying) {
+                      videoRefs.current[index]?.play();
+                    }
+                  }}
+                  onError={(e) => {
+                    console.error('Video load error:', videoUrl);
+                  }}
+                  className="reel-video"
+                />
+              ) : (
+                <div className="video-placeholder">
+                  <div style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    background: '#333', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    color: 'white',
+                    fontSize: '1.2rem'
+                  }}>
+                    No video available
+                  </div>
+                </div>
+              )}
 
-              {/* Play/Pause Overlay */}
-              {!isPlaying && (
+              {!isPlaying && videoUrl && (
                 <div className="play-overlay">
                   <MdPlayArrow className="play-icon" />
                 </div>
               )}
 
-              {/* Progress Bar */}
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{ width: `${isActive ? progress : 0}%` }}
-                />
-              </div>
+              {videoUrl && (
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${isActive ? progress : 0}%` }}
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Content Overlay */}
-            <div className="content-overlay">
-              {/* User Info */}
+            <div className="top-left-overlay">
               <div className="user-info">
                 {reel.author.profilePicture ? (
                   <img
@@ -265,57 +363,26 @@ const ReelsPage: React.FC = () => {
                   <MdMoreVert />
                 </button>
               </div>
+            </div>
 
-              {/* Caption */}
-              <p className="reel-caption">
-                {safeRender(reel.content)}
-              </p>
-
-              {/* Actions */}
-              <div className="actions-bar">
-                <button
-                  className={`action-btn ${isLiked ? 'liked' : ''}`}
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    handleLike(reel._id);
-                  }}
-                >
-                  {isLiked ? <MdFavorite /> : <MdFavoriteBorder />}
-                </button>
-                <span className="action-count">
-                  {reel.likesCount}
-                </span>
-
-                <button className="action-btn">
-                  <MdChat />
-                </button>
-                <span className="action-count">
-                  {reel.commentsCount}
-                </span>
-
-                <button className="action-btn">
-                  <MdShare />
-                </button>
-
-                <div style={{ flex: 1 }} />
-
-                <button
-                  className="action-btn"
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    setIsMuted(!isMuted);
-                  }}
-                >
-                  {isMuted ? <MdVolumeOff /> : <MdVolumeUp />}
-                </button>
+            <div className="bottom-left-overlay">
+              <div className="content-info">
+                <p className="reel-caption">
+                  {safeRender(reel.content)}
+                </p>
+                {reel.audio && (
+                  <div className="music-info">
+                    <span>♪ {reel.audio.title} - {reel.audio.artist}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Side Actions */}
             <div className="side-actions">
               <motion.div
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                className="side-action-item"
               >
                 <div
                   className="side-action-btn"
@@ -325,48 +392,85 @@ const ReelsPage: React.FC = () => {
                   }}
                 >
                   {isLiked ? (
-                    <MdFavorite style={{ color: '#e91e63', fontSize: 24 }} />
+                    <MdFavorite style={{ color: '#e91e63', fontSize: 28 }} />
                   ) : (
-                    <MdFavoriteBorder style={{ color: 'white', fontSize: 24 }} />
+                    <MdFavoriteBorder style={{ color: 'white', fontSize: 28 }} />
+                  )}
+                </div>
+                <span className="side-action-count">{reel.likesCount}</span>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="side-action-item"
+              >
+                <div className="side-action-btn">
+                  <MdChat style={{ color: 'white', fontSize: 28 }} />
+                </div>
+                <span className="side-action-count">{reel.commentsCount}</span>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="side-action-item"
+              >
+                <div className="side-action-btn">
+                  <MdVisibility style={{ color: 'white', fontSize: 28 }} />
+                </div>
+                <span className="side-action-count">{reel.viewsCount}</span>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="side-action-item"
+              >
+                <div className="side-action-btn">
+                  <MdShare style={{ color: 'white', fontSize: 28 }} />
+                </div>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="side-action-item"
+              >
+                <div className="side-action-btn">
+                  <MdBookmarkBorder style={{ color: 'white', fontSize: 28 }} />
+                </div>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="side-action-item"
+              >
+                <div
+                  className="side-action-btn"
+                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                    e.stopPropagation();
+                    setIsMuted(!isMuted);
+                  }}
+                >
+                  {isMuted ? (
+                    <MdVolumeOff style={{ color: 'white', fontSize: 28 }} />
+                  ) : (
+                    <MdVolumeUp style={{ color: 'white', fontSize: 28 }} />
                   )}
                 </div>
               </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <div className="side-action-btn">
-                  <MdChat style={{ color: 'white', fontSize: 24 }} />
-                </div>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <div className="side-action-btn">
-                  <MdShare style={{ color: 'white', fontSize: 24 }} />
-                </div>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <div className="side-action-btn">
-                  <MdBookmarkBorder style={{ color: 'white', fontSize: 24 }} />
-                </div>
-              </motion.div>
             </div>
+
+            {isActive && index === reels.length - 1 && isFetchingNextPage && (
+              <div className="loading-overlay">
+                <div>Loading more reels...</div>
+              </div>
+            )}
           </motion.div>
         );
       })}
-
-      {/* Reel Counter */}
-      <div className="reel-counter">
-        {currentReelIndex + 1} / {reels.length}
-      </div>
 
       {reels.length === 0 && (
         <div className="no-reels">
