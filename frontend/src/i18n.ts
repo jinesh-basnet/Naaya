@@ -18,9 +18,15 @@ const resources = {
         logout: 'Logout',
         english: 'English',
         nepali: 'Nepali',
+        language: 'Language',
+        mode: 'Mode',
         tagline: 'For the Nepali community',
         reels: 'Reels',
-        createPost: 'Create Post'
+        createPost: 'Create Post',
+        search: 'Search',
+        explore: 'Explore',
+        darkMode: 'Dark Mode',
+        lightMode: 'Light Mode'
       },
       notifications: {
         notifications: 'Notifications',
@@ -57,9 +63,15 @@ const resources = {
         logout: 'लगआउट',
         english: 'English',
         nepali: 'नेपाली',
+        language: 'भाषा',
+        mode: 'मोड',
         tagline: 'नेपाली समुदायको लागि',
         reels: 'रिल्स',
-        createPost: 'पोस्ट सिर्जना गर्नुहोस्'
+        createPost: 'पोस्ट सिर्जना गर्नुहोस्',
+        search: 'खोज',
+        explore: 'अन्वेषण',
+        darkMode: 'डार्क मोड',
+        lightMode: 'लाइट मोड'
       },
       notifications: {
         notifications: 'सूचनाहरू',
