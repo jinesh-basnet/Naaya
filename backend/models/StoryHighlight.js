@@ -33,16 +33,13 @@ const storyHighlightSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes
 storyHighlightSchema.index({ author: 1, createdAt: -1 });
 storyHighlightSchema.index({ isPublic: 1 });
 
-// Virtual for stories count
 storyHighlightSchema.virtual('storiesCount').get(function() {
   return this.stories.length;
 });
 
-// Method to add story to highlight
 storyHighlightSchema.methods.addStory = function(storyId) {
   if (!this.stories.includes(storyId)) {
     this.stories.push(storyId);
@@ -51,13 +48,11 @@ storyHighlightSchema.methods.addStory = function(storyId) {
   return false;
 };
 
-// Method to remove story from highlight
 storyHighlightSchema.methods.removeStory = function(storyId) {
   this.stories = this.stories.filter(id => id.toString() !== storyId.toString());
   return true;
 };
 
-// Static method to get user highlights
 storyHighlightSchema.statics.getUserHighlights = async function(userId) {
   try {
     return await this.find({ author: userId, isArchived: false })
@@ -69,7 +64,6 @@ storyHighlightSchema.statics.getUserHighlights = async function(userId) {
   }
 };
 
-// Static method to create highlight
 storyHighlightSchema.statics.createHighlight = async function(highlightData) {
   try {
     const highlight = new this(highlightData);

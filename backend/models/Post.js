@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// Define comment schema recursively
 const commentSchema = new mongoose.Schema({
   author: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,14 +21,13 @@ const commentSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  replies: [], // Will add self-referencing later
+  replies: [], 
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
-// Add self-referencing replies
 commentSchema.add({ replies: [commentSchema] });
 
 const postSchema = new mongoose.Schema({
@@ -54,7 +52,7 @@ const postSchema = new mongoose.Schema({
       required: true
     },
     thumbnail: String,
-    duration: Number, // for videos
+    duration: Number, 
     size: Number,
     width: Number,
     height: Number
@@ -148,7 +146,6 @@ const postSchema = new mongoose.Schema({
     default: false
   },
   deletedAt: Date,
-  // For algorithm scoring
   engagementScore: {
     type: Number,
     default: 0
@@ -173,7 +170,6 @@ const postSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post'
   },
-  // Fields for shared posts to store original post data
   originalContent: {
     type: String,
     maxlength: 2200,
@@ -190,7 +186,7 @@ const postSchema = new mongoose.Schema({
       required: true
     },
     thumbnail: String,
-    duration: Number, // for videos
+    duration: Number, 
     size: Number,
     width: Number,
     height: Number
@@ -237,7 +233,6 @@ const postSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for better performance
 postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ createdAt: -1 });
 postSchema.index({ 'location.city': 1 });
@@ -247,38 +242,31 @@ postSchema.index({ postType: 1 });
 postSchema.index({ hashtags: 1 });
 postSchema.index({ finalScore: -1 });
 postSchema.index({ isDeleted: 1, isArchived: 1 });
-// Subdocument indexes for fast lookups
 postSchema.index({ 'likes.user': 1 });
 postSchema.index({ 'saves.user': 1 });
 postSchema.index({ 'views.user': 1 });
 postSchema.index({ 'comments.author': 1, createdAt: -1 });
 
-// Virtual for likes count
 postSchema.virtual('likesCount').get(function() {
   return this.likes.length;
 });
 
-// Virtual for comments count
 postSchema.virtual('commentsCount').get(function() {
   return this.comments.length;
 });
 
-// Virtual for shares count
 postSchema.virtual('sharesCount').get(function() {
   return this.shares.length;
 });
 
-// Virtual for saves count
 postSchema.virtual('savesCount').get(function() {
   return this.saves.length;
 });
 
-// Virtual for views count
 postSchema.virtual('viewsCount').get(function() {
   return this.views.length;
 });
 
-// Method to calculate engagement score
 postSchema.methods.calculateEngagementScore = function() {
   const likesWeight = 1;
   const commentsWeight = 3;
@@ -296,21 +284,17 @@ postSchema.methods.calculateEngagementScore = function() {
   return score;
 };
 
-// Method to calculate local score
 postSchema.methods.calculateLocalScore = function(userLocation) {
   if (!this.location || !userLocation) return 0;
   
   let score = 0;
   
-  // Same city gets highest score
   if (this.location.city === userLocation.city) {
     score = 10;
   }
-  // Same district gets medium score
   else if (this.location.district === userLocation.district) {
     score = 5;
   }
-  // Same province gets low score
   else if (this.location.province === userLocation.province) {
     score = 2;
   }
@@ -319,32 +303,28 @@ postSchema.methods.calculateLocalScore = function(userLocation) {
   return score;
 };
 
-// Method to calculate language score
 postSchema.methods.calculateLanguageScore = function(userLanguagePref) {
   if (userLanguagePref === 'both') return 1;
   if (this.language === userLanguagePref) return 1;
   return 0.5;
 };
 
-// Method to calculate relationship score
 postSchema.methods.calculateRelationshipScore = function(userId, userFollowing) {
-  if (this.author.toString() === userId.toString()) return 0; // Don't show own posts
+  if (this.author.toString() === userId.toString()) return 0; 
   
   if (userFollowing.includes(this.author)) {
-    return 1; // Following
+    return 1; 
   }
   
-  return 0.3; // Not following
+  return 0.3; 
 };
 
-// Method to calculate final score
 postSchema.methods.calculateFinalScore = function(userLocation, userLanguagePref, userId, userFollowing) {
   const engagementScore = this.calculateEngagementScore();
   const localScore = this.calculateLocalScore(userLocation);
   const languageScore = this.calculateLanguageScore(userLanguagePref);
   const relationshipScore = this.calculateRelationshipScore(userId, userFollowing);
   
-  // Weighted scoring as per algorithm design
   const finalScore = (0.3 * engagementScore) + 
                     (0.4 * localScore) + 
                     (0.2 * languageScore) + 

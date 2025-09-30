@@ -41,12 +41,10 @@ router.put('/profile', authenticateToken, async (req, res) => {
     const userId = req.user._id;
     const updates = req.body;
 
-    // Fields that are allowed to be updated
     const allowedFields = [
       'fullName', 'bio', 'location', 'interests', 'privacySettings'
     ];
 
-    // Check if any invalid fields are being updated
     const invalidFields = Object.keys(updates).filter(field => !allowedFields.includes(field));
     if (invalidFields.length > 0) {
       return res.status(400).json({
@@ -55,7 +53,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate bio length
     if (updates.bio && updates.bio.length > 150) {
       return res.status(400).json({
         message: 'Bio must be less than 150 characters',
@@ -63,7 +60,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate fullName length
     if (updates.fullName && updates.fullName.length > 50) {
       return res.status(400).json({
         message: 'Full name must be less than 50 characters',
@@ -71,7 +67,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate location fields
     if (updates.location) {
       const { city, district, province } = updates.location;
       if (city && city.length > 50) {
@@ -94,11 +89,10 @@ router.put('/profile', authenticateToken, async (req, res) => {
       }
     }
 
-    // Validate interests
     if (updates.interests) {
       const validInterests = [
         'technology', 'music', 'sports', 'food', 'travel', 'fashion',
-        'photography', 'art', 'education', 'business', 'news', 'entertainment',
+        'photography', 'art', 'education', 'news', 'entertainment',
         'health', 'fitness', 'gaming', 'books', 'movies', 'politics',
         'religion', 'culture', 'festivals', 'tourism', 'agriculture'
       ];
@@ -115,7 +109,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       }
     }
 
-    // Validate privacy settings
     if (updates.privacySettings) {
       const { profileVisibility, showOnlineStatus, allowMessagesFrom } = updates.privacySettings;
 
@@ -137,7 +130,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       }
     }
 
-    // Find and update user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -146,7 +138,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
       });
     }
 
-    // Update allowed fields
     Object.keys(updates).forEach(field => {
       if (allowedFields.includes(field)) {
         user[field] = updates[field];
@@ -155,7 +146,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     await user.save();
 
-    // Return updated user profile (without sensitive data)
     const updatedUser = await User.findById(userId).select('-password -email -phone');
 
     res.json({
@@ -210,7 +200,6 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
     await userToFollow.save();
     await currentUser.save();
 
-    // Create follow notification
     try {
       await global.notificationService.createFollowNotification(currentUserId, userIdToFollow);
     } catch (error) {

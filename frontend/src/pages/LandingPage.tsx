@@ -5,7 +5,6 @@ import './LandingPage.css';
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // Custom icon components
   const HomeIcon: React.FC = () => (
     <svg className="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/>
@@ -18,11 +17,7 @@ const LandingPage: React.FC = () => {
     </svg>
   );
 
-  const StoreIcon: React.FC = () => (
-    <svg className="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z" fill="currentColor"/>
-    </svg>
-  );
+
 
   const CameraAltIcon: React.FC = () => (
     <svg className="icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -55,11 +50,6 @@ const LandingPage: React.FC = () => {
       description: 'Switch between Nepali and English seamlessly. Our platform speaks your language.',
     },
     {
-      icon: <StoreIcon />,
-      title: 'Naaya Bazaar',
-      description: 'Discover and support local businesses. Shop from verified Nepali merchants.',
-    },
-    {
       icon: <CameraAltIcon />,
       title: 'Stories & Reels',
       description: 'Share your moments with Jhyaal (Stories) and Taal (Reels) with Nepali filters.',
@@ -78,7 +68,6 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="landing-page">
-      {/* Navigation Bar */}
       <nav className="navbar">
         <div className="navbar-toolbar">
           <h1 className="navbar-brand">नाया</h1>
@@ -99,14 +88,13 @@ const LandingPage: React.FC = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
       <section className="hero-section">
         <div className="hero-container">
           <h1 className="hero-title">Welcome to नाया</h1>
           <h2 className="hero-subtitle">The Nepali Network - Where Nepal Connects</h2>
           <p className="hero-description">
             Join the first social media platform built specifically for Nepal.
-            Connect with your community, discover local businesses, and share your story.
+            Connect with your community and share your story.
           </p>
           <div className="hero-buttons">
             <button
@@ -125,7 +113,6 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Features Section */}
       <section className="features-section">
         <div className="features-container">
           <h2 className="features-title">Why Choose नाया?</h2>
@@ -141,7 +128,6 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
       <section className="cta-section">
         <div className="cta-container">
           <h2 className="cta-title">Ready to Join the Nepali Network?</h2>
@@ -157,7 +143,6 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="footer">
         <div className="footer-container">
           <h3 className="footer-title">नाया - The Nepali Network</h3>

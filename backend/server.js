@@ -10,7 +10,8 @@ const path = require('path');
 
 const app = express();
 
-// Security middleware
+app.set('trust proxy', true);
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -27,7 +28,6 @@ app.use(helmet({
 
 app.use(compression());
 
-// CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000'];
@@ -44,14 +44,12 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 });
 app.use(limiter);
 
-// Enhanced request logging middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   const method = req.method;
@@ -60,7 +58,6 @@ app.use((req, res, next) => {
 
   console.log(`[${timestamp}] ${method} ${url} - IP: ${ip}`);
 
-  // Log request body for POST/PUT/PATCH requests (excluding sensitive data)
   if (['POST', 'PUT', 'PATCH'].includes(method) && req.body) {
     const logBody = { ...req.body };
     if (logBody.password) logBody.password = '[HIDDEN]';
@@ -71,11 +68,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Body parsing middleware with size limits
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf) => {
-    // Validate JSON syntax
     try {
       JSON.parse(buf);
     } catch (e) {
@@ -92,7 +87,6 @@ app.use(express.urlencoded({
 
 const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:3000';
 
-// uploads directory with CORS
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, path) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -101,7 +95,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   }
 }));
 
-// MongoDB connection with retry logic
 const connectWithRetry = async (retries = 5, delay = 2000) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -121,7 +114,6 @@ const connectWithRetry = async (retries = 5, delay = 2000) => {
   }
 };
 
-// Environment validation
 const validateEnvironment = () => {
   const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI'];
   const missing = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -135,7 +127,6 @@ const validateEnvironment = () => {
   console.log('✅ Environment validation passed');
 };
 
-// Process error handlers
 process.on('uncaughtException', (error) => {
   console.error('💥 Uncaught Exception:', error);
   process.exit(1);
@@ -146,7 +137,6 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Graceful shutdown
 const gracefulShutdown = (signal) => {
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
 
@@ -160,7 +150,6 @@ const gracefulShutdown = (signal) => {
     process.exit(0);
   });
 
-  // Force shutdown after 10 seconds
   setTimeout(() => {
     console.error('💥 Could not close connections in time, forcefully shutting down');
     process.exit(1);
@@ -170,7 +159,6 @@ const gracefulShutdown = (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/posts', require('./routes/posts/index'));
@@ -183,12 +171,10 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/bookmark-collections', require('./routes/bookmarkCollections'));
 
-// Serve static landing page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -199,7 +185,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Enhanced error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error occurred:', {
     message: err.message,
@@ -210,7 +195,6 @@ app.use((err, req, res, next) => {
     timestamp: new Date().toISOString()
   });
 
-  // Handle specific error types
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       message: 'Validation Error',
@@ -233,7 +217,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Default error response
   res.status(err.status || 500).json({
     message: err.message || 'Something went wrong!',
     error: process.env.NODE_ENV === 'production' ? {} : err.stack,
@@ -242,7 +225,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     message: 'Route not found',
@@ -272,17 +254,14 @@ const startServer = async () => {
     // Validate environment
     validateEnvironment();
 
-    // Connect to database
     await connectWithRetry();
 
-    // Start HTTP server
     const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check available at: http://localhost:${PORT}/api/health`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Enhanced Socket.io setup
     const io = require('socket.io')(server, {
       cors: {
         origin: process.env.CLIENT_URL || 'http://localhost:3000',
@@ -293,7 +272,6 @@ const startServer = async () => {
       pingInterval: 25000
     });
 
-    // Enhanced socket authentication
     io.use((socket, next) => {
       const token = socket.handshake.auth.token;
       if (!token) {
@@ -312,25 +290,20 @@ const startServer = async () => {
       });
     });
 
-    // Enhanced socket connection handling
     io.on('connection', (socket) => {
       console.log(`📱 Socket connected: ${socket.id} (User: ${socket.userId})`);
 
-      // Join user-specific room
       socket.join(`user:${socket.userId}`);
 
-      // Handle room joining
       socket.on('join_room', (room) => {
         socket.join(room);
         console.log(`📱 Socket ${socket.id} joined room: ${room}`);
       });
 
-      // Handle message sending
       socket.on('send_message', (data) => {
         socket.to(data.room).emit('receive_message', data);
       });
 
-      // Handle typing indicators
       socket.on('typing_start', (data) => {
         socket.to(data.room).emit('user_typing', { userId: data.userId, isTyping: true });
       });
@@ -339,18 +312,15 @@ const startServer = async () => {
         socket.to(data.room).emit('user_typing', { userId: data.userId, isTyping: false });
       });
 
-      // Handle disconnect
       socket.on('disconnect', (reason) => {
         console.log(`📱 Socket disconnected: ${socket.id} (Reason: ${reason})`);
       });
 
-      // Handle connection errors
       socket.on('connect_error', (error) => {
         console.error('📱 Socket connection error:', error);
       });
     });
 
-    // Initialize notification service
     try {
       const NotificationService = require('./services/notificationService');
       const notificationService = new NotificationService(io);
@@ -360,7 +330,6 @@ const startServer = async () => {
       console.error('❌ Failed to initialize notification service:', error.message);
     }
 
-    // Export for testing
     module.exports = { app, server, io };
 
   } catch (error) {
@@ -369,5 +338,4 @@ const startServer = async () => {
   }
 };
 
-// Start the server
 startServer();

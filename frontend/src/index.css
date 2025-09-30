@@ -1,8 +1,8 @@
 :root {
-  --primary-main: #D32F2F; /* Nepali red */
+  --primary-main: #D32F2F; 
   --primary-light: #FF7043;
   --primary-dark: #B71C1C;
-  --secondary-main: #1976D2; /* Nepali blue */
+  --secondary-main: #1976D2; 
   --secondary-light: #64B5F6;
   --secondary-dark: #0D47A1;
   --background-default: #FAFAFA;
@@ -10,6 +10,13 @@
   --text-primary: #212121;
   --text-secondary: #757575;
   --border-radius: 12px;
+}
+
+[data-theme="dark"] {
+  --background-default: #121212;
+  --background-paper: #1e1e1e;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
 }
 
 body {

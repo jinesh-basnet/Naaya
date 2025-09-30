@@ -33,22 +33,18 @@ const bookmarkCollectionSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
 bookmarkCollectionSchema.index({ user: 1, name: 1 });
 bookmarkCollectionSchema.index({ user: 1, createdAt: -1 });
 
-// Virtual for post count
 bookmarkCollectionSchema.virtual('postCount').get(function() {
   return this.posts.length;
 });
 
-// Ensure virtual fields are serialized
 bookmarkCollectionSchema.set('toJSON', { virtuals: true });
 bookmarkCollectionSchema.set('toObject', { virtuals: true });
 
 
 
-// Static method to get user's collections with post counts
 bookmarkCollectionSchema.statics.getUserCollections = function(userId) {
   return this.find({ user: userId })
     .populate('posts', '_id content media author createdAt')

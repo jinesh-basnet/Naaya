@@ -37,12 +37,10 @@ const notificationSchema = new mongoose.Schema({
     maxlength: 500
   },
   data: {
-    // Flexible data object for different notification types
     postId: mongoose.Schema.Types.ObjectId,
     commentId: mongoose.Schema.Types.ObjectId,
     storyId: mongoose.Schema.Types.ObjectId,
     messageId: mongoose.Schema.Types.ObjectId,
-    // Additional metadata
     metadata: mongoose.Schema.Types.Mixed
   },
   isRead: {
@@ -53,7 +51,6 @@ const notificationSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  // For push notifications
   pushSent: {
     type: Boolean,
     default: false
@@ -66,19 +63,16 @@ const notificationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for better performance
 notificationSchema.index({ recipient: 1, createdAt: -1 });
 notificationSchema.index({ recipient: 1, isRead: 1 });
 notificationSchema.index({ type: 1 });
 notificationSchema.index({ createdAt: -1 });
 
-// Static method to create notification
 notificationSchema.statics.createNotification = async function(notificationData) {
   try {
     const notification = new this(notificationData);
     await notification.save();
     
-    // Populate sender details
     await notification.populate('sender', 'username fullName profilePicture');
     
     return notification;
@@ -88,7 +82,6 @@ notificationSchema.statics.createNotification = async function(notificationData)
   }
 };
 
-// Static method to get user notifications
 notificationSchema.statics.getUserNotifications = async function(userId, page = 1, limit = 20) {
   try {
     const notifications = await this.find({ recipient: userId })
@@ -119,7 +112,6 @@ notificationSchema.statics.getUserNotifications = async function(userId, page = 
   }
 };
 
-// Static method to mark notifications as read
 notificationSchema.statics.markAsRead = async function(notificationId, userId) {
   try {
     const notification = await this.findOneAndUpdate(
@@ -142,7 +134,6 @@ notificationSchema.statics.markAsRead = async function(notificationId, userId) {
   }
 };
 
-// Static method to mark all notifications as read
 notificationSchema.statics.markAllAsRead = async function(userId) {
   try {
     const result = await this.updateMany(
@@ -163,7 +154,6 @@ notificationSchema.statics.markAllAsRead = async function(userId) {
   }
 };
 
-// Static method to get unread count
 notificationSchema.statics.getUnreadCount = async function(userId) {
   try {
     return await this.countDocuments({ 

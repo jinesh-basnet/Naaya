@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MdAdd, MdClose } from 'react-icons/md';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { storiesAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -17,7 +18,6 @@ const StoriesBar: React.FC = () => {
   const [newStoryMedia, setNewStoryMedia] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Fetch stories feed
   const { data: storiesData } = useQuery({
     queryKey: ['storiesFeed'],
     queryFn: () => storiesAPI.getStoriesFeed(),
@@ -25,7 +25,6 @@ const StoriesBar: React.FC = () => {
 
   const stories = storiesData?.data?.stories || [];
 
-  // Add "Your story" at the beginning if user doesn't have a story
   const hasUserStory = stories.some((story: any) => story.author._id === user?._id);
   const displayStories = hasUserStory
     ? stories
@@ -40,14 +39,12 @@ const StoriesBar: React.FC = () => {
     try {
       let mediaObject = null;
       if (newStoryMedia) {
-        // Upload media first
         const formData = new FormData();
         formData.append('media', newStoryMedia);
         const uploadResponse = await storiesAPI.uploadStoryMedia(formData);
         mediaObject = uploadResponse.data.media;
       }
 
-      // Create story with media object
       const storyData = {
         content: newStoryContent,
         media: mediaObject
@@ -92,7 +89,11 @@ const StoriesBar: React.FC = () => {
               }
             }}
           >
-            <div className="story-avatar-container">
+            <motion.div
+              className={`story-avatar-container ${story.isOwn ? 'new-story' : 'viewed-story'}`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
               {story.isOwn && story.id === 'your-story' ? (
                 <button className="story-avatar-add">
                   <MdAdd />
@@ -109,7 +110,7 @@ const StoriesBar: React.FC = () => {
                   <MdAdd />
                 </div>
               )}
-            </div>
+            </motion.div>
             <p className="story-username">
               {story.isOwn && story.id === 'your-story' ? 'Your story' : story.author?.username || 'User'}
             </p>
@@ -159,7 +160,6 @@ const StoriesBar: React.FC = () => {
         </div>
       )}
 
-      {/* Story View Modal */}
       {openViewModal && (
         <div className="view-story-modal-overlay" onClick={() => setOpenViewModal(false)}>
           <div className="view-story-modal" onClick={(e) => e.stopPropagation()}>
@@ -204,7 +204,6 @@ const StoriesBar: React.FC = () => {
                 </h2>
               )}
 
-              {/* Navigation arrows */}
               {displayStories.length > 1 && (
                 <>
                   <button className="nav-button nav-prev" onClick={handlePrevStory}>

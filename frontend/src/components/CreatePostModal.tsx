@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaChevronRight, FaChevronLeft, FaPaperPlane } from 'react-icons/fa';
+import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaChevronRight, FaChevronLeft, FaPaperPlane, FaVideo } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import './CreatePostModal.css';
 
@@ -7,6 +7,7 @@ interface CreatePostModalProps {
   open: boolean;
   onClose: () => void;
   onPost: (post: {
+    postType: 'post' | 'reel';
     caption: string;
     media: File | null;
     tags: string[];
@@ -17,7 +18,12 @@ interface CreatePostModalProps {
   }) => void;
 }
 
-const steps = ['Select Media', 'Edit', 'Details', 'Share'];
+const steps = ['Choose Type', 'Select Media', 'Edit', 'Details', 'Share'];
+
+const postTypes = [
+  { name: 'Post', value: 'post', icon: <FaImages /> },
+  { name: 'Reel', value: 'reel', icon: <FaVideo /> },
+];
 
 const filters = [
   { name: 'None', value: 'none' },
@@ -36,6 +42,7 @@ const filters = [
 
 const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost }) => {
   const [activeStep, setActiveStep] = useState(0);
+  const [postType, setPostType] = useState<'post' | 'reel'>('post');
   const [caption, setCaption] = useState('');
   const [media, setMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string>('');
@@ -59,7 +66,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
       };
       reader.readAsDataURL(file);
 
-      setActiveStep(1); 
+      setActiveStep(2);
     }
   };
 
@@ -84,6 +91,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
 
   const handlePost = () => {
     onPost({
+      postType,
       caption,
       media,
       tags,
@@ -98,6 +106,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
 
   const resetModal = () => {
     setActiveStep(0);
+    setPostType('post');
     setCaption('');
     setMedia(null);
     setMediaPreview('');
@@ -126,19 +135,22 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <FaImages className="icon" />
-              <h3>Create new post</h3>
-              <p>Share photos and videos with your community</p>
-              <button className="select-button" onClick={() => fileInputRef.current?.click()}>
-                Select from computer
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  hidden
-                  accept="image/*,video/*"
-                  onChange={handleMediaChange}
-                />
-              </button>
+              <h3>What would you like to create?</h3>
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+                {postTypes.map((type) => (
+                  <button
+                    key={type.value}
+                    className="select-button"
+                    onClick={() => {
+                      setPostType(type.value as 'post' | 'reel');
+                      setActiveStep(1);
+                    }}
+                  >
+                    {type.icon}
+                    {type.name}
+                  </button>
+                ))}
+              </div>
             </motion.div>
           </div>
         );
@@ -146,6 +158,31 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
       case 1:
         return (
           <div className="step-1">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <FaImages className="icon" />
+              <h3>Select media</h3>
+              <p>Share photos and videos with your community</p>
+              <button className="select-button" onClick={() => fileInputRef.current?.click()}>
+                Select from computer
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  hidden
+                  accept={postType === 'reel' ? 'video/*' : 'image/*,video/*'}
+                  onChange={handleMediaChange}
+                />
+              </button>
+            </motion.div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="step-2">
             <div className="tabs">
               <button
                 className={`tab ${editTab === 0 ? 'active' : ''}`}
@@ -178,7 +215,18 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                     filter: `brightness(${brightness}%) contrast(${contrast}%)`,
                   }}
                 >
-                  {mediaPreview && (
+                  {mediaPreview && media?.type.startsWith('video/') ? (
+                    <video
+                      src={mediaPreview}
+                      controls
+                      className="preview-image"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  ) : (
                     <img
                       src={mediaPreview}
                       alt="Preview"
@@ -243,11 +291,25 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </div>
         );
 
-      case 2:
+      case 3:
         return (
-          <div className="step-2">
+          <div className="step-3">
             <div className="caption-section">
-              <img src={mediaPreview} alt="Preview" className="caption-avatar" />
+              {mediaPreview && media?.type.startsWith('video/') ? (
+                <video
+                  src={mediaPreview}
+                  controls
+                  className="caption-avatar"
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                  }}
+                />
+              ) : (
+                <img src={mediaPreview} alt="Preview" className="caption-avatar" />
+              )}
               <div className="caption-input">
                 <textarea
                   className="caption-textarea"
@@ -298,13 +360,27 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </div>
         );
 
-      case 3:
+      case 4:
         return (
-          <div className="step-3">
+          <div className="step-4">
             <h3>Preview & Share</h3>
 
             <div className="preview-section">
-              <img src={mediaPreview} alt="Preview" className="caption-avatar" />
+              {mediaPreview && media?.type.startsWith('video/') ? (
+                <video
+                  src={mediaPreview}
+                  controls
+                  className="caption-avatar"
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                  }}
+                />
+              ) : (
+                <img src={mediaPreview} alt="Preview" className="caption-avatar" />
+              )}
               <div className="preview-text">
                 <p>{caption || 'No caption'}</p>
                 {location && <span className="meta">📍 {location}</span>}
@@ -322,7 +398,17 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                   filter: `brightness(${brightness}%) contrast(${contrast}%)`,
                 }}
               >
-                {mediaPreview && (
+                {mediaPreview && media?.type.startsWith('video/') ? (
+                  <video
+                    src={mediaPreview}
+                    controls
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : (
                   <img
                     src={mediaPreview}
                     alt="Final preview"
@@ -346,7 +432,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
   return (
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="modal-header">
           {activeStep > 0 && (
             <button className="icon-button" onClick={handleBack}>
@@ -359,7 +444,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </button>
         </div>
 
-        {/* Stepper */}
         <div className="stepper">
           <ul>
             {steps.map((label, index) => (
@@ -371,12 +455,10 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </ul>
         </div>
 
-        {/* Content */}
         <div className="modal-body">
           {renderStepContent(activeStep)}
         </div>
 
-        {/* Footer */}
         {activeStep > 0 && (
           <div className="modal-footer">
             <button

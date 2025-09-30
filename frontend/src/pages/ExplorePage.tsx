@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { FaSearch, FaTimes, FaHeart, FaComment, FaCompass, FaChartLine, FaMapMarkerAlt } from 'react-icons/fa';
 import { useQuery } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+
 import './ExplorePage.css';
 
 interface Post {
@@ -49,8 +48,6 @@ const ExplorePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const { user } = useAuth();
-  const navigate = useNavigate();
 
   const { data: exploreData, isLoading } = useQuery({
     queryKey: ['explore', activeTab],
@@ -100,7 +97,6 @@ const ExplorePage: React.FC = () => {
   return (
     <div className="explore-container">
       <div className="explore-inner">
-        {/* Search Bar */}
         <div className="search-paper">
           <div className="search-input-wrapper">
             <FaSearch className="search-icon" />
@@ -119,7 +115,6 @@ const ExplorePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabs */}
         {!searchQuery && (
           <div className="tabs-container">
             <div className="tabs">
@@ -139,7 +134,6 @@ const ExplorePage: React.FC = () => {
           </div>
         )}
 
-        {/* Search Results Header */}
         {searchQuery && (
           <div className="search-header">
             <h2 className="search-title">Search results for "{searchQuery}"</h2>
@@ -147,7 +141,6 @@ const ExplorePage: React.FC = () => {
           </div>
         )}
 
-        {/* Posts Grid */}
         {isLoading ? (
           <div className="posts-grid">
             {Array.from({ length: 12 }).map((_, index) => (
@@ -176,7 +169,6 @@ const ExplorePage: React.FC = () => {
                           <video className="post-media" src={fullUrl} />
                         )}
 
-                        {/* Overlay with stats */}
                         <div className="overlay">
                           <div className="overlay-stats">
                             <div className="stat">
@@ -190,14 +182,12 @@ const ExplorePage: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Multiple media indicator */}
                         {post.media.length > 1 && (
                           <div className="media-count">
                             <span className="media-count-text">{post.media.length}</span>
                           </div>
                         )}
 
-                        {/* Video indicator */}
                         {post.media[0]?.type === 'video' && (
                           <div className="video-indicator">
                             <span className="video-indicator-text">▶</span>
@@ -223,11 +213,9 @@ const ExplorePage: React.FC = () => {
         )}
       </div>
 
-      {/* Post Detail Modal */}
       {selectedPost && (
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal-content" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-            {/* Media */}
             <div className="modal-media">
               {selectedPost.media?.[0] && (
                 <>
@@ -246,9 +234,7 @@ const ExplorePage: React.FC = () => {
               )}
             </div>
 
-            {/* Details */}
             <div className="modal-details">
-              {/* Header */}
               <div className="modal-header">
                 <img
                   src={selectedPost.author.profilePicture}
@@ -263,10 +249,8 @@ const ExplorePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Content */}
               <p className="modal-content-text">{selectedPost.content}</p>
 
-              {/* Actions */}
               <div className="modal-actions">
                 <button className="action-button">
                   <FaHeart />

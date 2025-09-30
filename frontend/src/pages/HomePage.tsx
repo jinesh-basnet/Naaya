@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV, FaMapMarkerAlt } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCreatePost } from '../contexts/CreatePostContext';
 import { locationService, LocationData } from '../services/locationService';
 import { offlineQueueService } from '../services/offlineQueueService';
 import toast from 'react-hot-toast';
@@ -51,10 +52,12 @@ interface Post {
 const BACKEND_BASE_URL = 'http://localhost:5000';
 
 const HomePage: React.FC = () => {
-  const [modalOpen, setModalOpen] = useState(false);
+  const { isModalOpen, closeModal } = useCreatePost();
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [showLocationAlert, setShowLocationAlert] = useState(false);
+  const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
+  const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
   const { user } = useAuth();
 
   useEffect(() => {
@@ -120,6 +123,7 @@ const HomePage: React.FC = () => {
 
 
   const handleModalPost = async (post: {
+    postType: 'post' | 'reel';
     caption: string;
     media: File | null;
     tags: string[];
@@ -130,6 +134,7 @@ const HomePage: React.FC = () => {
   }) => {
     try {
       const formData = new FormData();
+      formData.append('postType', post.postType);
       formData.append('content', post.caption);
       if (post.media) formData.append('media', post.media);
       formData.append('tags', JSON.stringify(post.tags));
@@ -149,13 +154,13 @@ const HomePage: React.FC = () => {
       formData.append('language', language);
       await postsAPI.createPost(formData);
       refetch();
-      toast.success('Post shared!');
+      toast.success(`${post.postType === 'reel' ? 'Reel' : 'Post'} shared!`);
     } catch (error: any) {
       console.error('Error sharing post:', error);
       if (error.response && error.response.data) {
-        toast.error(`Failed to share post: ${error.response.data.message || 'Unknown error'}`);
+        toast.error(`Failed to share ${post.postType}: ${error.response.data.message || 'Unknown error'}`);
       } else {
-        toast.error('Failed to share post');
+        toast.error(`Failed to share ${post.postType}`);
       }
     }
   };
@@ -179,6 +184,8 @@ const HomePage: React.FC = () => {
     if (!isLiked) {
       handleLike(postId);
     }
+    setHeartBurst(prev => ({ ...prev, [postId]: true }));
+    setTimeout(() => setHeartBurst(prev => ({ ...prev, [postId]: false })), 500);
   };
 
   return (
@@ -313,15 +320,24 @@ const HomePage: React.FC = () => {
                         </div>
 
                         {post.content && (
-                          <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
-                            {typeof post.content === 'string' ? post.content : ''}
-                          </p>
+                          <div>
+                            {expandedCaptions[post._id] || post.content.length <= 100 ? (
+                              <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
+                                {typeof post.content === 'string' ? post.content : ''}
+                              </p>
+                            ) : (
+                              <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
+                                {typeof post.content === 'string' ? post.content.slice(0, 100) : ''}... <span style={{ color: '#666', cursor: 'pointer' }} onClick={() => setExpandedCaptions(prev => ({ ...prev, [post._id]: true }))}>more</span>
+                              </p>
+                            )}
+                          </div>
                         )}
 
                         {post.media && post.media.length > 0 && (
                           <div
                             className="media-box"
                             onDoubleClick={() => handleDoubleTap(post._id)}
+                            style={{ position: 'relative' }}
                           >
                             {post.media.map((media, index) => {
                               const normalizedUrl = media.url.replace(/\\/g, '/').replace(/^\/?/, '/');
@@ -349,10 +365,29 @@ const HomePage: React.FC = () => {
                                 </div>
                               );
                             })}
+                            <AnimatePresence>
+                              {heartBurst[post._id] && (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1.5 }}
+                                  exit={{ scale: 0 }}
+                                  transition={{ duration: 0.5 }}
+                                  style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    zIndex: 10,
+                                    pointerEvents: 'none'
+                                  }}
+                                >
+                                  <FaHeart size={50} color="red" />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
                         )}
 
-                        {/* Post Actions */}
                         <div className="actions-box">
                           <div className="left-actions">
                             <button
@@ -383,7 +418,12 @@ const HomePage: React.FC = () => {
                               {post.likesCount.toLocaleString()} {post.likesCount === 1 ? 'like' : 'likes'}
                             </p>
                           )}
-                          {post.commentsCount > 0 && (
+                          {post.comments.slice(0, 2).map(comment => (
+                            <p key={comment._id} style={{ fontSize: '0.875rem', marginBottom: 4 }}>
+                              <strong>{comment.author.username}</strong> {comment.content}
+                            </p>
+                          ))}
+                          {post.commentsCount > 2 && (
                             <p
                               style={{ fontSize: '0.875rem', color: '#666', cursor: 'pointer' }}
                               onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
@@ -415,8 +455,8 @@ const HomePage: React.FC = () => {
       </div>
 
       <CreatePostModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        open={isModalOpen}
+        onClose={closeModal}
         onPost={handleModalPost}
       />
     </div>

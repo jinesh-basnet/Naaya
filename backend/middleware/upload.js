@@ -4,14 +4,12 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
 const fs = require('fs');
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// File filter for allowed types
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
     cb(null, true);
@@ -20,10 +18,8 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Storage configuration - use local storage (Cloudinary disabled)
 let storage;
-if (false) { // Disabled Cloudinary to use local storage
-  // Configure Cloudinary
+if (false) { 
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -41,7 +37,6 @@ if (false) { // Disabled Cloudinary to use local storage
     }
   });
 } else {
-  // Fallback to local storage
   const uploadsPath = path.join(__dirname, '..', 'uploads');
   fs.mkdirSync(uploadsPath, { recursive: true });
   const multerStorage = multer.diskStorage({
@@ -56,7 +51,6 @@ if (false) { // Disabled Cloudinary to use local storage
   storage = multerStorage;
 }
 
-// Multer configuration
 const upload = multer({
   storage,
   fileFilter,
@@ -66,7 +60,6 @@ const upload = multer({
   }
 });
 
-// Helper function to upload multiple files
 const uploadMultiple = (fieldName) => {
   return (req, res, next) => {
     console.log('Starting file upload for field:', fieldName);
@@ -83,7 +76,6 @@ const uploadMultiple = (fieldName) => {
   };
 };
 
-// Helper function to upload single file
 const uploadSingle = (fieldName) => {
   return (req, res, next) => {
     upload.single(fieldName)(req, res, (err) => {

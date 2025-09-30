@@ -96,7 +96,7 @@ const reportSchema = new mongoose.Schema({
       ]
     },
     reason: String,
-    duration: Number, // For suspensions/bans in days
+    duration: Number, 
     resolvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
@@ -121,24 +121,20 @@ const reportSchema = new mongoose.Schema({
       default: 'pending'
     }
   },
-  // Track if this is a duplicate report
   duplicateOf: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Report',
     default: null
   },
-  // Track related reports
   relatedReports: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Report'
   }],
-  // Auto-escalation based on report count
   reportCount: {
     type: Number,
     default: 1
   },
   escalatedAt: Date,
-  // For tracking patterns
   reporterHistory: {
     totalReports: Number,
     resolvedReports: Number,
@@ -148,7 +144,6 @@ const reportSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for better performance
 reportSchema.index({ contentType: 1, contentId: 1 });
 reportSchema.index({ reporter: 1, createdAt: -1 });
 reportSchema.index({ contentAuthor: 1, createdAt: -1 });
@@ -156,15 +151,12 @@ reportSchema.index({ status: 1, priority: 1, createdAt: -1 });
 reportSchema.index({ assignedTo: 1, status: 1 });
 reportSchema.index({ createdAt: -1 });
 
-// Virtual for time since report
 reportSchema.virtual('ageInHours').get(function() {
   return Math.floor((Date.now() - this.createdAt) / (1000 * 60 * 60));
 });
 
-// Static method to create report
 reportSchema.statics.createReport = async function(reportData) {
   try {
-    // Check for duplicate reports from same user
     const existingReport = await this.findOne({
       reporter: reportData.reporter,
       contentType: reportData.contentType,
@@ -176,7 +168,6 @@ reportSchema.statics.createReport = async function(reportData) {
       throw new Error('You have already reported this content');
     }
 
-    // Check for similar reports to link them
     const similarReports = await this.find({
       contentType: reportData.contentType,
       contentId: reportData.contentId,
@@ -185,10 +176,8 @@ reportSchema.statics.createReport = async function(reportData) {
 
     const report = new this(reportData);
     
-    // Link to similar reports
     if (similarReports.length > 0) {
       report.relatedReports = similarReports.map(r => r._id);
-      // Update report count
       report.reportCount = similarReports.length + 1;
     }
 
@@ -203,7 +192,6 @@ reportSchema.statics.createReport = async function(reportData) {
   }
 };
 
-// Static method to get reports with filters
 reportSchema.statics.getReports = async function(filters = {}, page = 1, limit = 20) {
   try {
     const query = { ...filters };
@@ -233,7 +221,6 @@ reportSchema.statics.getReports = async function(filters = {}, page = 1, limit =
   }
 };
 
-// Method to assign report to moderator
 reportSchema.methods.assignToModerator = async function(moderatorId) {
   this.assignedTo = moderatorId;
   this.status = 'reviewing';
@@ -241,7 +228,6 @@ reportSchema.methods.assignToModerator = async function(moderatorId) {
   return this;
 };
 
-// Method to add moderator note
 reportSchema.methods.addModeratorNote = async function(moderatorId, note) {
   this.moderatorNotes.push({
     moderator: moderatorId,
@@ -251,7 +237,6 @@ reportSchema.methods.addModeratorNote = async function(moderatorId, note) {
   return this;
 };
 
-// Method to resolve report
 reportSchema.methods.resolve = async function(resolution, resolvedBy) {
   this.status = 'resolved';
   this.resolution = {
@@ -263,7 +248,6 @@ reportSchema.methods.resolve = async function(resolution, resolvedBy) {
   return this;
 };
 
-// Method to dismiss report
 reportSchema.methods.dismiss = async function(reason, dismissedBy) {
   this.status = 'dismissed';
   this.resolution = {
@@ -276,7 +260,6 @@ reportSchema.methods.dismiss = async function(reason, dismissedBy) {
   return this;
 };
 
-// Method to escalate report
 reportSchema.methods.escalate = async function() {
   this.priority = 'urgent';
   this.escalatedAt = new Date();

@@ -95,12 +95,10 @@ const messageSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes for better performance
 messageSchema.index({ sender: 1, receiver: 1, createdAt: -1 });
 messageSchema.index({ receiver: 1, isRead: 1 });
 messageSchema.index({ createdAt: -1 });
 
-// Method to mark as read
 messageSchema.methods.markAsRead = function() {
   if (!this.isRead) {
     this.isRead = true;
@@ -110,7 +108,6 @@ messageSchema.methods.markAsRead = function() {
   return false;
 };
 
-// Method to mark as delivered
 messageSchema.methods.markAsDelivered = function() {
   if (!this.isDelivered) {
     this.isDelivered = true;
@@ -120,7 +117,6 @@ messageSchema.methods.markAsDelivered = function() {
   return false;
 };
 
-// Method to add reaction
 messageSchema.methods.addReaction = function(userId, emoji) {
   const existingReaction = this.reactions.find(
     reaction => reaction.user.toString() === userId.toString()
@@ -136,7 +132,6 @@ messageSchema.methods.addReaction = function(userId, emoji) {
   return true;
 };
 
-// Method to remove reaction
 messageSchema.methods.removeReaction = function(userId) {
   this.reactions = this.reactions.filter(
     reaction => reaction.user.toString() !== userId.toString()
@@ -144,7 +139,6 @@ messageSchema.methods.removeReaction = function(userId) {
   return true;
 };
 
-// Method to edit message
 messageSchema.methods.editMessage = function(newContent) {
   if (this.messageType !== 'text') {
     throw new Error('Only text messages can be edited');
@@ -156,7 +150,6 @@ messageSchema.methods.editMessage = function(newContent) {
   return true;
 };
 
-// Method to delete message
 messageSchema.methods.deleteMessage = function() {
   this.isDeleted = true;
   this.deletedAt = new Date();
@@ -164,7 +157,6 @@ messageSchema.methods.deleteMessage = function() {
   return true;
 };
 
-// Method to forward message
 messageSchema.methods.forwardMessage = function(newReceiverId, newSenderId) {
   const forwardedMessage = new this.constructor({
     sender: newSenderId,

@@ -74,7 +74,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  // Business fields removed
   followers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -87,7 +86,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: [
       'technology', 'music', 'sports', 'food', 'travel', 'fashion',
-      'photography', 'art', 'education', 'business', 'news', 'entertainment',
+      'photography', 'art', 'education', 'news', 'entertainment',
       'health', 'fitness', 'gaming', 'books', 'movies', 'politics',
       'religion', 'culture', 'festivals', 'tourism', 'agriculture'
     ]
@@ -171,14 +170,12 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for better query performance
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ 'location.city': 1 });
 userSchema.index({ 'location.district': 1 });
 userSchema.index({ createdAt: -1 });
 
-// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
@@ -191,12 +188,10 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Generate password reset token
 userSchema.methods.generatePasswordResetToken = function() {
   const crypto = require('crypto');
   const resetToken = crypto.randomBytes(32).toString('hex');
@@ -207,7 +202,6 @@ userSchema.methods.generatePasswordResetToken = function() {
   return resetToken;
 };
 
-// Generate email verification token
 userSchema.methods.generateEmailVerificationToken = function() {
   const crypto = require('crypto');
   const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -218,7 +212,6 @@ userSchema.methods.generateEmailVerificationToken = function() {
   return verificationToken;
 };
 
-// Get public profile data
 userSchema.methods.getPublicProfile = function() {
   const userObj = this.toObject();
   delete userObj.password;
@@ -227,12 +220,10 @@ userSchema.methods.getPublicProfile = function() {
   return userObj;
 };
 
-// Get followers count
 userSchema.virtual('followersCount').get(function() {
   return this.followers.length;
 });
 
-// Get following count
 userSchema.virtual('followingCount').get(function() {
   return this.following.length;
 });

@@ -162,52 +162,45 @@ const storySchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     default: function() {
-      return new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+      return new Date(Date.now() + 24 * 60 * 60 * 1000); 
     }
   }
 }, {
   timestamps: true
 });
 
-// Indexes
 storySchema.index({ author: 1, createdAt: -1 });
 storySchema.index({ expiresAt: 1 });
 storySchema.index({ isDeleted: 1, isArchived: 1 });
 storySchema.index({ 'location.city': 1 });
 storySchema.index({ language: 1 });
-// Subdocument indexes
 storySchema.index({ 'views.user': 1 });
 storySchema.index({ 'reactions.user': 1 });
 storySchema.index({ 'replies.author': 1, createdAt: -1 });
 
-// Virtual for views count
 storySchema.virtual('viewsCount').get(function() {
   return this.views.length;
 });
 
-// Virtual for reactions count
 storySchema.virtual('reactionsCount').get(function() {
   return this.reactions.length;
 });
 
-// Virtual for replies count
 storySchema.virtual('repliesCount').get(function() {
   return this.replies.length;
 });
 
-// Method to check if story is expired
 storySchema.methods.isExpired = function() {
   return new Date() > this.expiresAt;
 };
 
-// Method to check if user can view story
 storySchema.methods.canView = function(userId, userFollowing, userCloseFriends) {
   if (this.isDeleted || this.isArchived || this.isExpired()) {
     return false;
   }
   
   if (this.author.toString() === userId.toString()) {
-    return true; // Can always view own stories
+    return true;
   }
   
   switch (this.visibility) {
@@ -224,7 +217,6 @@ storySchema.methods.canView = function(userId, userFollowing, userCloseFriends) 
   }
 };
 
-// Method to add view
 storySchema.methods.addView = function(userId) {
   if (!this.views.some(view => view.user.toString() === userId.toString())) {
     this.views.push({ user: userId });
@@ -233,7 +225,6 @@ storySchema.methods.addView = function(userId) {
   return false;
 };
 
-// Method to add reaction
 storySchema.methods.addReaction = function(userId, reactionType) {
   const existingReaction = this.reactions.find(
     reaction => reaction.user.toString() === userId.toString()
@@ -249,7 +240,6 @@ storySchema.methods.addReaction = function(userId, reactionType) {
   return true;
 };
 
-// Method to remove reaction
 storySchema.methods.removeReaction = function(userId) {
   this.reactions = this.reactions.filter(
     reaction => reaction.user.toString() !== userId.toString()
@@ -257,7 +247,6 @@ storySchema.methods.removeReaction = function(userId) {
   return true;
 };
 
-// Method to add reply
 storySchema.methods.addReply = function(userId, content) {
   this.replies.push({ author: userId, content });
   return true;

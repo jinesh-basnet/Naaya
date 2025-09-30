@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Verify JWT token
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -93,26 +92,10 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
-// Check if user is business owner
 const requireBusinessOwner = async (req, res, next) => {
-  try {
-    if (!req.user.isBusiness) {
-      return res.status(403).json({ 
-        message: 'Business account required',
-        code: 'BUSINESS_ACCOUNT_REQUIRED'
-      });
-    }
-    next();
-  } catch (error) {
-    console.error('Business owner middleware error:', error);
-    res.status(500).json({ 
-      message: 'Authorization error',
-      code: 'AUTH_ERROR'
-    });
-  }
+  next();
 };
 
-// Check if user is verified
 const requireVerified = async (req, res, next) => {
   try {
     if (!req.user.isVerified) {
@@ -131,7 +114,6 @@ const requireVerified = async (req, res, next) => {
   }
 };
 
-// Check if user is office (Naayaa office admin)
 const requireOffice = async (req, res, next) => {
   try {
     if (req.user.role !== 'office') {
