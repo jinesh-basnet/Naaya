@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { FestivalProvider } from './contexts/FestivalContext';
 import { CreatePostProvider } from './contexts/CreatePostContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -50,7 +51,9 @@ function AppContent() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <InnerApp />
+      <CreatePostProvider>
+        <InnerApp />
+      </CreatePostProvider>
     </Router>
   );
 }
@@ -62,6 +65,7 @@ function InnerApp() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -81,14 +85,36 @@ function InnerApp() {
 
   const mainStyle = {
     flexGrow: 1,
-    padding: '76px 16px 80px', // padding-top for TopHeader (60px + 16px), padding-bottom for BottomNavigation
-    marginLeft: showNav && isDesktop && sidebarOpen ? 280 : 0,
+    padding: '76px 16px 80px', 
+    marginLeft: showNav && isDesktop && sidebarOpen ? (isCollapsed ? 70 : 280) : 0,
   };
+
+  const logoLeft = showNav && isDesktop && sidebarOpen ? (isCollapsed ? 70 : 280) : 0;
 
   return (
     <div className="App" style={{ display: 'flex', minHeight: '100vh' }}>
       {showNav && <TopHeader isMobile={isMobile} drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
-      {showNav && isDesktop && sidebarOpen && <Navbar setSidebarOpen={setSidebarOpen} />}
+      {showNav && isDesktop && sidebarOpen && <Navbar setSidebarOpen={setSidebarOpen} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />}
+      {showNav && isDesktop && (
+        <img
+          src="/logo.png"
+          alt="Naaya Logo"
+          style={{
+            position: 'fixed',
+            top: 16,
+            left: `${logoLeft}px`,
+            width: 50,
+            height: 50,
+            transition: 'left 0.3s ease',
+            zIndex: 1100,
+            cursor: 'pointer',
+          }}
+          onClick={() => window.location.assign('/home')}
+          role="button"
+          tabIndex={0}
+          aria-label="Naaya logo, go to home"
+        />
+      )}
       {showNav && isMobile && <BottomNavigation isMobile={isMobile} drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />}
       <main style={mainStyle}>
         <Toaster
@@ -111,14 +137,13 @@ function InnerApp() {
             </ProtectedRoute>
           }
         />
-        // public Routes
+        {/* public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-        // Protected Routes
+        {/* Protected Routes */}
         <Route
           path="/messages"
           element={
@@ -151,7 +176,6 @@ function InnerApp() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/explore"
           element={
@@ -214,9 +238,9 @@ function App() {
         <AuthProvider>
           <SocketProvider>
             <FestivalProvider>
-              <CreatePostProvider>
+              <ThemeProvider>
                 <AppContent />
-              </CreatePostProvider>
+              </ThemeProvider>
             </FestivalProvider>
           </SocketProvider>
         </AuthProvider>
