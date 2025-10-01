@@ -1,0 +1,106 @@
+.search-page {
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-page h1 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.search-page input {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.tabs {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: #f0f0f0;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.tabs button.active {
+  background: #007bff;
+  color: white;
+}
+
+.search-results {
+  list-style: none;
+  padding: 0;
+}
+
+.user-result, .post-result {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.user-result img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.user-result div {
+  flex: 1;
+}
+
+.user-result strong {
+  display: block;
+}
+
+.user-result p {
+  margin: 5px 0 0 0;
+  color: #666;
+}
+
+.follow-button {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.follow-button.not-following {
+  background: #007bff;
+  color: white;
+}
+
+.follow-button.following {
+  background: #28a745;
+  color: white;
+}
+
+.follow-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.post-result p {
+  margin: 0;
+}
+
+.post-result small {
+  color: #666;
+}
+
+.error {
+  color: red;
+}
