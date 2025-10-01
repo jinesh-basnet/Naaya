@@ -11,15 +11,11 @@ cloudinary.config({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image and video files are allowed!'), false);
-  }
+  cb(null, true);
 };
 
 let storage;
-if (false) { 
+if (false) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -37,18 +33,17 @@ if (false) {
     }
   });
 } else {
-  const uploadsPath = path.join(__dirname, '..', 'uploads');
-  fs.mkdirSync(uploadsPath, { recursive: true });
-  const multerStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, uploadsPath);
-    },
+  const uploadDir = path.join(__dirname, '..', 'uploads');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  storage = multer.diskStorage({
+    destination: uploadDir,
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+      const filename = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+      cb(null, filename);
     }
   });
-  storage = multerStorage;
 }
 
 const upload = multer({

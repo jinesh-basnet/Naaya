@@ -10,7 +10,7 @@ const path = require('path');
 
 const app = express();
 
-app.set('trust proxy', true);
+app.set('trust proxy', false);
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -18,9 +18,12 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
-      imgSrc: process.env.NODE_ENV === 'production' 
-        ? ["'self'", "data:", "https:"] 
+      imgSrc: process.env.NODE_ENV === 'production'
+        ? ["'self'", "data:", "https:"]
         : ["'self'", "data:", "https:", "http://localhost:5000"],
+      mediaSrc: process.env.NODE_ENV === 'production'
+        ? ["'self'", "https:"]
+        : ["'self'", "https:", "http://localhost:5000"],
     },
   },
   crossOriginResourcePolicy: { policy: 'cross-origin' }
@@ -30,7 +33,7 @@ app.use(compression());
 
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000'];
+    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://192.168.101.2:3000'];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -91,7 +94,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, path) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); 
   }
 }));
 
@@ -162,6 +165,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/posts', require('./routes/posts/index'));
+app.use('/api/feed', require('./routes/feed'));
 app.use('/api/stories', require('./routes/stories'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/messages', require('./routes/messages'));
@@ -248,10 +252,8 @@ app.use('*', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-// Start server function
 const startServer = async () => {
   try {
-    // Validate environment
     validateEnvironment();
 
     await connectWithRetry();
@@ -264,7 +266,7 @@ const startServer = async () => {
 
     const io = require('socket.io')(server, {
       cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:3000',
+        origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://192.168.101.2:3000'],
         methods: ["GET", "POST"],
         credentials: true
       },
@@ -320,6 +322,8 @@ const startServer = async () => {
         console.error('📱 Socket connection error:', error);
       });
     });
+
+    global.io = io;
 
     try {
       const NotificationService = require('./services/notificationService');

@@ -1,0 +1,75 @@
+const express = require('express');
+const Post = require('../models/Post');
+const Reel = require('../models/Reel');
+const User = require('../models/User');
+const { authenticateToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+// @route   GET /api/feed/simple
+// @desc    Get simple combined feed of posts and reels
+// @access  Private
+router.get('/simple', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const userId = req.user._id;
+    const user = await User.findById(userId).populate('following');
+
+    const posts = await Post.find({
+      author: { $in: [...user.following.map(f => f._id), userId] },
+      isDeleted: false,
+      isArchived: false
+    })
+    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+    .lean();
+
+    const reels = await Reel.find({
+      author: { $in: [...user.following.map(f => f._id), userId] },
+      isDeleted: false,
+      isArchived: false
+    })
+    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+    .lean();
+
+    const reelsWithFlag = reels.map(reel => ({
+      ...reel,
+      isReel: true,
+      likesCount: reel.likes.length,
+      commentsCount: reel.comments.length,
+      sharesCount: reel.shares.length,
+      savesCount: reel.saves.length,
+      viewsCount: reel.views.length
+    }));
+
+    const combinedFeed = [
+      ...posts.map(post => ({ ...post, isReel: false })),
+      ...reelsWithFlag
+    ];
+
+    combinedFeed.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedFeed = combinedFeed.slice(startIndex, endIndex);
+
+    res.json({
+      message: 'Combined feed retrieved successfully',
+      posts: paginatedFeed,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: combinedFeed.length
+      },
+      feedType: 'combined'
+    });
+
+  } catch (error) {
+    console.error('Get combined feed error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving combined feed',
+      code: 'COMBINED_FEED_ERROR'
+    });
+  }
+});
+
+module.exports = router;

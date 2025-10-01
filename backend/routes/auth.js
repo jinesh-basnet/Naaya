@@ -7,7 +7,6 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Generate JWT token
 const generateToken = (userId) => {
   return jwt.sign(
     { userId },
@@ -46,7 +45,6 @@ router.post('/register', [
 
     const { username, email, password, fullName, phone, location, languagePreference } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({
       $or: [{ email }, { username }, ...(phone ? [{ phone }] : [])]
     });
@@ -62,7 +60,6 @@ router.post('/register', [
       });
     }
 
-    // Create new user
     const user = new User({
       username,
       email,
@@ -75,10 +72,8 @@ router.post('/register', [
 
     await user.save();
 
-    // Generate token
     const token = generateToken(user._id);
 
-    // Return user data (without password)
     const userData = user.getPublicProfile();
 
     res.status(201).json({
@@ -118,7 +113,6 @@ router.post('/login', [
 
     const { identifier, password } = req.body;
 
-    // Find user by email, username, or phone
     const user = await User.findOne({
       $or: [
         { email: identifier },
@@ -134,7 +128,6 @@ router.post('/login', [
       });
     }
 
-    // Check if account is active
     if (!user.isActive) {
       return res.status(401).json({
         message: 'Account is deactivated',
@@ -142,7 +135,6 @@ router.post('/login', [
       });
     }
 
-    // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -151,14 +143,11 @@ router.post('/login', [
       });
     }
 
-    // Update last active
     user.lastActive = new Date();
     await user.save();
 
-    // Generate token
     const token = generateToken(user._id);
 
-    // Return user data (without password)
     const userData = user.getPublicProfile();
 
     res.json({
@@ -191,6 +180,87 @@ router.get('/me', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error retrieving user data',
       code: 'USER_DATA_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/auth/send-verification
+// @desc    Send email verification
+// @access  Private
+router.post('/send-verification', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (user.isVerified) {
+      return res.status(400).json({
+        message: 'Email is already verified',
+        code: 'ALREADY_VERIFIED'
+      });
+    }
+
+    const verificationToken = user.generateEmailVerificationToken();
+    await user.save();
+
+    res.json({
+      message: 'Verification email sent',
+      verificationUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
+    });
+
+  } catch (error) {
+    console.error('Send verification error:', error);
+    res.status(500).json({
+      message: 'Server error sending verification',
+      code: 'SEND_VERIFICATION_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/auth/verify-email
+// @desc    Verify email with token
+// @access  Public
+router.post('/verify-email', [
+  body('token').notEmpty().withMessage('Verification token is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { token } = req.body;
+
+    const crypto = require('crypto');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: 'Invalid or expired verification token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+
+    user.isVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    res.json({
+      message: 'Email verified successfully'
+    });
+
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({
+      message: 'Server error verifying email',
+      code: 'VERIFY_EMAIL_ERROR'
     });
   }
 });
