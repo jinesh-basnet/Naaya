@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer');
-const telerivet = require('telerivet');
 
 // Email service configuration
 const createTransporter = async () => {
@@ -34,26 +33,7 @@ const createTransporter = async () => {
   }
 };
 
-// Telerivet configuration
-const apiKey = process.env.TELERIVET_API_KEY;
-const projectId = process.env.TELERIVET_PROJECT_ID;
-const fromPhoneNumber = process.env.TELERIVET_PHONE_ID;
 
-const tr = apiKey && projectId ? new telerivet.API({ apiKey: apiKey }) : null;
-const project = tr ? tr.initProjectById(projectId) : null;
-
-// Helper function to promisify Telerivet sendMessage
-const sendMessagePromise = (options) => {
-  return new Promise((resolve, reject) => {
-    project.sendMessage(options, (err, message) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(message);
-      }
-    });
-  });
-};
 
 // Email Templates
 const emailTemplates = {
@@ -196,18 +176,7 @@ const emailTemplates = {
   }
 };
 
-// SMS Templates
-const smsTemplates = {
-  passwordReset: (resetToken, userName = 'User') => {
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3001'}/reset-password?token=${resetToken}`;
-    return `Naaya Password Reset\n\nHello ${userName},\n\nWe received a request to reset your password. Click the link to reset: ${resetUrl}\n\nThis link expires in 10 minutes.\n\nIf you didn't request this, ignore this message.`;
-  },
 
-  verification: (verificationToken, userName = 'User') => {
-    const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3001'}/verify-phone?token=${verificationToken}`;
-    return `Naaya Phone Verification\n\nHello ${userName},\n\nVerify your phone number: ${verificationUrl}\n\nThis link expires in 24 hours.`;
-  }
-};
 
 // Send password reset email
 const sendPasswordResetEmail = async (email, resetToken, userName = 'User') => {
@@ -253,54 +222,6 @@ const sendEmailVerificationEmail = async (email, verificationToken, userName = '
   }
 };
 
-// Send password reset SMS
-const sendPasswordResetSMS = async (phone, resetToken, userName = 'User') => {
-  try {
-    if (!project) {
-      console.error('Telerivet not configured');
-      return { success: false, error: 'SMS service not configured' };
-    }
-
-    const message = smsTemplates.passwordReset(resetToken, userName);
-
-    const result = await sendMessagePromise({
-      to_number: phone,
-      content: message,
-      from_number: fromPhoneNumber
-    });
-
-    return { success: true, messageId: result.id };
-
-  } catch (error) {
-    console.error('Error sending password reset SMS:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Send SMS verification
-const sendSMSVerification = async (phone, verificationToken, userName = 'User') => {
-  try {
-    if (!project) {
-      console.error('Telerivet not configured');
-      return { success: false, error: 'SMS service not configured' };
-    }
-
-    const message = smsTemplates.verification(verificationToken, userName);
-
-    const result = await sendMessagePromise({
-      to_number: phone,
-      content: message,
-      from_number: fromPhoneNumber
-    });
-
-    return { success: true, messageId: result.id };
-
-  } catch (error) {
-    console.error('Error sending SMS verification:', error);
-    return { success: false, error: error.message };
-  }
-};
-
 // Send notification email
 const sendNotificationEmail = async (email, subject, content, userName = 'User') => {
   try {
@@ -322,40 +243,12 @@ const sendNotificationEmail = async (email, subject, content, userName = 'User')
   }
 };
 
-// Send custom SMS
-const sendCustomSMS = async (phone, message) => {
-  try {
-    if (!project) {
-      console.error('Telerivet not configured');
-      return { success: false, error: 'SMS service not configured' };
-    }
-
-    const result = await sendMessagePromise({
-      to_number: phone,
-      content: message,
-      from_number: fromPhoneNumber
-    });
-
-    return { success: true, messageId: result.id };
-
-  } catch (error) {
-    console.error('Error sending custom SMS:', error);
-    return { success: false, error: error.message };
-  }
-};
-
 module.exports = {
   // Email functions
   sendPasswordResetEmail,
   sendEmailVerificationEmail,
   sendNotificationEmail,
 
-  // SMS functions
-  sendPasswordResetSMS,
-  sendSMSVerification,
-  sendCustomSMS,
-
   // Utility functions
-  emailTemplates,
-  smsTemplates
+  emailTemplates
 };

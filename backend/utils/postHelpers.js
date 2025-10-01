@@ -36,64 +36,7 @@ function countTotalComments(comments) {
   return count;
 }
 
-/**
- * Helper function to validate post content
- * @param {Object} data - Post data to validate
- * @returns {Object} - Validation result with isValid boolean and errors array
- */
-function validatePostData(data) {
-  const errors = [];
-
-  if (data.content && data.content.length > 2200) {
-    errors.push('Content must be less than 2200 characters');
-  }
-
-  if (data.caption && data.caption.length > 2200) {
-    errors.push('Caption must be less than 2200 characters');
-  }
-
-  if (!data.content && (!data.media || data.media.length === 0)) {
-    errors.push('Post must have either content or media');
-  }
-
-  if (data.tags && data.tags.length > 50) {
-    errors.push('Cannot have more than 50 tags');
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
-}
-
-/**
- * Helper function to process uploaded media files
- * @param {Array} files - Array of uploaded files
- * @param {Object} req - Request object for host/protocol info
- * @returns {Array} - Processed media array
- */
-function processMediaFiles(files, req) {
-  if (!files || files.length === 0) return [];
-
-  const path = require('path');
-
-  return files.map(file => {
-    if (!file.mimetype || !file.path) {
-      throw new Error('Invalid file data');
-    }
-    return {
-      type: file.mimetype.startsWith('image/') ? 'image' : 'video',
-      url: `${req.protocol}://${req.get('host')}/uploads/${path.basename(file.path)}`,
-      size: file.size || 0,
-      width: file.width || 0,
-      height: file.height || 0
-    };
-  });
-}
-
 module.exports = {
   findCommentById,
-  countTotalComments,
-  validatePostData,
-  processMediaFiles
+  countTotalComments
 };

@@ -6,7 +6,6 @@ const { uploadMultiple } = require('../../middleware/upload');
 const { body, validationResult } = require('express-validator');
 const { authenticateToken } = require('../../middleware/auth');
 const Post = require('../../models/Post');
-const { findCommentById, countTotalComments, validatePostData, processMediaFiles } = require('../../utils/postHelpers');
 
 const router = express.Router();
 
