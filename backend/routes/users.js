@@ -19,9 +19,15 @@ router.get('/profile/:username', optionalAuth, async (req, res) => {
       });
     }
 
+    const profile = user.toObject();
+
+    if (req.user) {
+      profile.isFollowing = user.followers.some(id => id.equals(req.user._id));
+    }
+
     res.json({
       message: 'User profile retrieved successfully',
-      user
+      user: profile
     });
 
   } catch (error) {
@@ -187,7 +193,7 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       });
     }
 
-    if (userToFollow.followers.includes(currentUserId)) {
+    if (userToFollow.followers.some(id => id.equals(currentUserId))) {
       return res.status(400).json({
         message: 'You are already following this user',
         code: 'ALREADY_FOLLOWING'
@@ -199,6 +205,32 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
 
     await userToFollow.save();
     await currentUser.save();
+
+    global.io.to(`user:${userIdToFollow}`).emit('user_followed', {
+      follower: {
+        _id: currentUserId,
+        username: currentUser.username,
+        fullName: currentUser.fullName,
+        profilePicture: currentUser.profilePicture
+      },
+      followed: {
+        _id: userIdToFollow,
+        followersCount: userToFollow.followers.length
+      }
+    });
+
+    global.io.to(`user:${currentUserId}`).emit('user_followed', {
+      follower: {
+        _id: currentUserId,
+        username: currentUser.username,
+        fullName: currentUser.fullName,
+        profilePicture: currentUser.profilePicture
+      },
+      followed: {
+        _id: userIdToFollow,
+        followersCount: userToFollow.followers.length
+      }
+    });
 
     try {
       await global.notificationService.createFollowNotification(currentUserId, userIdToFollow);
@@ -244,7 +276,7 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!userToUnfollow.followers.includes(currentUserId)) {
+    if (!userToUnfollow.followers.some(id => id.equals(currentUserId))) {
       return res.status(400).json({
         message: 'You are not following this user',
         code: 'NOT_FOLLOWING'
@@ -257,6 +289,32 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
     await userToUnfollow.save();
     await currentUser.save();
 
+    global.io.to(`user:${userIdToUnfollow}`).emit('user_unfollowed', {
+      unfollower: {
+        _id: currentUserId,
+        username: currentUser.username,
+        fullName: currentUser.fullName,
+        profilePicture: currentUser.profilePicture
+      },
+      unfollowed: {
+        _id: userIdToUnfollow,
+        followersCount: userToUnfollow.followers.length
+      }
+    });
+
+    global.io.to(`user:${currentUserId}`).emit('user_unfollowed', {
+      unfollower: {
+        _id: currentUserId,
+        username: currentUser.username,
+        fullName: currentUser.fullName,
+        profilePicture: currentUser.profilePicture
+      },
+      unfollowed: {
+        _id: userIdToUnfollow,
+        followersCount: userToUnfollow.followers.length
+      }
+    });
+
     res.json({
       message: 'User unfollowed successfully'
     });
@@ -266,6 +324,170 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error unfollowing user',
       code: 'UNFOLLOW_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/users/search
+// @desc    Search users by username or fullName
+// @access  Private
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const { q: query, page = 1, limit = 20 } = req.query;
+
+    if (!query || query.trim().length < 2) {
+      return res.status(400).json({
+        message: 'Search query must be at least 2 characters long',
+        code: 'INVALID_SEARCH_QUERY'
+      });
+    }
+
+    const searchRegex = new RegExp(query.trim(), 'i');
+
+    const users = await User.find({
+      $or: [
+        { username: { $regex: searchRegex } },
+        { fullName: { $regex: searchRegex } }
+      ],
+      isDeleted: false
+    })
+    .select('username fullName profilePicture isVerified bio location followers')
+    .limit(limit * 1)
+    .skip((page - 1) * limit)
+    .sort({ followers: -1, createdAt: -1 }); // Sort by popularity and recency
+
+    const total = await User.countDocuments({
+      $or: [
+        { username: { $regex: searchRegex } },
+        { fullName: { $regex: searchRegex } }
+      ],
+      isDeleted: false
+    });
+
+    const usersWithFollowStatus = users.map(user => {
+      const userObj = user.toObject();
+      if (req.user) {
+        userObj.isFollowing = user.followers.includes(req.user._id);
+      }
+      return userObj;
+    });
+
+    res.json({
+      message: 'Users searched successfully',
+      users: usersWithFollowStatus,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({
+      message: 'Server error searching users',
+      code: 'SEARCH_USERS_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/users/followers/:username
+// @desc    Get followers of a user
+// @access  Private
+router.get('/followers/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const user = await User.findOne({ username }).select('followers');
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const followers = await User.find({ _id: { $in: user.followers } })
+      .select('username fullName profilePicture isVerified bio')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+
+    const followersWithFollowStatus = await Promise.all(
+      followers.map(async (follower) => {
+        const followerObj = follower.toObject();
+        followerObj.isFollowing = follower.followers.includes(req.user._id);
+        return followerObj;
+      })
+    );
+
+    res.json({
+      message: 'Followers retrieved successfully',
+      users: followersWithFollowStatus,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: user.followers.length,
+        pages: Math.ceil(user.followers.length / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get followers error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving followers',
+      code: 'FOLLOWERS_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/users/following/:username
+// @desc    Get users followed by a user
+// @access  Private
+router.get('/following/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const user = await User.findOne({ username }).select('following');
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const following = await User.find({ _id: { $in: user.following } })
+      .select('username fullName profilePicture isVerified bio')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+
+    const followingWithFollowStatus = await Promise.all(
+      following.map(async (followedUser) => {
+        const followedObj = followedUser.toObject();
+        followedObj.isFollowing = followedUser.followers.includes(req.user._id);
+        return followedObj;
+      })
+    );
+
+    res.json({
+      message: 'Following retrieved successfully',
+      users: followingWithFollowStatus,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: user.following.length,
+        pages: Math.ceil(user.following.length / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get following error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving following',
+      code: 'FOLLOWING_ERROR'
     });
   }
 });

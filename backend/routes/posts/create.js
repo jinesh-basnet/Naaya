@@ -121,7 +121,6 @@ router.post('/', authenticateToken, uploadMultiple('media'), [
       });
     }
 
-    // Additional debug logs for postData
     console.log('postData before saving:', postData);
 
     const post = new Post(postData);

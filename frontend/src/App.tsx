@@ -28,6 +28,7 @@ import ReelsPage from './pages/ReelsPage';
 import ExplorePage from './pages/ExplorePage';
 import SearchPage from './pages/SearchPage';
 import ProfilePage from './pages/ProfilePage';
+import FollowListPage from './pages/FollowListPage';
 import SettingsPage from './pages/SettingsPage';
 
 // Components
@@ -197,6 +198,22 @@ function InnerApp() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:username/followers"
+          element={
+            <ProtectedRoute>
+              <FollowListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:username/following"
+          element={
+            <ProtectedRoute>
+              <FollowListPage />
             </ProtectedRoute>
           }
         />
