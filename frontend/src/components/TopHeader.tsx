@@ -1,5 +1,5 @@
 import React from 'react';
-import { MdAdd, MdFavoriteBorder, MdSend } from 'react-icons/md';
+import { MdAdd, MdFavoriteBorder, MdSend, MdSearch } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import { useCreatePost } from '../contexts/CreatePostContext';
 
@@ -99,6 +99,13 @@ const TopHeader: React.FC<TopHeaderProps> = ({
           }}
           aria-label="Primary navigation"
         >
+          <button
+            aria-label="Search"
+            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            onClick={() => navigate('/search')}
+          >
+            <MdSearch size={24} />
+          </button>
           <button
             aria-label="Create post"
             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
