@@ -14,12 +14,10 @@ const storySchema = new mongoose.Schema({
   media: {
     type: {
       type: String,
-      enum: ['image', 'video'],
-      required: true
+      enum: ['image', 'video']
     },
     url: {
-      type: String,
-      required: true
+      type: String
     },
     thumbnail: String,
     duration: Number,

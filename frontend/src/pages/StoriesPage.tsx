@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MdAdd, MdClose } from 'react-icons/md';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import './StoriesPage.css';
@@ -38,6 +39,7 @@ interface Story {
 }
 
 const StoriesPage: React.FC = () => {
+  const navigate = useNavigate();
   const [stories, setStories] = useState<Story[]>([]);
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
@@ -47,7 +49,6 @@ const StoriesPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch stories feed
   const { data, isLoading } = useQuery({
     queryKey: ['storiesFeed'],
     queryFn: () => storiesAPI.getStoriesFeed(),
@@ -59,7 +60,6 @@ const StoriesPage: React.FC = () => {
     }
   }, [data]);
 
-  // Create story mutation
   const createStoryMutation = useMutation({
     mutationFn: (storyData: any) => storiesAPI.createStory(storyData),
     onSuccess: () => {
@@ -85,14 +85,12 @@ const StoriesPage: React.FC = () => {
     try {
       let mediaObject = null;
       if (newStoryMedia) {
-        // Upload media first
         const formData = new FormData();
         formData.append('media', newStoryMedia);
         const uploadResponse = await storiesAPI.uploadStoryMedia(formData);
         mediaObject = uploadResponse.data.media;
       }
 
-      // Create story with media object
       const storyData = {
         content: newStoryContent,
         media: mediaObject
@@ -144,7 +142,7 @@ const StoriesPage: React.FC = () => {
                     className="story-avatar"
                     onError={(e) => { e.currentTarget.src = '/default-avatar.png'; }}
                   />
-                  <h3 className="story-author-name">{safeRender(story.author.fullName)}</h3>
+                  <h3 className="story-author-name" onClick={() => navigate(`/profile/${story.author.username}`)} style={{ cursor: 'pointer' }}>{safeRender(story.author.fullName)}</h3>
                   <p className="story-username">@{story.author.username}</p>
                 </div>
               </div>
@@ -186,7 +184,6 @@ const StoriesPage: React.FC = () => {
           </div>
         )}
 
-        {/* Story View Modal */}
         {openViewModal && (
           <div className="modal-overlay" onClick={() => setOpenViewModal(false)}>
             <div className="modal-content story-view-modal" onClick={(e) => e.stopPropagation()}>
@@ -199,7 +196,7 @@ const StoriesPage: React.FC = () => {
                     onError={(e) => { e.currentTarget.src = '/default-avatar.png'; }}
                   />
                   <div className="story-view-author-info">
-                    <h3>{safeRender(stories[currentStoryIndex]?.author.fullName)}</h3>
+                  <h3 onClick={() => navigate(`/profile/${stories[currentStoryIndex]?.author.username}`)} style={{ cursor: 'pointer' }}>{safeRender(stories[currentStoryIndex]?.author.fullName)}</h3>
                     <p>@{stories[currentStoryIndex]?.author.username}</p>
                   </div>
                 </div>
@@ -232,14 +229,12 @@ const StoriesPage: React.FC = () => {
                   </p>
                 )}
 
-                {/* Display location as string */}
                 {stories[currentStoryIndex]?.location && (
                   <p className="story-location">
                     {formatLocation(stories[currentStoryIndex].location)}
                   </p>
                 )}
 
-                {/* Navigation arrows */}
                 {stories.length > 1 && (
                   <>
                     <button className="nav-button nav-prev" onClick={handlePrevStory}>
