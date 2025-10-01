@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+ import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MdAdd, MdClose } from 'react-icons/md';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +11,7 @@ import './StoriesBar.css';
 
 const StoriesBar: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
@@ -61,7 +63,15 @@ const StoriesBar: React.FC = () => {
     }
   };
 
-  const handleViewStory = (storyIndex: number) => {
+  const handleViewStory = async (storyIndex: number) => {
+    const story = displayStories[storyIndex];
+    if (story && story._id) {
+      try {
+        await storiesAPI.getStory(story._id);
+      } catch (error) {
+        console.error('Error marking story as viewed:', error);
+      }
+    }
     setCurrentStoryIndex(storyIndex);
     setOpenViewModal(true);
   };
@@ -171,7 +181,16 @@ const StoriesBar: React.FC = () => {
                   className="view-story-avatar"
                 />
                 <div className="view-story-author-info">
-                  <h3>{safeRender(displayStories[currentStoryIndex]?.author?.fullName)}</h3>
+                  <h3
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                      if (displayStories[currentStoryIndex]?.author?._id !== user?._id) {
+                        navigate(`/profile/${displayStories[currentStoryIndex]?.author?.username}`);
+                      }
+                    }}
+                  >
+                    {safeRender(displayStories[currentStoryIndex]?.author?.fullName)}
+                  </h3>
                   <p>@{displayStories[currentStoryIndex]?.author?.username}</p>
                 </div>
               </div>
