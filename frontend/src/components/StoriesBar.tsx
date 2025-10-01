@@ -47,10 +47,12 @@ const StoriesBar: React.FC = () => {
         mediaObject = uploadResponse.data.media;
       }
 
-      const storyData = {
-        content: newStoryContent,
-        media: mediaObject
+      const storyData: any = {
+        content: newStoryContent
       };
+      if (mediaObject) {
+        storyData.media = mediaObject;
+      }
       await storiesAPI.createStory(storyData);
       toast.success('Story created successfully');
       setOpenCreateModal(false);
