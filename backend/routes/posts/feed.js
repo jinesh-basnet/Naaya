@@ -1,8 +1,9 @@
 const express = require('express');
 const Post = require('../../models/Post');
+const Reel = require('../../models/Reel');
 const User = require('../../models/User');
 const { authenticateToken } = require('../../middleware/auth');
-const { generatePersonalizedFeed } = require('../../utils/feedAlgorithm');
+
 const { findCommentById, countTotalComments } = require('../../utils/postHelpers');
 
 const router = express.Router();
@@ -15,9 +16,9 @@ router.get('/', authenticateToken, async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const userId = req.user._id;
 
-    // Fetch user's own posts by default
     const posts = await Post.find({
       author: userId,
+      postType: 'post',
       isDeleted: false,
       isArchived: false
     })
@@ -39,7 +40,15 @@ router.get('/', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get feed error:', error);
+    console.error('Get feed error:', {
+      message: error.message,
+      stack: error.stack,
+      userId: req.user ? req.user._id : 'unknown',
+      query: req.query,
+      feedType: feedType,
+      page: page,
+      limit: limit
+    });
     res.status(500).json({
       message: 'Server error retrieving feed',
       code: 'FEED_ERROR'
@@ -54,14 +63,24 @@ router.get('/feed', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20, feedType = 'fyp' } = req.query;
     const userId = req.user._id;
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).populate('following');
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
 
     let posts = [];
 
     if (feedType === 'following') {
-      // Following feed - chronological posts from followed users and own posts
+      const followingIds = user.following ? user.following.map(f => f._id || f) : [];
+      const authorIds = [...followingIds, userId];
+
       posts = await Post.find({
-        author: { $in: [...user.following, userId] },
+        author: { $in: authorIds },
+        postType: 'post',
         isDeleted: false,
         isArchived: false
       })
@@ -72,12 +91,33 @@ router.get('/feed', authenticateToken, async (req, res) => {
       .skip((page - 1) * limit);
 
     } else if (feedType === 'fyp') {
-      // For You Page - algorithmically curated using advanced algorithm
-      posts = await generatePersonalizedFeed(userId, parseInt(page), parseInt(limit));
+      console.log(`[DEBUG] FYP feed requested for user ${userId}, page ${page}, limit ${limit}`);
+
+      try {
+        posts = await Post.find({
+          postType: 'post',
+          isDeleted: false,
+          isArchived: false,
+          visibility: 'public'
+        })
+        .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+        .lean()
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
+
+        console.log(`[DEBUG] FYP posts returned: ${posts.length}`);
+      } catch (queryError) {
+        console.error('[DEBUG] FYP query error:', {
+          message: queryError.message,
+          stack: queryError.stack
+        });
+        throw queryError; 
+      }
 
     } else if (feedType === 'nearby') {
-      // Nearby feed - posts from users in the same area
       posts = await Post.find({
+        postType: 'post',
         isDeleted: false,
         isArchived: false,
         'location.city': user.location.city
@@ -88,14 +128,22 @@ router.get('/feed', authenticateToken, async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
     } else if (feedType === 'explore') {
-      // Explore feed - algorithmically curated content for discovery
-      posts = await generatePersonalizedFeed(userId, parseInt(page), parseInt(limit));
+      posts = await Post.find({
+        postType: 'post',
+        isDeleted: false,
+        isArchived: false,
+        visibility: 'public'
+      })
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .lean()
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
     } else if (feedType === 'trending') {
-      // Trending feed - posts with most engagement in recent time
       posts = await Post.find({
         isDeleted: false,
         isArchived: false,
-        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // last 7 days
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } 
       })
       .populate('author', 'username fullName profilePicture isVerified location languagePreference')
       .lean()
