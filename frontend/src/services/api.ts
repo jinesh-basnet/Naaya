@@ -9,10 +9,8 @@ export const api = axios.create({
   },
 });
 
-// Fallback in-memory storage for when localStorage is not available
 const memoryStorage: { [key: string]: string | null } = {};
 
-// Check if localStorage is available
 const isLocalStorageAvailable = () => {
   try {
     const test = '__localStorage_test__';
@@ -24,7 +22,6 @@ const isLocalStorageAvailable = () => {
   }
 };
 
-// Get token from storage (localStorage or fallback)
 const getStoredToken = () => {
   const localStorageAvailable = isLocalStorageAvailable();
 
@@ -35,7 +32,6 @@ const getStoredToken = () => {
   }
 };
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = getStoredToken();
@@ -49,12 +45,10 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
@@ -62,7 +56,6 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API
 export const authAPI = {
   login: (identifier: string, password: string) =>
     api.post('/auth/login', { identifier, password }),
@@ -80,19 +73,19 @@ export const authAPI = {
     api.post('/auth/logout'),
 };
 
-// Posts API
 export const postsAPI = {
   createPost: (postData: any) => {
     if (postData instanceof FormData) {
-      return api.post('/posts', postData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      return api.post('/posts', postData);
     }
     return api.post('/posts', postData);
   },
-  
+
   getFeed: (feedType: string = 'fyp', page: number = 1, limit: number = 10) =>
     api.get(`/posts/feed?feedType=${feedType}&page=${page}&limit=${limit}`),
+
+  getCombinedFeed: (page: number = 1, limit: number = 20) =>
+    api.get(`/feed/simple?page=${page}&limit=${limit}`),
   
   getPost: (postId: string) =>
     api.get(`/posts/${postId}`),
@@ -106,17 +99,26 @@ export const postsAPI = {
   addComment: (postId: string, content: string) =>
     api.post(`/posts/${postId}/comment`, { content }),
   
+  updatePost: (postId: string, postData: any) => {
+    if (postData instanceof FormData) {
+      return api.put(`/posts/${postId}`, postData);
+    }
+    return api.put(`/posts/${postId}`, postData);
+  },
+
   deletePost: (postId: string) =>
     api.delete(`/posts/${postId}`),
   
   getUserPosts: (username: string, page: number = 1, limit: number = 10) =>
     api.get(`/posts/user/${username}?page=${page}&limit=${limit}`),
-  
+
+  getUserBookmarks: (page: number = 1, limit: number = 10) =>
+    api.get(`/posts/saved?page=${page}&limit=${limit}`),
+
   searchPosts: (query: string, page: number = 1, limit: number = 20) =>
     api.get(`/posts/search?q=${query}&page=${page}&limit=${limit}`),
 };
 
-// Users API
 export const usersAPI = {
   getProfile: (username: string) =>
     api.get(`/users/profile/${username}`),
@@ -125,16 +127,16 @@ export const usersAPI = {
     api.put('/users/profile', userData),
   
   followUser: (userId: string) =>
-    api.post(`/users/follow/${userId}`),
-  
+    api.post(`/users/${userId}/follow`),
+
   unfollowUser: (userId: string) =>
-    api.post(`/users/unfollow/${userId}`),
+    api.post(`/users/${userId}/unfollow`),
   
-  getFollowers: (userId: string, page: number = 1, limit: number = 20) =>
-    api.get(`/users/followers/${userId}?page=${page}&limit=${limit}`),
-  
-  getFollowing: (userId: string, page: number = 1, limit: number = 20) =>
-    api.get(`/users/following/${userId}?page=${page}&limit=${limit}`),
+  getFollowers: (username: string, page: number = 1, limit: number = 20) =>
+    api.get(`/users/followers/${username}?page=${page}&limit=${limit}`),
+
+  getFollowing: (username: string, page: number = 1, limit: number = 20) =>
+    api.get(`/users/following/${username}?page=${page}&limit=${limit}`),
   
   getSuggestions: (limit: number = 10) =>
     api.get(`/users/suggestions?limit=${limit}`),
@@ -146,7 +148,6 @@ export const usersAPI = {
     api.put('/users/privacy', { privacySettings }),
 };
 
-// Stories API
 export const storiesAPI = {
   uploadStoryMedia: (formData: FormData) =>
     api.post('/stories/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
@@ -182,7 +183,6 @@ export const storiesAPI = {
     api.post(`/stories/${storyId}/vote`, { option }),
 };
 
-// Messages API
 export const messagesAPI = {
   sendMessage: (messageData: any) =>
     api.post('/messages', messageData),
@@ -212,7 +212,6 @@ export const messagesAPI = {
     api.post(`/messages/${messageId}/forward`, { receiver }),
 };
 
-// Reels API
 export const reelsAPI = {
   createReel: (formData: FormData) =>
     api.post('/reels', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
@@ -231,9 +230,11 @@ export const reelsAPI = {
 
   saveReel: (reelId: string) =>
     api.post(`/reels/${reelId}/save`),
+
+  getUserReels: (userId: string, page: number = 1, limit: number = 10) =>
+    api.get(`/reels/user/${userId}?page=${page}&limit=${limit}`),
 };
 
-// Bookmark Collections API
 export const bookmarkCollectionsAPI = {
   getCollections: () =>
     api.get('/bookmark-collections'),

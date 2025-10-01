@@ -1,14 +1,38 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { uploadSingle } = require('../middleware/upload');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
-const { generatePersonalizedFeed, updateInteractionHistory } = require('../utils/feedAlgorithm');
+
 
 const router = express.Router();
 
-router.post('/', authenticateToken, uploadSingle('video'), [
+router.post('/', authenticateToken, uploadSingle('video'), (req, res, next) => {
+  ['hashtags', 'mentions', 'location', 'audio', 'effects'].forEach(field => {
+    if (req.body[field]) {
+      try {
+        req.body[field] = JSON.parse(req.body[field]);
+      } catch (e) {
+        return res.status(400).json({
+          message: `Invalid ${field} format`,
+          code: `INVALID_${field.toUpperCase()}`
+        });
+      }
+    }
+  });
+
+  if (req.body.brightness) {
+    req.body.brightness = parseInt(req.body.brightness, 10);
+  }
+  if (req.body.contrast) {
+    req.body.contrast = parseInt(req.body.contrast, 10);
+  }
+
+  next();
+}, [
   body('caption').optional().isString().isLength({ max: 2200 }),
   body('hashtags').optional().isArray(),
   body('mentions').optional().isArray(),
@@ -17,13 +41,17 @@ router.post('/', authenticateToken, uploadSingle('video'), [
   body('visibility').optional().isIn(['public', 'followers', 'private']),
   body('audio').optional(),
   body('effects').optional().isArray(),
-  body('filter').optional().isIn(['none', 'sepia', 'grayscale', 'vintage', 'bright', 'contrast', 'warm', 'cool']),
+  body('filter').optional().isIn(['none', 'clarendon', 'gingham', 'moon', 'lark', 'reyes', 'juno', 'slumber', 'crema', 'ludwig', 'aden', 'perpetua', 'sepia', 'grayscale', 'vintage', 'bright', 'contrast', 'warm', 'cool']),
   body('brightness').optional().isInt({ min: -100, max: 100 }),
   body('contrast').optional().isInt({ min: -100, max: 100 })
 ], async (req, res) => {
   try {
+    console.log('Reel creation request body:', req.body);
+    console.log('Reel creation request file:', req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No file');
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('Reel creation validation errors:', errors.array());
       return res.status(400).json({
         message: 'Validation failed',
         errors: errors.array()
@@ -31,91 +59,28 @@ router.post('/', authenticateToken, uploadSingle('video'), [
     }
 
     if (!req.file) {
+      console.error('No video file provided in reel creation');
       return res.status(400).json({
         message: 'Video file is required',
         code: 'VIDEO_REQUIRED'
       });
     }
 
+    const filename = path.basename(req.file.path);
+
     const reelData = {
       ...req.body,
-      author: req.user._id
+      author: req.user._id,
+      video: {
+        url: `/uploads/${filename}`, 
+        publicId: filename,
+        duration: 0,
+        size: req.file.size,
+        width: 0,
+        height: 0,
+        format: path.extname(req.file.originalname).slice(1)
+      }
     };
-
-    reelData.video = {
-      url: `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`, // Absolute URL
-      publicId: req.file.filename, 
-      duration: req.file.duration || 0, 
-      size: req.file.size,
-      width: req.file.width,
-      height: req.file.height,
-      format: req.file.format
-    };
-
-    if (req.body.hashtags) {
-      try {
-        reelData.hashtags = JSON.parse(req.body.hashtags);
-      } catch (e) {
-        return res.status(400).json({
-          message: 'Invalid hashtags format',
-          code: 'INVALID_HASHTAGS'
-        });
-      }
-    }
-
-    if (req.body.mentions) {
-      try {
-        reelData.mentions = JSON.parse(req.body.mentions);
-      } catch (e) {
-        return res.status(400).json({
-          message: 'Invalid mentions format',
-          code: 'INVALID_MENTIONS'
-        });
-      }
-    }
-
-    if (req.body.location) {
-      try {
-        reelData.location = JSON.parse(req.body.location);
-      } catch (e) {
-        return res.status(400).json({
-          message: 'Invalid location format',
-          code: 'INVALID_LOCATION'
-        });
-      }
-    }
-
-    if (req.body.audio) {
-      try {
-        reelData.audio = JSON.parse(req.body.audio);
-      } catch (e) {
-        return res.status(400).json({
-          message: 'Invalid audio format',
-          code: 'INVALID_AUDIO'
-        });
-      }
-    }
-
-    if (req.body.effects) {
-      try {
-        reelData.effects = JSON.parse(req.body.effects);
-      } catch (e) {
-        return res.status(400).json({
-          message: 'Invalid effects format',
-          code: 'INVALID_EFFECTS'
-        });
-      }
-    }
-
-    if (req.body.filter) {
-      reelData.filter = req.body.filter;
-    }
-    if (req.body.brightness) {
-      reelData.brightness = parseInt(req.body.brightness, 10);
-    }
-    if (req.body.contrast) {
-      reelData.contrast = parseInt(req.body.contrast, 10);
-    }
 
     const reel = new Reel(reelData);
     await reel.save();
@@ -142,63 +107,33 @@ router.get('/feed', authenticateToken, async (req, res) => {
     const userId = req.user._id;
     const user = await User.findById(userId).populate('following');
 
-    const userReels = await Reel.find({
-      author: userId,
-      isDeleted: false,
-      isArchived: false
-    })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .sort({ createdAt: -1 })
-    .lean();
+    const followingIds = user.following ? user.following.map(f => f._id) : [];
+    const authorIds = [...followingIds, userId];
 
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const candidateReels = await Reel.find({
-      createdAt: { $gte: thirtyDaysAgo },
-      author: { $ne: userId }, 
+    const allReels = await Reel.find({
+      author: { $in: authorIds },
       isDeleted: false,
-      isArchived: false
+      isArchived: false,
+      'video.url': { $exists: true, $ne: '' }
     })
     .populate('author', 'username fullName profilePicture isVerified location languagePreference')
     .lean()
-    .limit(limit * 5); 
+    .sort({ createdAt: -1 })
+    .limit(limit * 5)
+    .skip((page - 1) * limit);
 
-    const scoredReels = candidateReels.map(reel => {
-      const scoreData = reel.calculateFinalScore(
-        user.location,
-        user.languagePreference,
-        userId,
-        user.following.map(f => f._id)
-      );
+    console.log('Reels feed count:', allReels.length);
 
-      return {
-        reel,
-        score: scoreData
-      };
-    });
+    const finalReels = allReels.map(reel => ({
+      ...reel,
+      likesCount: reel.likes.length,
+      commentsCount: reel.comments.length,
+      sharesCount: reel.shares.length,
+      savesCount: reel.saves.length,
+      viewsCount: reel.views.length
+    }));
 
-    const sortedOtherReels = scoredReels
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit * 2); 
-
-    const allReels = [
-      ...userReels.map(reel => ({ reel, score: 9999 })), 
-      ...sortedOtherReels
-    ];
-
-    const finalReels = allReels
-      .sort((a, b) => b.score - a.score)
-      .slice((page - 1) * limit, page * limit)
-      .map(item => {
-        const reel = item.reel;
-        return {
-          ...reel,
-          likesCount: reel.likes.length,
-          commentsCount: reel.comments.length,
-          sharesCount: reel.shares.length,
-          savesCount: reel.saves.length,
-          viewsCount: reel.views.length
-        };
-      });
+    console.log('Final reels count:', finalReels.length);
 
     res.json({
       message: 'Reels feed retrieved successfully',
@@ -271,10 +206,6 @@ router.post('/:reelId/like', authenticateToken, async (req, res) => {
     const wasLiked = reel.addLike(userId);
     await reel.save();
 
-    if (wasLiked) {
-      await updateInteractionHistory(userId, reel.author._id, 'like');
-    }
-
     res.json({
       message: wasLiked ? 'Reel liked successfully' : 'Reel unliked successfully',
       isLiked: wasLiked,
@@ -317,8 +248,6 @@ router.post('/:reelId/comment', authenticateToken, [
     const comment = reel.addComment(userId, content);
     await reel.save();
 
-    await updateInteractionHistory(userId, reel.author._id, 'comment');
-
     await reel.populate('comments.author', 'username fullName profilePicture');
 
     const newComment = reel.comments[reel.comments.length - 1];
@@ -353,8 +282,6 @@ router.post('/:reelId/share', authenticateToken, async (req, res) => {
     reel.addShare(userId);
     await reel.save();
 
-    await updateInteractionHistory(userId, reel.author._id, 'share');
-
     res.json({
       message: 'Reel shared successfully',
       sharesCount: reel.shares.length
@@ -384,10 +311,6 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
 
     const wasSaved = reel.addSave(userId);
     await reel.save();
-
-    if (wasSaved) {
-      await updateInteractionHistory(userId, reel.author._id, 'save');
-    }
 
     res.json({
       message: wasSaved ? 'Reel saved successfully' : 'Reel unsaved successfully',

@@ -171,7 +171,7 @@ const reelSchema = new mongoose.Schema({
   }],
   filter: {
     type: String,
-    enum: ['none', 'sepia', 'grayscale', 'vintage', 'bright', 'contrast', 'warm', 'cool'],
+    enum: ['none', 'clarendon', 'gingham', 'moon', 'lark', 'reyes', 'juno', 'slumber', 'crema', 'ludwig', 'aden', 'perpetua', 'sepia', 'grayscale', 'vintage', 'bright', 'contrast', 'warm', 'cool'],
     default: 'none'
   },
   brightness: {
@@ -317,13 +317,13 @@ reelSchema.methods.calculateLanguageScore = function(userLanguagePref) {
 };
 
 reelSchema.methods.calculateRelationshipScore = function(userId, userFollowing) {
-  if (this.author.toString() === userId.toString()) return 2; // Own reels get highest score
+  if (this.author.toString() === userId.toString()) return 2; 
 
-  if (userFollowing.includes(this.author)) {
-    return 1; 
+  if (userFollowing.some(id => id.equals(this.author))) {
+    return 1;
   }
 
-  return 0.3; 
+  return 0.3;
 };
 
 reelSchema.methods.calculateFinalScore = function(userLocation, userLanguagePref, userId, userFollowing) {

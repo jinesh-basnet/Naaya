@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MdFavorite,
   MdFavoriteBorder,
@@ -15,7 +16,7 @@ import './ReelsPage.css';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { safeRender } from '../utils/safeRender';
 
@@ -39,7 +40,7 @@ interface Reel {
     duration: number;
     isOriginal: boolean;
   };
-  author: {
+  author?: {  
     _id: string;
     username: string;
     fullName: string;
@@ -68,9 +69,8 @@ interface Reel {
   viewsCount: number;
 }
 
-const BACKEND_BASE_URL = 'http://localhost:5000';
-
 const ReelsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
@@ -80,6 +80,7 @@ const ReelsPage: React.FC = () => {
   const previousReelsLength = useRef(0);
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
 
   const likeMutation = useMutation({
     mutationFn: (reelId: string) => reelsAPI.likeReel(reelId),
@@ -114,7 +115,6 @@ const ReelsPage: React.FC = () => {
     }
   }, [isFetchingNextPage, reels.length, pendingAdvance]);
 
-  // Touch swipe support
   const touchStartY = useRef<number>(0);
   const touchEndY = useRef<number>(0);
 
@@ -252,12 +252,12 @@ const ReelsPage: React.FC = () => {
     >
       {reels.map((reel: Reel, index: number) => {
         const isActive = index === currentReelIndex;
-        const isLiked = reel.likes.some(like => like.user === user?._id);
-        const videoUrl = reel.video?.url || '';
+        const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
+        const videoUrl = reel.video?.url ? (reel.video.url.startsWith('http') ? reel.video.url : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${reel.video.url}`) : '';
 
         return (
           <motion.div
-            key={reel._id}
+            key={reel._id || `reel-${index}`}
             initial={{ opacity: 0 }}
             animate={{
               opacity: isActive ? 1 : 0,
@@ -273,11 +273,8 @@ const ReelsPage: React.FC = () => {
               display: isActive ? 'block' : 'none',
             }}
           >
-            <div
-              className="video-container"
-              onClick={handleVideoClick}
-            >
-              {videoUrl ? (
+            <div className="video-container">
+              {videoUrl && !videoErrors[reel._id] ? (
                 <video
                   ref={(el) => {
                     if (el) {
@@ -289,43 +286,45 @@ const ReelsPage: React.FC = () => {
                   muted={isMuted}
                   playsInline
                   onTimeUpdate={handleVideoProgress}
-                  onLoadedData={() => {
-                    if (isActive && isPlaying) {
-                      videoRefs.current[index]?.play();
-                    }
-                  }}
+                  onClick={handleVideoClick}
                   onError={(e) => {
-                    console.error('Video load error:', videoUrl);
+                    console.error(`[ReelsPage] Video load error for reel ${reel._id}:`, {
+                      videoUrl,
+                      error: e,
+                      reelData: reel.video
+                    });
+                    setVideoErrors(prev => ({ ...prev, [reel._id]: true }));
+                    toast.error(`Failed to load video for reel: ${reel.content?.slice(0, 50) || 'Unknown'}`);
                   }}
                   className="reel-video"
                 />
               ) : (
                 <div className="video-placeholder">
-                  <div style={{ 
-                    width: '100%', 
-                    height: '100%', 
-                    background: '#333', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    background: '#333',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     color: 'white',
                     fontSize: '1.2rem'
                   }}>
-                    No video available
+                    {videoErrors[reel._id] ? 'Video unavailable' : 'No video available'}
                   </div>
                 </div>
               )}
 
-              {!isPlaying && videoUrl && (
+              {!isPlaying && videoUrl && !videoErrors[reel._id] && (
                 <div className="play-overlay">
                   <MdPlayArrow className="play-icon" />
                 </div>
               )}
 
-              {videoUrl && (
+              {videoUrl && !videoErrors[reel._id] && (
                 <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
+                  <div
+                    className="progress-fill"
                     style={{ width: `${isActive ? progress : 0}%` }}
                   />
                 </div>
@@ -334,7 +333,7 @@ const ReelsPage: React.FC = () => {
 
             <div className="top-left-overlay">
               <div className="user-info">
-                {reel.author.profilePicture ? (
+                {reel.author && reel.author.profilePicture ? (
                   <img
                     src={reel.author.profilePicture}
                     alt={reel.author.fullName}
@@ -342,13 +341,13 @@ const ReelsPage: React.FC = () => {
                   />
                 ) : (
                   <div className="user-avatar-placeholder">
-                    {safeRender(reel.author.fullName).charAt(0)}
+                    {reel.author ? safeRender(reel.author.fullName).charAt(0) : '?'}
                   </div>
                 )}
                 <div className="user-details">
-                  <div className="user-name">
-                    {safeRender(reel.author.fullName)}
-                    {reel.author.isVerified && (
+                  <div className="user-name" onClick={() => navigate(`/profile/${reel.author?.username}`)} style={{ cursor: 'pointer' }}>
+                    {reel.author ? safeRender(reel.author.fullName) : 'Unknown User'}
+                    {reel.author?.isVerified && (
                       <div className="verified-badge">
                         ✓
                       </div>
