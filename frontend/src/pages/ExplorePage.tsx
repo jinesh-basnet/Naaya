@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaTimes, FaHeart, FaComment, FaCompass, FaChartLine, FaMapMarkerAlt } from 'react-icons/fa';
 import { useQuery } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 
 import './ExplorePage.css';
@@ -45,6 +47,8 @@ interface Post {
 const BACKEND_BASE_URL = 'http://localhost:5000';
 
 const ExplorePage: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -241,12 +245,22 @@ const ExplorePage: React.FC = () => {
                   alt={selectedPost.author.fullName}
                   className="modal-avatar"
                 />
-                <div className="modal-author">
-                  <p className="modal-author-name">{selectedPost.author.fullName}</p>
-                  <p className="modal-location">
-                    {selectedPost.location?.city && `📍 ${selectedPost.location.city}`}
-                  </p>
-                </div>
+              <div className="modal-author">
+                <p
+                  className="modal-author-name"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    if (selectedPost.author._id !== user?._id) {
+                      navigate(`/profile/${selectedPost.author.username}`);
+                    }
+                  }}
+                >
+                  {selectedPost.author.fullName}
+                </p>
+                <p className="modal-location">
+                  {selectedPost.location?.city && `📍 ${selectedPost.location.city}`}
+                </p>
+              </div>
               </div>
 
               <p className="modal-content-text">{selectedPost.content}</p>
