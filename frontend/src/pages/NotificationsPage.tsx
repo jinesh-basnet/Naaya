@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MdCheckCircle } from 'react-icons/md';
 import { FaBell } from 'react-icons/fa';
 import { api } from '../services/api';
@@ -18,6 +19,7 @@ interface Notification {
 }
 
 const NotificationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -248,12 +250,17 @@ const NotificationsPage: React.FC = () => {
                 src={notif.sender.profilePicture}
                 alt={notif.sender.fullName}
                 style={avatarStyle}
-                onError={(e) => { e.currentTarget.src = '/default-avatar.png'; }}
+                onError={(e) => { e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM5OTk5OTkiLz4KPHBhdGggZD0iTTIwIDIwQzIyLjc2MTQgMjAgMjUgMTcuNzYxNCAyNSAxNUMyNSAxMi4yMzg2IDIyLjc2MTQgMTAgMjAgMTBDMTcuMjM4NiAxMCAxNSAxMi4yMzg2IDE1IDE1QzE1IDE3Ljc2MTQgMTcuNzYxNCAyMCAyMFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo='; }}
               />
               <div style={contentStyle}>
                 <h3 style={h3Style}>{notif.title}</h3>
                 <p style={pStyle}>
-                  <span style={senderStyle}>{notif.sender.fullName}</span> — {notif.message}
+                  <span
+                    style={{ ...senderStyle, cursor: 'pointer' }}
+                    onClick={() => navigate(`/profile/${notif.sender.username}`)}
+                  >
+                    {notif.sender.fullName}
+                  </span> — {notif.message}
                 </p>
               </div>
               {!notif.isRead && (
