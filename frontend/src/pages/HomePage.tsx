@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV, FaMapMarkerAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
-import { postsAPI } from '../services/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { postsAPI, reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCreatePost } from '../contexts/CreatePostContext';
 import { locationService, LocationData } from '../services/locationService';
@@ -47,6 +48,8 @@ interface Post {
   createdAt: string;
   likesCount: number;
   commentsCount: number;
+  postType: string;
+  isReel?: boolean;
 }
 
 const BACKEND_BASE_URL = 'http://localhost:5000';
@@ -59,6 +62,8 @@ const HomePage: React.FC = () => {
   const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
   const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const initializeLocation = async () => {
@@ -91,33 +96,60 @@ const HomePage: React.FC = () => {
     initializeLocation();
   }, []);
 
-  const { data: feedData, isLoading, refetch } = useQuery({
-    queryKey: ['feed', 'fyp', locationData?.city],
+  const { data: feedData, isLoading, refetch, error } = useQuery({
+    queryKey: ['feed', 'posts', locationData?.city],
     queryFn: () => postsAPI.getFeed('fyp'),
+    enabled: !!user,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 401 || error?.response?.status === 403) return false; 
+      if (error?.response?.status === 429) return false;
+      return failureCount < 3;
+    },
   });
+
+  useEffect(() => {
+    if (error) {
+      const status = error?.response?.status;
+      if (status === 401) {
+        toast.error('Please log in to view your feed');
+        navigate('/login');
+      } else if (status === 403) {
+        toast.error('Access denied. Please check your permissions.');
+      } else if (status === 404) {
+        toast.error('Feed service temporarily unavailable');
+      } else {
+        toast.error('Failed to load posts feed');
+      }
+    }
+  }, [error, navigate]);
 
   const handleRefresh = async () => {
     await refetch();
   };
 
-  const handleLike = async (postId: string) => {
+  const handleLike = async (postId: string, isReel?: boolean) => {
     const isOnline = offlineQueueService.getIsOnline();
 
     if (!isOnline) {
       offlineQueueService.addToQueue({
         type: 'like',
-        data: { postId }
+        data: { postId, isReel }
       });
       toast.success('Like queued - will sync when online!');
       return;
     }
 
     try {
-      await postsAPI.likePost(postId);
+      if (isReel) {
+        await reelsAPI.likeReel(postId);
+        toast.success('Reel liked!');
+      } else {
+        await postsAPI.likePost(postId);
+        toast.success('Post liked!');
+      }
       refetch();
-      toast.success('Post liked!');
     } catch (error) {
-      toast.error('Failed to like post');
+      toast.error('Failed to like');
     }
   };
 
@@ -131,36 +163,94 @@ const HomePage: React.FC = () => {
     filter?: string;
     brightness?: number;
     contrast?: number;
+    editMode?: boolean;
+    editPost?: {
+      _id: string;
+      content: string;
+      media: Array<{
+        type: string;
+        url: string;
+      }>;
+      tags: string[];
+      location: {
+        name: string;
+      };
+    };
   }) => {
     try {
-      const formData = new FormData();
-      formData.append('postType', post.postType);
-      formData.append('content', post.caption);
-      if (post.media) formData.append('media', post.media);
-      formData.append('tags', JSON.stringify(post.tags));
-      if (post.location.trim()) {
-        formData.append('location', JSON.stringify({ name: post.location }));
+      if (post.editMode && post.editPost) {
+        // Handle update
+        const formData = new FormData();
+        formData.append('content', post.caption);
+        if (post.media) formData.append('media', post.media);
+        formData.append('tags', JSON.stringify(post.tags));
+        if (post.location.trim()) {
+          formData.append('location', JSON.stringify({ name: post.location }));
+        }
+        if (post.filter && post.filter !== 'none') {
+          formData.append('filter', post.filter);
+        }
+        if (post.brightness !== undefined) {
+          formData.append('brightness', post.brightness.toString());
+        }
+        if (post.contrast !== undefined) {
+          formData.append('contrast', post.contrast.toString());
+        }
+        await postsAPI.updatePost(post.editPost._id, formData);
+        refetch();
+        toast.success('Post updated!');
+      } else {
+        const formData = new FormData();
+        const language = user?.languagePreference === 'both' ? 'mixed' : (user?.languagePreference || 'english');
+        formData.append('language', language);
+
+        if (post.postType === 'reel') {
+          formData.append('caption', post.caption);
+          if (post.media) formData.append('video', post.media);
+        formData.append('hashtags', JSON.stringify(post.tags));
+        if (post.location.trim()) {
+          formData.append('location', JSON.stringify({ name: post.location }));
+        }
+        if (post.filter && post.filter !== 'none') {
+          const allowedFilters = ['none', 'clarendon', 'gingham', 'moon', 'lark', 'reyes', 'juno', 'slumber', 'crema', 'ludwig', 'aden', 'perpetua', 'sepia', 'grayscale', 'vintage', 'bright', 'contrast', 'warm', 'cool'];
+          if (allowedFilters.includes(post.filter)) {
+            formData.append('filter', post.filter);
+          }
+        }
+        const brightness = Math.min(100, Math.max(-100, post.brightness ?? 0));
+        const contrast = Math.min(100, Math.max(-100, post.contrast ?? 0));
+        formData.append('brightness', brightness.toString());
+        formData.append('contrast', contrast.toString());
+          await reelsAPI.createReel(formData);
+          queryClient.invalidateQueries({ queryKey: ['reels'] });
+        } else {
+          formData.append('postType', post.postType);
+          formData.append('content', post.caption);
+          if (post.media) formData.append('media', post.media);
+          formData.append('tags', JSON.stringify(post.tags));
+          if (post.location.trim()) {
+            formData.append('location', JSON.stringify({ name: post.location }));
+          }
+          if (post.filter && post.filter !== 'none') {
+            formData.append('filter', post.filter);
+          }
+          if (post.brightness && post.brightness !== 100) {
+            formData.append('brightness', post.brightness.toString());
+          }
+          if (post.contrast && post.contrast !== 100) {
+            formData.append('contrast', post.contrast.toString());
+          }
+          await postsAPI.createPost(formData);
+        }
+        refetch();
+        toast.success(`${post.postType === 'reel' ? 'Reel' : 'Post'} shared!`);
       }
-      if (post.filter && post.filter !== 'none') {
-        formData.append('filter', post.filter);
-      }
-      if (post.brightness && post.brightness !== 100) {
-        formData.append('brightness', post.brightness.toString());
-      }
-      if (post.contrast && post.contrast !== 100) {
-        formData.append('contrast', post.contrast.toString());
-      }
-      const language = user?.languagePreference === 'both' ? 'mixed' : (user?.languagePreference || 'english');
-      formData.append('language', language);
-      await postsAPI.createPost(formData);
-      refetch();
-      toast.success(`${post.postType === 'reel' ? 'Reel' : 'Post'} shared!`);
     } catch (error: any) {
       console.error('Error sharing post:', error);
       if (error.response && error.response.data) {
-        toast.error(`Failed to share ${post.postType}: ${error.response.data.message || 'Unknown error'}`);
+        toast.error(`Failed to ${post.editMode ? 'update' : 'share'} ${post.postType}: ${error.response.data.message || 'Unknown error'}`);
       } else {
-        toast.error(`Failed to share ${post.postType}`);
+        toast.error(`Failed to ${post.editMode ? 'update' : 'share'} ${post.postType}`);
       }
     }
   };
@@ -179,10 +269,12 @@ const HomePage: React.FC = () => {
 
   const posts = feedData?.data?.posts || [];
 
-  const handleDoubleTap = (postId: string) => {
-    const isLiked = posts.find((p: Post) => p._id === postId)?.likes.some((like: { user: string }) => like.user === user?._id);
+  const filteredPosts = posts.filter((post: Post) => post.postType === 'post');
+
+  const handleDoubleTap = (postId: string, isReel?: boolean) => {
+    const isLiked = (filteredPosts.find((p: Post) => p._id === postId)?.likes || []).some((like: { user: string }) => like.user === user?._id) ?? false;
     if (!isLiked) {
-      handleLike(postId);
+      handleLike(postId, isReel);
     }
     setHeartBurst(prev => ({ ...prev, [postId]: true }));
     setTimeout(() => setHeartBurst(prev => ({ ...prev, [postId]: false })), 500);
@@ -263,12 +355,12 @@ const HomePage: React.FC = () => {
             </div>
           ) : (
             <div className="posts-container">
-              {posts.map((post: Post) => {
-                const isLiked = post.likes.some(like => like.user === user?._id);
+              {filteredPosts.map((post: Post, index: number) => {
+                const isLiked = (post.likes || []).some(like => like.user === user?._id) ?? false;
 
                 return (
                   <motion.div
-                    key={post._id}
+                    key={`${post._id}-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
@@ -276,47 +368,58 @@ const HomePage: React.FC = () => {
                     <div className="card">
                       <div className="card-content">
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                          <img
-                            src={post.author.profilePicture}
-                            alt={post.author.username}
-                            className="avatar"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                              if (fallback) fallback.style.display = 'flex';
-                            }}
-                          />
-                          <div className="avatar-fallback" style={{ display: 'none', width: 32, height: 32, border: '1px solid #e0e0e0', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: '#f0f0f0', fontSize: 14, fontWeight: 'bold' }}>
-                            {typeof post.author.fullName === 'string' ? post.author.fullName.charAt(0) : 'U'}
-                          </div>
-                          <div className="author-box">
-                            <div className="name-box">
-                              <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
-                                {typeof post.author.fullName === 'string' ? post.author.fullName : ''}
-                              </span>
-                              {post.author.isVerified && (
-                                <div className="verified-badge">
-                                  ✓
-                                </div>
-                              )}
-                            </div>
-                            <div className="time-box">
-                              <span style={{ fontSize: '0.75rem', color: '#666' }}>
-                                {formatTimeAgo(post.createdAt)}
-                              </span>
-                              {post.location?.city && (
-                                <>
-                                  <span style={{ fontSize: '0.75rem', color: '#666' }}>·</span>
-                                  <span style={{ fontSize: '0.75rem', color: '#666' }}>
-                                    📍 {post.location.city}
+                          {post.author && (
+                            <>
+                              <img
+                                src={post.author.profilePicture}
+                                alt={post.author.username}
+                                className="avatar"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                              />
+                              <div className="avatar-fallback" style={{ display: 'none', width: 32, height: 32, border: '1px solid #e0e0e0', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: '#f0f0f0', fontSize: 14, fontWeight: 'bold' }}>
+                                {typeof post.author.fullName === 'string' ? post.author.fullName.charAt(0) : 'U'}
+                              </div>
+                              <div className="author-box">
+                                <div className="name-box">
+                                  <span
+                                    style={{ fontSize: '0.875rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                    onClick={() => {
+                                      if (post.author._id !== user?._id) {
+                                        navigate(`/profile/${post.author.username}`);
+                                      }
+                                    }}
+                                  >
+                                    {typeof post.author.fullName === 'string' ? post.author.fullName : ''}
                                   </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <button className="icon-button">
-                            <FaEllipsisV className="icon" />
-                          </button>
+                                  {post.author.isVerified && (
+                                    <div className="verified-badge">
+                                      ✓
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="time-box">
+                                  <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                                    {formatTimeAgo(post.createdAt)}
+                                  </span>
+                                  {post.location?.city && (
+                                    <>
+                                      <span style={{ fontSize: '0.75rem', color: '#666' }}>·</span>
+                                      <span style={{ fontSize: '0.75rem', color: '#666' }}>
+                                        📍 {post.location.city}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <button className="icon-button">
+                                <FaEllipsisV className="icon" />
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         {post.content && (
@@ -336,35 +439,46 @@ const HomePage: React.FC = () => {
                         {post.media && post.media.length > 0 && (
                           <div
                             className="media-box"
-                            onDoubleClick={() => handleDoubleTap(post._id)}
+                            onDoubleClick={() => handleDoubleTap(post._id, post.isReel)}
                             style={{ position: 'relative' }}
                           >
-                            {post.media.map((media, index) => {
-                              const normalizedUrl = media.url.replace(/\\/g, '/').replace(/^\/?/, '/');
-                              const fullUrl = `${BACKEND_BASE_URL}${normalizedUrl}`;
+                            {post.isReel ? (
+                              <video
+                                src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
+                                controls
+                                className="media-video"
+                              />
+                            ) : (
+post.media.map((media, index) => {
+  let fullUrl = media.url;
+  if (!fullUrl.startsWith('http')) {
+    const normalizedUrl = fullUrl.replace(/\\/g, '/').replace(/^\/?/, '/');
+    fullUrl = `${BACKEND_BASE_URL}${normalizedUrl}`;
+  }
 
-                              return (
-                                <div
-                                  key={index}
-                                  className="media-item"
-                                  style={media.type === 'video' ? { paddingTop: '56.25%' } : {}}
-                                >
-                                  {media.type === 'image' ? (
-                                    <img
-                                      src={fullUrl}
-                                      alt="Post content"
-                                      className="media-img"
-                                    />
-                                  ) : (
-                                    <video
-                                      src={fullUrl}
-                                      controls
-                                      className="media-video"
-                                    />
-                                  )}
-                                </div>
-                              );
-                            })}
+  return (
+    <div
+      key={`${post._id}-${index}`}
+      className="media-item"
+      style={media.type === 'video' ? { paddingTop: '56.25%' } : {}}
+    >
+      {media.type === 'image' ? (
+        <img
+          src={fullUrl}
+          alt="Post content"
+          className="media-img"
+        />
+      ) : (
+        <video
+          src={fullUrl}
+          controls
+          className="media-video"
+        />
+      )}
+    </div>
+  );
+})
+                            )}
                             <AnimatePresence>
                               {heartBurst[post._id] && (
                                 <motion.div
@@ -392,7 +506,7 @@ const HomePage: React.FC = () => {
                           <div className="left-actions">
                             <button
                               className="icon-button"
-                              onClick={() => handleLike(post._id)}
+                              onClick={() => handleLike(post._id, post.isReel)}
                             >
                               {isLiked ? (
                                 <FaHeart className="liked-icon" />
@@ -418,11 +532,13 @@ const HomePage: React.FC = () => {
                               {post.likesCount.toLocaleString()} {post.likesCount === 1 ? 'like' : 'likes'}
                             </p>
                           )}
-                          {post.comments.slice(0, 2).map(comment => (
-                            <p key={comment._id} style={{ fontSize: '0.875rem', marginBottom: 4 }}>
-                              <strong>{comment.author.username}</strong> {comment.content}
-                            </p>
-                          ))}
+                          <div>
+                            {(post.comments || []).slice(0, 2).map((comment) => (
+                              <p key={`${post._id}-${comment._id}`} style={{ fontSize: '0.875rem', marginBottom: 4 }}>
+                                <strong>{comment.author.username}</strong> {comment.content}
+                              </p>
+                            ))}
+                          </div>
                           {post.commentsCount > 2 && (
                             <p
                               style={{ fontSize: '0.875rem', color: '#666', cursor: 'pointer' }}
@@ -442,7 +558,7 @@ const HomePage: React.FC = () => {
           )}
         </PullToRefresh>
 
-        {posts.length === 0 && !isLoading && (
+        {filteredPosts.length === 0 && !isLoading && (
           <div className="no-posts">
             <h6 style={{ color: '#666', marginBottom: 8 }}>
               No posts yet
@@ -458,6 +574,7 @@ const HomePage: React.FC = () => {
         open={isModalOpen}
         onClose={closeModal}
         onPost={handleModalPost}
+        editMode={false}
       />
     </div>
   );
