@@ -94,9 +94,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, path) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); 
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
   }
 }));
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 const connectWithRetry = async (retries = 5, delay = 2000) => {
   for (let i = 0; i < retries; i++) {
