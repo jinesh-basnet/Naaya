@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MdSend, MdSearch, MdMoreVert, MdEmojiEmotions, MdAttachFile, MdImage } from 'react-icons/md';
 import './MessagesPage.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,20 +9,22 @@ import { useSocket } from '../contexts/SocketContext';
 import toast from 'react-hot-toast';
 
 interface Conversation {
-  _id: string;
-  participants: Array<{
+  partner: {
     _id: string;
     username: string;
     fullName: string;
     profilePicture: string;
-  }>;
-  lastMessage: {
+    isVerified: boolean;
+    lastActive: string;
+  };
+  latestMessage: {
+    _id: string;
     content: string;
+    messageType: string;
     createdAt: string;
-    sender: string;
+    isRead: boolean;
   };
   unreadCount: number;
-  updatedAt: string;
 }
 
 interface Message {
@@ -49,66 +52,59 @@ const MessagesPage: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const { socket } = useSocket();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  // Fetch conversations
   const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => messagesAPI.getConversations(),
   });
 
-  // Fetch messages for selected conversation
   const { data: messagesData, isLoading: messagesLoading } = useQuery({
-    queryKey: ['messages', selectedConversation?._id],
-    queryFn: () => selectedConversation ? messagesAPI.getMessages(selectedConversation._id) : null,
+    queryKey: ['messages', selectedConversation?.partner._id],
+    queryFn: () => selectedConversation ? messagesAPI.getMessages(selectedConversation.partner._id) : null,
     enabled: !!selectedConversation,
   });
 
-  // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: (messageData: { receiver: string; content: string }) =>
       messagesAPI.sendMessage(messageData),
     onSuccess: () => {
       setNewMessage('');
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?._id] });
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?.partner._id] });
     },
     onError: () => {
       toast.error('Failed to send message');
     },
   });
 
-  // Update messages when data changes
   useEffect(() => {
     if (messagesData?.data?.messages) {
       setMessages(messagesData.data.messages);
     }
   }, [messagesData]);
 
-  // Socket.io real-time messaging
   useEffect(() => {
     if (!socket || !selectedConversation) return;
 
-    // Join conversation room
-    socket.emit('join_room', `conversation:${selectedConversation._id}`);
+    socket.emit('join_room', `conversation:${selectedConversation.partner._id}`);
 
-    // Listen for new messages
     const handleNewMessage = (message: Message) => {
       setMessages(prev => [...prev, message]);
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     };
 
-    // Listen for typing indicators
     const handleTypingStart = (data: { userId: string }) => {
-      if (data.userId !== user?._id) {
+      if (data.userId !== currentUser?._id) {
         setIsTyping(true);
       }
     };
 
     const handleTypingStop = (data: { userId: string }) => {
-      if (data.userId !== user?._id) {
+      if (data.userId !== currentUser?._id) {
         setIsTyping(false);
       }
     };
@@ -121,55 +117,46 @@ const MessagesPage: React.FC = () => {
       socket.off('receive_message', handleNewMessage);
       socket.off('user_typing', handleTypingStart);
       socket.off('user_typing_stop', handleTypingStop);
-      socket.emit('leave_room', `conversation:${selectedConversation._id}`);
+      socket.emit('leave_room', `conversation:${selectedConversation.partner._id}`);
     };
-  }, [socket, selectedConversation, user?._id, queryClient]);
+  }, [socket, selectedConversation, currentUser?._id, queryClient]);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle sending message
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
-    const receiver = selectedConversation.participants.find(p => p._id !== user?._id);
-    if (!receiver) return;
-
     sendMessageMutation.mutate({
-      receiver: receiver._id,
+      receiver: selectedConversation.partner._id,
       content: newMessage.trim(),
     });
 
-    // Emit typing stop
     if (socket) {
       socket.emit('typing_stop', {
-        room: `conversation:${selectedConversation._id}`,
-        userId: user?._id,
+        room: `conversation:${selectedConversation.partner._id}`,
+        userId: currentUser?._id,
       });
     }
   };
 
-  // Handle typing
   const handleTyping = () => {
     if (!socket || !selectedConversation) return;
 
     socket.emit('typing_start', {
-      room: `conversation:${selectedConversation._id}`,
-      userId: user?._id,
+      room: `conversation:${selectedConversation.partner._id}`,
+      userId: currentUser?._id,
     });
 
-    // Auto-stop typing after 3 seconds
     setTimeout(() => {
       socket.emit('typing_stop', {
-        room: `conversation:${selectedConversation._id}`,
-        userId: user?._id,
+        room: `conversation:${selectedConversation.partner._id}`,
+        userId: currentUser?._id,
       });
     }, 3000);
   };
 
-  // Handle key press
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -177,11 +164,9 @@ const MessagesPage: React.FC = () => {
     }
   };
 
-  // Filter conversations based on search
   const filteredConversations = conversationsData?.data?.conversations?.filter((conv: Conversation) => {
-    const otherParticipant = conv.participants.find(p => p._id !== user?._id);
-    return otherParticipant?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           otherParticipant?.username.toLowerCase().includes(searchQuery.toLowerCase());
+    return conv.partner.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           conv.partner.username.toLowerCase().includes(searchQuery.toLowerCase());
   }) || [];
 
   const formatTime = (dateString: string) => {
@@ -218,26 +203,25 @@ const MessagesPage: React.FC = () => {
             <li className="no-conversations">No conversations yet</li>
           ) : (
             filteredConversations.map((conversation: Conversation) => {
-              const otherParticipant = conversation.participants.find(p => p._id !== user?._id);
               return (
                 <li
-                  key={conversation._id}
-                  className={`conversation-item ${selectedConversation?._id === conversation._id ? 'selected' : ''}`}
+                  key={conversation.partner._id}
+                  className={`conversation-item ${selectedConversation?.partner._id === conversation.partner._id ? 'selected' : ''}`}
                   onClick={() => setSelectedConversation(conversation)}
                 >
                   <div className="conversation-avatar">
-                    <img src={otherParticipant?.profilePicture} alt={otherParticipant?.fullName} />
+                    <img src={conversation.partner.profilePicture} alt={conversation.partner.fullName} />
                     {conversation.unreadCount > 0 && <span className="avatar-badge"></span>}
-                    {!otherParticipant?.profilePicture && otherParticipant?.fullName.charAt(0)}
+                    {!conversation.partner.profilePicture && conversation.partner.fullName.charAt(0)}
                   </div>
                   <div className="conversation-content">
                     <div className="conversation-header">
-                      <span className="conversation-name">{otherParticipant?.fullName}</span>
-                      <span className="conversation-time">{formatTime(conversation.updatedAt)}</span>
+                      <span className="conversation-name" onClick={conversation.partner._id !== currentUser?._id ? () => navigate(`/profile/${conversation.partner.username}`) : undefined} style={conversation.partner._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{conversation.partner.fullName}</span>
+                      <span className="conversation-time">{formatTime(conversation.latestMessage.createdAt)}</span>
                     </div>
                     <div className="conversation-footer">
                       <span className="conversation-message">
-                        {conversation.lastMessage?.content || 'No messages yet'}
+                        {conversation.latestMessage?.content || 'No messages yet'}
                       </span>
                       {conversation.unreadCount > 0 && (
                         <span className="unread-chip">{conversation.unreadCount}</span>
@@ -255,26 +239,19 @@ const MessagesPage: React.FC = () => {
         {selectedConversation ? (
           <>
             <div className="chat-header">
-              {(() => {
-                const otherParticipant = selectedConversation.participants.find(p => p._id !== user?._id);
-                return (
-                  <>
-                    <img
-                      src={otherParticipant?.profilePicture}
-                      alt={otherParticipant?.fullName}
-                      className="chat-avatar"
-                    />
-                    {!otherParticipant?.profilePicture && <div className="chat-avatar">{otherParticipant?.fullName.charAt(0)}</div>}
-                    <div className="chat-user-info">
-                      <h6>{otherParticipant?.fullName}</h6>
-                      <span className="chat-username">@{otherParticipant?.username}</span>
-                    </div>
-                    <button className="more-btn">
-                      <MdMoreVert />
-                    </button>
-                  </>
-                );
-              })()}
+              <img
+                src={selectedConversation.partner.profilePicture}
+                alt={selectedConversation.partner.fullName}
+                className="chat-avatar"
+              />
+              {!selectedConversation.partner.profilePicture && <div className="chat-avatar">{selectedConversation.partner.fullName.charAt(0)}</div>}
+              <div className="chat-user-info">
+                <h6 onClick={selectedConversation.partner._id !== currentUser?._id ? () => navigate(`/profile/${selectedConversation.partner.username}`) : undefined} style={selectedConversation.partner._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{selectedConversation.partner.fullName}</h6>
+                <span className="chat-username">@{selectedConversation.partner.username}</span>
+              </div>
+              <button className="more-btn">
+                <MdMoreVert />
+              </button>
             </div>
 
             <div className="messages-container-div">
@@ -290,15 +267,15 @@ const MessagesPage: React.FC = () => {
                 messages.map((message) => (
                   <div
                     key={message._id}
-                    className={`message-item ${message.sender._id === user?._id ? 'sent' : ''}`}
+                  className={`message-item ${message.sender._id === currentUser?._id ? 'sent' : ''}`}
+                >
+                  <div
+                    className={`message-bubble ${message.sender._id === currentUser?._id ? 'sent' : 'received'}`}
                   >
-                    <div
-                      className={`message-bubble ${message.sender._id === user?._id ? 'sent' : 'received'}`}
-                    >
-                      <p className="message-text">{message.content}</p>
-                      <span className="message-time">{formatTime(message.createdAt)}</span>
-                    </div>
+                    <p className="message-text">{message.content}</p>
+                    <span className="message-time">{formatTime(message.createdAt)}</span>
                   </div>
+                </div>
                 ))
               )}
               {isTyping && (
