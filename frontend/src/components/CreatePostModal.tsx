@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaChevronRight, FaChevronLeft, FaPaperPlane, FaVideo } from 'react-icons/fa';
+import React, { useState, useRef, useEffect } from 'react';
+import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaChevronRight, FaChevronLeft, FaPaperPlane } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import './CreatePostModal.css';
 
@@ -15,15 +15,36 @@ interface CreatePostModalProps {
     filter?: string;
     brightness?: number;
     contrast?: number;
+    editMode?: boolean;
+    editPost?: {
+      _id: string;
+      content: string;
+      media: Array<{
+        type: string;
+        url: string;
+      }>;
+      tags: string[];
+      location: {
+        name: string;
+      };
+    };
   }) => void;
+  editMode?: boolean;
+  editPost?: {
+    _id: string;
+    content: string;
+    media: Array<{
+      type: string;
+      url: string;
+    }>;
+    tags: string[];
+    location: {
+      name: string;
+    };
+  };
 }
 
-const steps = ['Choose Type', 'Select Media', 'Edit', 'Details', 'Share'];
-
-const postTypes = [
-  { name: 'Post', value: 'post', icon: <FaImages /> },
-  { name: 'Reel', value: 'reel', icon: <FaVideo /> },
-];
+const steps = ['Select Media', 'Edit', 'Details', 'Share'];
 
 const filters = [
   { name: 'None', value: 'none' },
@@ -40,9 +61,8 @@ const filters = [
   { name: 'Perpetua', value: 'perpetua' },
 ];
 
-const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost }) => {
+const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost, editMode = false, editPost }) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [postType, setPostType] = useState<'post' | 'reel'>('post');
   const [caption, setCaption] = useState('');
   const [media, setMedia] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string>('');
@@ -50,10 +70,22 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
   const [tags, setTags] = useState<string[]>([]);
   const [location, setLocation] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('none');
-  const [brightness, setBrightness] = useState(100);
-  const [contrast, setContrast] = useState(100);
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(0);
   const [editTab, setEditTab] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editMode && editPost) {
+      setCaption(editPost.content || '');
+      setTags(editPost.tags || []);
+      setLocation(editPost.location?.name || '');
+      setActiveStep(2); 
+      if (editPost.media && editPost.media.length > 0) {
+        setMediaPreview(editPost.media[0].url);
+      }
+    }
+  }, [editMode, editPost]);
 
   const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -66,7 +98,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
       };
       reader.readAsDataURL(file);
 
-      setActiveStep(2);
+      setActiveStep(1);
     }
   };
 
@@ -90,8 +122,15 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
   };
 
   const handlePost = () => {
+    let determinedPostType: 'post' | 'reel' = 'post';
+    if (media && media.type.startsWith('video/')) {
+      determinedPostType = 'reel';
+    } else {
+      determinedPostType = 'post';
+    }
+
     onPost({
-      postType,
+      postType: determinedPostType,
       caption,
       media,
       tags,
@@ -99,6 +138,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
       filter: selectedFilter,
       brightness,
       contrast,
+      editMode,
+      editPost,
     });
     resetModal();
     onClose();
@@ -106,15 +147,14 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
 
   const resetModal = () => {
     setActiveStep(0);
-    setPostType('post');
     setCaption('');
     setMedia(null);
     setMediaPreview('');
     setTags([]);
     setLocation('');
     setSelectedFilter('none');
-    setBrightness(100);
-    setContrast(100);
+    setBrightness(0);
+    setContrast(0);
     setEditTab(0);
   };
 
@@ -135,34 +175,6 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <h3>What would you like to create?</h3>
-              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                {postTypes.map((type) => (
-                  <button
-                    key={type.value}
-                    className="select-button"
-                    onClick={() => {
-                      setPostType(type.value as 'post' | 'reel');
-                      setActiveStep(1);
-                    }}
-                  >
-                    {type.icon}
-                    {type.name}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        );
-
-      case 1:
-        return (
-          <div className="step-1">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
               <FaImages className="icon" />
               <h3>Select media</h3>
               <p>Share photos and videos with your community</p>
@@ -172,7 +184,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                   ref={fileInputRef}
                   type="file"
                   hidden
-                  accept={postType === 'reel' ? 'video/*' : 'image/*,video/*'}
+                  accept="image/*,video/*"
                   onChange={handleMediaChange}
                 />
               </button>
@@ -180,9 +192,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </div>
         );
 
-      case 2:
+      case 1:
         return (
-          <div className="step-2">
+          <div className="step-1">
             <div className="tabs">
               <button
                 className={`tab ${editTab === 0 ? 'active' : ''}`}
@@ -212,29 +224,29 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                     maxHeight: '100%',
                     borderRadius: '4px',
                     overflow: 'hidden',
-                    filter: `brightness(${brightness}%) contrast(${contrast}%)`,
-                  }}
-                >
-                  {mediaPreview && media?.type.startsWith('video/') ? (
-                    <video
-                      src={mediaPreview}
-                      controls
-                      className="preview-image"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
-                    />
-                  ) : (
-                    <img
-                      src={mediaPreview}
-                      alt="Preview"
-                      className="preview-image"
-                    />
-                  )}
-                </div>
+                  filter: `brightness(${brightness + 100}%) contrast(${contrast + 100}%)`,
+                }}
+              >
+                {mediaPreview && media?.type.startsWith('video/') ? (
+                  <video
+                    src={mediaPreview}
+                    controls
+                    className="preview-image"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={mediaPreview}
+                    alt="Preview"
+                    className="preview-image"
+                  />
+                )}
               </div>
+            </div>
 
               {editTab === 0 && (
                 <div className="edit-panel">
@@ -262,8 +274,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                       className="slider"
                       value={brightness}
                       onChange={(e) => setBrightness(Number(e.target.value))}
-                      min={50}
-                      max={150}
+                      min={-100}
+                      max={100}
                       step={1}
                     />
                   </div>
@@ -274,8 +286,8 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                       className="slider"
                       value={contrast}
                       onChange={(e) => setContrast(Number(e.target.value))}
-                      min={50}
-                      max={150}
+                      min={-100}
+                      max={100}
                       step={1}
                     />
                   </div>
@@ -291,9 +303,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </div>
         );
 
-      case 3:
+      case 2:
         return (
-          <div className="step-3">
+          <div className="step-2">
             <div className="caption-section">
               {mediaPreview && media?.type.startsWith('video/') ? (
                 <video
@@ -360,9 +372,9 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
           </div>
         );
 
-      case 4:
+      case 3:
         return (
-          <div className="step-4">
+          <div className="step-3">
             <h3>Preview & Share</h3>
 
             <div className="preview-section">
@@ -475,7 +487,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                 disabled={!media}
               >
                 <FaPaperPlane style={{ marginRight: '8px' }} />
-                Share
+                {editMode ? 'Update' : 'Share'}
               </button>
             ) : (
               <button

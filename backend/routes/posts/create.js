@@ -1,7 +1,10 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const mongoose = require('mongoose');
 const { uploadMultiple } = require('../../middleware/upload');
 const { body, validationResult } = require('express-validator');
+const { authenticateToken } = require('../../middleware/auth');
 const Post = require('../../models/Post');
 const { findCommentById, countTotalComments, validatePostData, processMediaFiles } = require('../../utils/postHelpers');
 
@@ -10,8 +13,8 @@ const router = express.Router();
 // @route   POST /api/posts
 // @desc    Create a new post
 // @access  Private
-router.post('/', uploadMultiple('media'), [
-  body('caption').optional().isString().isLength({ max: 2200 }),
+router.post('/', authenticateToken, uploadMultiple('media'), [
+  body('content').optional().isString().isLength({ max: 2200 }),
   body('tags').optional(),
   body('location').optional(),
   body('postType').optional().isString(),
@@ -23,9 +26,7 @@ router.post('/', uploadMultiple('media'), [
     console.log('req.body:', req.body);
     console.log('req.files:', req.files ? req.files.length : 0);
 
-    // Trim content and caption to max length
     if (req.body.content) req.body.content = req.body.content.substring(0, 2200);
-    if (req.body.caption) req.body.caption = req.body.caption.substring(0, 2200);
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -36,29 +37,28 @@ router.post('/', uploadMultiple('media'), [
       });
     }
 
+    delete req.body.media;
     const postData = {
       ...req.body,
       author: req.user._id
     };
 
-    // Map caption to content if provided
-    if (req.body.caption) {
-      postData.content = req.body.caption;
+    if (req.body.content) {
+      postData.content = req.body.content;
     }
 
-    // Handle uploaded media files with proper error handling
     if (req.files && req.files.length > 0) {
       try {
         postData.media = req.files.map(file => {
-          if (!file.mimetype || !file.path) {
-            throw new Error('Invalid file data');
-          }
+          const filename = path.basename(file.path);
+
           return {
             type: file.mimetype.startsWith('image/') ? 'image' : 'video',
-            url: `${req.protocol}://${req.get('host')}/uploads/${path.basename(file.path)}`,
+            url: `${req.protocol}://${req.get('host')}/uploads/${filename}`,
             size: file.size || 0,
-            width: file.width || 0,
-            height: file.height || 0
+            width: 0,
+            height: 0,
+            format: path.extname(file.originalname).slice(1)
           };
         });
       } catch (fileError) {
@@ -69,9 +69,10 @@ router.post('/', uploadMultiple('media'), [
           error: fileError.message
         });
       }
+    } else {
+      postData.media = [];
     }
 
-    // Parse location if provided with proper error handling
     if (req.body.location && req.body.location.trim()) {
       try {
         const parsed = JSON.parse(req.body.location);
@@ -89,7 +90,6 @@ router.post('/', uploadMultiple('media'), [
       }
     }
 
-    // Parse tags if provided with proper error handling
     if (req.body.tags) {
       try {
         if (typeof req.body.tags === 'string') {
@@ -106,18 +106,27 @@ router.post('/', uploadMultiple('media'), [
       }
     }
 
-    // Validate required fields
-    if (!postData.content && (!postData.media || postData.media.length === 0)) {
+    if ((!postData.content || postData.content.trim() === '') && (!postData.media || postData.media.length === 0)) {
       return res.status(400).json({
         message: 'Post must have either content or media',
         code: 'MISSING_CONTENT_OR_MEDIA'
       });
     }
 
+    if (mongoose.connection.readyState !== 1) {
+      console.error('Database not connected, readyState:', mongoose.connection.readyState);
+      return res.status(500).json({
+        message: 'Database connection error',
+        code: 'DATABASE_ERROR'
+      });
+    }
+
+    // Additional debug logs for postData
+    console.log('postData before saving:', postData);
+
     const post = new Post(postData);
     await post.save();
 
-    // Populate author details
     await post.populate('author', 'username fullName profilePicture isVerified location languagePreference');
 
     console.log('Post created successfully:', post._id);
@@ -128,6 +137,8 @@ router.post('/', uploadMultiple('media'), [
 
   } catch (error) {
     console.error('Create post error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Database readyState:', mongoose.connection.readyState);
     res.status(500).json({
       message: 'Server error creating post',
       code: 'CREATE_POST_ERROR',
@@ -136,10 +147,10 @@ router.post('/', uploadMultiple('media'), [
   }
 });
 
-// @route   PUT /api/posts/:postId
-// @desc    Update a post
-// @access  Private
-router.put('/:postId', uploadMultiple('media'), [
+ // @route   PUT /api/posts/:postId
+ // @desc    Update a post
+ // @access  Private
+ router.put('/:postId', authenticateToken, uploadMultiple('media'), [
   body('content').optional().isString().isLength({ max: 2200 }),
   body('tags').optional(),
   body('location').optional(),
@@ -172,7 +183,6 @@ router.put('/:postId', uploadMultiple('media'), [
 
     const { content, tags, location, postType, visibility, language } = req.body;
 
-    // Update fields if provided
     if (content !== undefined) post.content = content;
     if (tags !== undefined) post.tags = tags;
     if (location !== undefined) post.location = location;
