@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -144,7 +143,7 @@ function InnerApp() {
             },
           }}
         />
-        <OfflineIndicator showAsAlert />
+        <OfflineIndicator />
         <Routes>
         <Route
           path="/home"
@@ -181,7 +180,7 @@ function InnerApp() {
           path="/stories"
           element={
             <ProtectedRoute>
-              <StoriesPage />
+              <StoriesPage isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
             </ProtectedRoute>
           }
         />
