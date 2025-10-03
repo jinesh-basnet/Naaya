@@ -1,36 +1,109 @@
- import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { MdAdd, MdClose } from 'react-icons/md';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { storiesAPI } from '../services/api';
+import { storiesAPI, usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
-import { safeRender } from '../utils/safeRender';
+import StoryViewer from './StoryViewer';
 import './StoriesBar.css';
 
-const StoriesBar: React.FC = () => {
+interface StoryItem {
+  _id: string;
+  author: {
+    _id: string;
+    username: string;
+    fullName: string;
+    profilePicture?: string;
+  };
+  content?: string;
+  media?: {
+    type: string;
+    url: string;
+  };
+  createdAt: string;
+}
+
+interface DisplayStoryItem {
+  id?: string;
+  author: {
+    _id?: string;
+    username: string;
+    fullName: string;
+    profilePicture?: string;
+  };
+  isOwn?: boolean;
+  stories?: StoryItem[];
+}
+
+interface StoriesBarProps {
+  isCollapsed: boolean;
+  setIsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [currentViewingStories, setCurrentViewingStories] = useState<StoryItem[]>([]);
   const [newStoryContent, setNewStoryContent] = useState('');
   const [newStoryMedia, setNewStoryMedia] = useState<File | null>(null);
+  const [storyVisibility, setStoryVisibility] = useState('public');
+  const [storyCloseFriends, setStoryCloseFriends] = useState<string[]>([]);
+  const [userCloseFriends, setUserCloseFriends] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const { data: storiesData } = useQuery({
     queryKey: ['storiesFeed'],
     queryFn: () => storiesAPI.getStoriesFeed(),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 429) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  const stories = storiesData?.data?.stories || [];
+  const stories: StoryItem[] = (storiesData?.data?.stories || []) as StoryItem[];
 
-  const hasUserStory = stories.some((story: any) => story.author._id === user?._id);
-  const displayStories = hasUserStory
-    ? stories
-    : [{ id: 'your-story', author: { _id: user?._id, username: 'Your story', fullName: 'Your story', profilePicture: user?.profilePicture }, isOwn: true }, ...stories];
+  const userStories = stories.filter((story: StoryItem) => story.author._id === user?._id);
+  const otherStories = stories.filter((story: StoryItem) => story.author._id !== user?._id);
+
+  const otherAuthors = new Map<string, { author: any, stories: StoryItem[] }>();
+  for (const story of otherStories) {
+    const key = story.author._id || '';
+    if (!otherAuthors.has(key)) {
+      otherAuthors.set(key, { author: story.author, stories: [] });
+    }
+    otherAuthors.get(key)!.stories.push(story);
+  }
+
+  const displayStories: DisplayStoryItem[] = [
+    { id: 'add-story', author: { _id: user?._id, username: 'Add story', fullName: 'Add story', profilePicture: user?.profilePicture }, isOwn: true, stories: [] },
+    ...(userStories.length > 0 ? [{ author: userStories[0].author, isOwn: true, stories: userStories }] : []),
+    ...Array.from(otherAuthors.values()).map(a => ({ author: a.author, isOwn: false, stories: a.stories }))
+  ];
+
+  useEffect(() => {
+    const fetchCloseFriends = async () => {
+      if (openCreateModal && user?.username) {
+        try {
+          const response = await usersAPI.getFollowing(user.username);
+          const following = response.data.following || [];
+          setUserCloseFriends(following);
+        } catch (error) {
+          console.error('Failed to fetch close friends:', error);
+        }
+      }
+    };
+
+    fetchCloseFriends();
+  }, [openCreateModal, user?.username]);
 
   const handleCreateStory = async () => {
     if (!newStoryContent && !newStoryMedia) {
@@ -48,16 +121,22 @@ const StoriesBar: React.FC = () => {
       }
 
       const storyData: any = {
-        content: newStoryContent
+        content: newStoryContent,
+        visibility: storyVisibility,
       };
       if (mediaObject) {
         storyData.media = mediaObject;
+      }
+      if (storyVisibility === 'close_friends') {
+        storyData.closeFriends = storyCloseFriends;
       }
       await storiesAPI.createStory(storyData);
       toast.success('Story created successfully');
       setOpenCreateModal(false);
       setNewStoryContent('');
       setNewStoryMedia(null);
+      setStoryVisibility('public');
+      setStoryCloseFriends([]);
     } catch (error) {
       toast.error('Failed to create story');
     } finally {
@@ -65,36 +144,29 @@ const StoriesBar: React.FC = () => {
     }
   };
 
-  const handleViewStory = async (storyIndex: number) => {
-    const story = displayStories[storyIndex];
-    if (story && story._id) {
-      try {
-        await storiesAPI.getStory(story._id);
-      } catch (error) {
-        console.error('Error marking story as viewed:', error);
-      }
-    }
-    setCurrentStoryIndex(storyIndex);
+  const handleViewStory = async (displayIndex: number) => {
+    const displayStory = displayStories[displayIndex];
+    setCurrentViewingStories(displayStory.stories || []);
+    setCurrentStoryIndex(0);
     setOpenViewModal(true);
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
   };
 
-  const handleNextStory = () => {
-    setCurrentStoryIndex((prev) => (prev + 1) % displayStories.length);
-  };
-
-  const handlePrevStory = () => {
-    setCurrentStoryIndex((prev) => (prev - 1 + displayStories.length) % displayStories.length);
+  const handleUserClick = (userId: string) => {
+    navigate(`/profile/${userId}`);
   };
 
   return (
     <>
-      <div className="stories-bar">
-        {displayStories.map((story: any, index: number) => (
+      <div className={`stories-bar ${isCollapsed ? 'collapsed' : 'expanded'}`}>
+        {displayStories.map((story, index) => (
           <div
-            key={story.id || story._id}
+            key={story.id || story.author._id}
             className="story-item"
             onClick={() => {
-              if (story.isOwn && story.id === 'your-story') {
+              if (story.isOwn && story.id === 'add-story') {
                 setOpenCreateModal(true);
               } else {
                 handleViewStory(index);
@@ -106,7 +178,7 @@ const StoriesBar: React.FC = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {story.isOwn && story.id === 'your-story' ? (
+              {story.isOwn && story.id === 'add-story' ? (
                 <button className="story-avatar-add">
                   <MdAdd />
                 </button>
@@ -117,14 +189,17 @@ const StoriesBar: React.FC = () => {
                   className={`story-avatar ${story.isOwn ? 'own' : ''}`}
                 />
               )}
-              {story.isOwn && story.id === 'your-story' && (
+              {story.isOwn && story.id === 'add-story' && (
                 <div className="add-icon-small">
                   <MdAdd />
                 </div>
               )}
             </motion.div>
             <p className="story-username">
-              {story.isOwn && story.id === 'your-story' ? 'Your story' : story.author?.username || 'User'}
+              {story.isOwn && story.id === 'add-story' ? 'Add story' :
+               story.isOwn && story.stories && story.stories.length > 0 ? `${story.author?.username} (${story.stories.length})` :
+               story.stories && story.stories.length > 0 ? `${story.author?.username} (${story.stories.length})` :
+               story.author?.username || 'User'}
             </p>
           </div>
         ))}
@@ -153,13 +228,61 @@ const StoriesBar: React.FC = () => {
               type="file"
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewStoryMedia(e.target.files ? e.target.files[0] : null)}
             />
-            <label htmlFor="story-media-file">
-              <button className="media-button">
-                {newStoryMedia ? 'Change Media' : 'Add Media'}
-              </button>
+            <label htmlFor="story-media-file" className="media-button">
+              {newStoryMedia ? 'Change Media' : 'Add Media'}
             </label>
             {newStoryMedia && (
               <p className="selected-media">Selected: {newStoryMedia.name}</p>
+            )}
+            <div className="story-visibility-section">
+              <label htmlFor="story-visibility" className="visibility-label">Visibility:</label>
+              <select
+                id="story-visibility"
+                value={storyVisibility}
+                onChange={(e) => setStoryVisibility(e.target.value)}
+                className="visibility-select"
+              >
+                <option value="public">Public</option>
+                <option value="followers">Followers</option>
+                <option value="close_friends">Close Friends</option>
+                <option value="private">Private</option>
+              </select>
+            </div>
+            {storyVisibility === 'close_friends' && (
+              <div className="close-friends-section">
+                <label className="close-friends-label">Select Close Friends:</label>
+                <div className="close-friends-list">
+                  {userCloseFriends.length > 0 ? (
+                    userCloseFriends.map((friend) => (
+                      <div key={friend._id} className="close-friend-item">
+                        <input
+                          type="checkbox"
+                          id={`friend-${friend._id}`}
+                          checked={storyCloseFriends.includes(friend._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setStoryCloseFriends([...storyCloseFriends, friend._id]);
+                            } else {
+                              setStoryCloseFriends(storyCloseFriends.filter(id => id !== friend._id));
+                            }
+                          }}
+                          className="close-friend-checkbox"
+                        />
+                        <label htmlFor={`friend-${friend._id}`} className="close-friend-label">
+                          <img
+                            src={friend.profilePicture || '/default-avatar.png'}
+                            alt={friend.username}
+                            className="close-friend-avatar"
+                          />
+                          <span className="close-friend-name">{friend.fullName || friend.username}</span>
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="close-friends-placeholder">No close friends found. Add some friends first!</p>
+                  )}
+                </div>
+              </div>
             )}
             <button
               className="post-button"
@@ -172,73 +295,14 @@ const StoriesBar: React.FC = () => {
         </div>
       )}
 
-      {openViewModal && (
-        <div className="view-story-modal-overlay" onClick={() => setOpenViewModal(false)}>
-          <div className="view-story-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="view-story-header">
-              <div className="view-story-author">
-                <img
-                  src={displayStories[currentStoryIndex]?.author?.profilePicture}
-                  alt={displayStories[currentStoryIndex]?.author?.fullName}
-                  className="view-story-avatar"
-                />
-                <div className="view-story-author-info">
-                  <h3
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      if (displayStories[currentStoryIndex]?.author?._id !== user?._id) {
-                        navigate(`/profile/${displayStories[currentStoryIndex]?.author?.username}`);
-                      }
-                    }}
-                  >
-                    {safeRender(displayStories[currentStoryIndex]?.author?.fullName)}
-                  </h3>
-                  <p>@{displayStories[currentStoryIndex]?.author?.username}</p>
-                </div>
-              </div>
-              <button className="close-button" onClick={() => setOpenViewModal(false)}>
-                <MdClose />
-              </button>
-            </div>
-
-            <div className="view-story-body">
-              {displayStories[currentStoryIndex]?.media && (
-                <div className="story-media-container">
-                  {displayStories[currentStoryIndex]?.media?.type === 'image' ? (
-                    <img
-                      src={displayStories[currentStoryIndex]?.media?.url}
-                      alt="Story media"
-                      className="story-media"
-                    />
-                  ) : (
-                    <video
-                      src={displayStories[currentStoryIndex]?.media?.url}
-                      controls
-                      className="story-media"
-                    />
-                  )}
-                </div>
-              )}
-              {displayStories[currentStoryIndex]?.content && (
-                <h2 className="story-content">
-                  {safeRender(displayStories[currentStoryIndex].content)}
-                </h2>
-              )}
-
-              {displayStories.length > 1 && (
-                <>
-                  <button className="nav-button nav-prev" onClick={handlePrevStory}>
-                    ‹
-                  </button>
-                  <button className="nav-button nav-next" onClick={handleNextStory}>
-                    ›
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <StoryViewer
+        stories={currentViewingStories}
+        currentIndex={currentStoryIndex}
+        isOpen={openViewModal}
+        onClose={() => setOpenViewModal(false)}
+        onCreateStory={() => setOpenCreateModal(true)}
+        onUserClick={handleUserClick}
+      />
     </>
   );
 };

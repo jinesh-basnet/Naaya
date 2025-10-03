@@ -1,5 +1,4 @@
-/* Stories Bar Container */
-.stories-bar {
+﻿.stories-bar {
   display: flex;
   gap: 16px;
   padding: 16px;
@@ -7,6 +6,16 @@
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  transition: margin-left 0.3s ease;
+}
+
+.stories-bar.collapsed {
+  margin-left: 70px;
+}
+
+.stories-bar.expanded {
+  margin-left: 280px;
 }
 
 .stories-bar::-webkit-scrollbar {
@@ -26,7 +35,7 @@
 }
 
 .story-avatar-container.new-story::before {
-  content: '';
+  content: '''';
   position: absolute;
   top: -3px;
   left: -3px;
@@ -38,14 +47,14 @@
 }
 
 .story-avatar-container.viewed-story::before {
-  content: '';
+  content: '''';
   position: absolute;
   top: -2px;
   left: -2px;
   right: -2px;
   bottom: -2px;
   border-radius: 50%;
-  background: #ccc;
+  background: #666;
   z-index: -1;
 }
 
@@ -187,6 +196,103 @@
   margin-bottom: 16px;
 }
 
+.story-visibility-section {
+  margin-bottom: 16px;
+}
+
+.visibility-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.visibility-select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+  background-color: white;
+  cursor: pointer;
+}
+
+.visibility-select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.close-friends-section {
+  margin-bottom: 16px;
+}
+
+.close-friends-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.close-friends-list {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-friends-placeholder {
+  color: #666;
+  font-style: italic;
+  margin: 0;
+}
+
+.close-friend-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.close-friend-item:last-child {
+  border-bottom: none;
+}
+
+.close-friend-checkbox {
+  margin-right: 12px;
+  width: 16px;
+  height: 16px;
+  accent-color: #1976d2;
+}
+
+.close-friend-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex: 1;
+}
+
+.close-friend-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 12px;
+  object-fit: cover;
+}
+
+.close-friend-name {
+  font-size: 0.875rem;
+  color: #333;
+  font-weight: 500;
+}
+
 .post-button {
   padding: 12px 24px;
   background-color: #D32F2F;
@@ -316,4 +422,136 @@
 
 .nav-next {
   right: 10px;
+}
+
+@media (max-width: 768px) {
+  .stories-bar {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .story-item {
+    min-width: 56px;
+  }
+
+  .story-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .story-username {
+    font-size: 10px;
+    max-width: 56px;
+  }
+
+  .create-story-modal {
+    width: 95vw;
+    max-width: none;
+    padding: 20px;
+  }
+
+  .create-story-title {
+    font-size: 1.125rem;
+  }
+
+  .create-story-textarea {
+    font-size: 0.875rem;
+  }
+
+  .media-button {
+    font-size: 0.875rem;
+  }
+
+  .post-button {
+    font-size: 0.875rem;
+  }
+
+  .view-story-modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .view-story-header {
+    padding: 12px;
+  }
+
+  .view-story-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .view-story-author-info h3 {
+    font-size: 0.875rem;
+  }
+
+  .view-story-author-info p {
+    font-size: 0.625rem;
+  }
+
+  .story-content {
+    font-size: 1rem;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    line-height: 1.4;
+  }
+
+  .nav-button {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+
+  .nav-prev {
+    left: 8px;
+  }
+
+  .nav-next {
+    right: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stories-bar {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .story-item {
+    min-width: 48px;
+  }
+
+  .story-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .story-username {
+    font-size: 9px;
+    max-width: 48px;
+  }
+
+  .create-story-modal {
+    padding: 16px;
+  }
+
+  .create-story-title {
+    font-size: 1rem;
+  }
+
+  .view-story-header {
+    padding: 8px;
+  }
+
+  .story-content {
+    font-size: 0.875rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    line-height: 1.4;
+  }
 }
