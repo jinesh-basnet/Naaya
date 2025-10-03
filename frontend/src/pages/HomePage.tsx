@@ -14,6 +14,11 @@ import CreatePostModal from '../components/CreatePostModal';
 import PullToRefresh from 'react-pull-to-refresh';
 import './HomePage.css';
 
+interface HomePageProps {
+  isCollapsed: boolean;
+  setIsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
 interface Post {
   _id: string;
   content: string;
@@ -100,11 +105,14 @@ const HomePage: React.FC = () => {
     queryKey: ['feed', 'posts', locationData?.city],
     queryFn: () => postsAPI.getFeed('fyp'),
     enabled: !!user,
+    staleTime: 2 * 60 * 1000, 
+    cacheTime: 5 * 60 * 1000, 
     retry: (failureCount, error: any) => {
-      if (error?.response?.status === 401 || error?.response?.status === 403) return false; 
+      if (error?.response?.status === 401 || error?.response?.status === 403) return false;
       if (error?.response?.status === 429) return false;
-      return failureCount < 3;
+      return failureCount < 2;
     },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   useEffect(() => {
@@ -179,7 +187,6 @@ const HomePage: React.FC = () => {
   }) => {
     try {
       if (post.editMode && post.editPost) {
-        // Handle update
         const formData = new FormData();
         formData.append('content', post.caption);
         if (post.media) formData.append('media', post.media);
@@ -283,7 +290,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="home-page">
       <div className="container">
-        <StoriesBar />
+        <StoriesBar isCollapsed={false} setIsCollapsed={() => {}} />
 
         {showLocationAlert && locationPermission === 'denied' && (
           <div className="alert">
