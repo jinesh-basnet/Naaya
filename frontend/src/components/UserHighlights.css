@@ -1,0 +1,91 @@
+.user-highlights-container {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 16px 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.user-highlights-container::-webkit-scrollbar {
+  display: none;
+}
+
+.highlight-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  min-width: 80px;
+  max-width: 80px;
+}
+
+.highlight-cover {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e0e0e0;
+  transition: border-color 0.2s ease;
+}
+
+.highlight-item:hover .highlight-cover {
+  border-color: #007bff;
+}
+
+.highlight-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+  margin-top: 8px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-highlight-button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.highlight-item:hover .edit-highlight-button {
+  opacity: 1;
+}
+
+.edit-highlight-button:hover {
+  background: #0056b3;
+}
+
+.highlights-loading,
+.highlights-error,
+.no-highlights {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  padding: 20px;
+}
+
+.highlights-error {
+  color: #dc3545;
+}
+
+.no-highlights {
+  color: #999;
+}
