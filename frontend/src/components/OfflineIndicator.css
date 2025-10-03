@@ -1,205 +1,61 @@
-/* Offline Status Bar */
-.offline-status-bar {
+.offline-indicator {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background-color: #f57c00; /* warning.main equivalent */
-  color: white;
-  padding: 8px 16px;
-  z-index: 1300;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.offline-status-bar .status-icon {
-  font-size: 20px;
-}
-
-.offline-status-bar .status-text {
-  flex-grow: 1;
-  font-size: 14px;
-}
-
-.offline-status-bar .queued-chip {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 16px;
-  font-size: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-/* Compact Mode */
-.compact-offline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compact-offline .offline-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid #f57c00;
-  border-radius: 16px;
-  background-color: white;
-  color: #f57c00;
-  font-size: 12px;
-}
-
-.compact-offline .offline-chip .chip-icon {
-  font-size: 16px;
-}
-
-.compact-offline .pending-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid;
-  border-radius: 16px;
-  font-size: 12px;
-  cursor: pointer;
-  background-color: white;
-  color: inherit;
-}
-
-.compact-offline .pending-chip.syncing {
-  border-color: #2196f3; /* info */
-  color: #2196f3;
-}
-
-.compact-offline .pending-chip.pending {
-  border-color: #f57c00; /* warning */
-  color: #f57c00;
-}
-
-.compact-offline .pending-chip .chip-icon {
-  font-size: 16px;
-}
-
-/* Alert Mode */
-.alert-container {
-  margin-bottom: 16px;
-}
-
-.alert-warning {
-  background-color: #fff3e0;
-  color: #e65100;
-  padding: 16px;
-  border-radius: 4px;
-  border: 1px solid #ffcdd2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.alert-info {
-  background-color: #e3f2fd;
-  color: #01579b;
-  padding: 16px;
-  border-radius: 4px;
-  border: 1px solid #bbdefb;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.alert-button {
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  cursor: default;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: inherit;
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.alert-button:not(:disabled) {
-  cursor: pointer;
-  opacity: 1;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  padding: 4px 8px;
-}
-
-.alert-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.alert-text {
-  flex-grow: 1;
-  margin: 0;
-}
-
-/* Snackbar */
-.snackbar {
-  position: fixed;
-  bottom: 20px;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: #e3f2fd;
-  color: #01579b;
-  padding: 16px;
-  border-radius: 4px;
-  border: 1px solid #bbdefb;
+  z-index: 2000;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 500;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-width: 300px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideDown 0.3s ease-out;
 }
 
-.snackbar-actions {
+.offline-indicator.online {
+  background-color: #10b981;
+  color: white;
+}
+
+.offline-indicator.offline {
+  background-color: #ef4444;
+  color: white;
+}
+
+.indicator-content {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.sync-button {
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  cursor: pointer;
-  color: inherit;
-  font-size: 12px;
-  border-radius: 4px;
-  opacity: 0.8;
-}
-
-.sync-button:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.2);
-  opacity: 1;
-}
-
-.sync-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: inherit;
-  padding: 4px;
-  border-radius: 50%;
+.indicator-icon {
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.close-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+@keyframes slideDown {
+  from {
+    transform: translateX(-50%) translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
 }
 
-.close-icon {
-  font-size: 16px;
+@media (max-width: 480px) {
+  .offline-indicator {
+    top: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .indicator-icon {
+    font-size: 14px;
+  }
 }
