@@ -257,7 +257,7 @@ const ReelsPage: React.FC = () => {
 
         return (
           <motion.div
-            key={reel._id || `reel-${index}`}
+            key={`${reel._id}-${index}`}
             initial={{ opacity: 0 }}
             animate={{
               opacity: isActive ? 1 : 0,

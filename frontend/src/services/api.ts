@@ -181,6 +181,21 @@ export const storiesAPI = {
   
   voteOnPoll: (storyId: string, option: number) =>
     api.post(`/stories/${storyId}/vote`, { option }),
+
+  getUserHighlights: () =>
+    api.get('/stories/highlights'),
+  
+  createHighlight: (highlightData: any) =>
+    api.post('/stories/highlights', highlightData),
+  
+  getHighlight: (highlightId: string) =>
+    api.get(`/stories/highlights/${highlightId}`),
+  
+  updateHighlight: (highlightId: string, updateData: any) =>
+    api.put(`/stories/highlights/${highlightId}`, updateData),
+  
+  deleteHighlight: (highlightId: string) =>
+    api.delete(`/stories/highlights/${highlightId}`),
 };
 
 export const messagesAPI = {
