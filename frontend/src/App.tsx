@@ -37,6 +37,7 @@ import Navbar from './components/Navbar';
 import TopHeader from './components/TopHeader';
 import BottomNavigation from './components/BottomNavigation';
 import MobileMenuDrawer from './components/MobileMenuDrawer';
+import CreatePostModal from './components/CreatePostModal';
 
 // Create query client
 const queryClient = new QueryClient({
@@ -67,6 +68,7 @@ function InnerApp() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [createPostModalOpen, setCreatePostModalOpen] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -86,11 +88,25 @@ function InnerApp() {
 
   const mainStyle = {
     flexGrow: 1,
-    padding: '76px 16px 80px', 
+    padding: '76px 16px 80px',
     marginLeft: showNav && isDesktop && sidebarOpen ? (isCollapsed ? 70 : 280) : 0,
   };
 
   const logoLeft = showNav && isDesktop && sidebarOpen ? (isCollapsed ? 70 : 280) : 0;
+
+  const openCreatePostModal = () => {
+    setCreatePostModalOpen(true);
+    setDrawerOpen(false);
+  };
+
+  const closeCreatePostModal = () => {
+    setCreatePostModalOpen(false);
+  };
+
+  const handlePost = (post: any) => {
+    console.log('Post submitted:', post);
+    closeCreatePostModal();
+  };
 
   return (
     <div className="App" style={{ display: 'flex', minHeight: '100vh' }}>
@@ -138,13 +154,13 @@ function InnerApp() {
             </ProtectedRoute>
           }
         />
-        {/* public Routes */}
+        // public Routes
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        {/* Protected Routes */}
+        // Protected Routes
         <Route
           path="/messages"
           element={
@@ -242,8 +258,14 @@ function InnerApp() {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           isMobile={isMobile}
+          openCreatePostModal={openCreatePostModal}
         />
       )}
+      <CreatePostModal
+        open={createPostModalOpen}
+        onClose={closeCreatePostModal}
+        onPost={handlePost}
+      />
     </div>
   );
 }

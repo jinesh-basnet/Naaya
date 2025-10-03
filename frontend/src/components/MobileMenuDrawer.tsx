@@ -15,9 +15,10 @@ interface MobileMenuDrawerProps {
   open: boolean;
   onClose: () => void;
   isMobile: boolean;
+  openCreatePostModal: () => void;
 }
 
-const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMobile }) => {
+const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMobile, openCreatePostModal }) => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { festivalMode, setFestivalMode } = useFestival();
@@ -44,7 +45,7 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
     const fetchUnreadCounts = async () => {
       try {
         const notifRes = await api.get('/notifications/unread-count');
-        const msgRes = await api.get('/messages/unread-count'); // Assume endpoint exists
+        const msgRes = await api.get('/messages/unread-count'); 
         if (isMounted) {
           setUnreadNotifications(notifRes.data.unreadCount || 0);
           setUnreadMessages(msgRes.data.unreadCount || 0);
@@ -79,7 +80,6 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
 
   const handleFestivalToggle = () => {
     setFestivalMode(!festivalMode);
-    // Apply festival mode class to body or dispatch to context if needed
     document.body.classList.toggle('festival-mode', !festivalMode);
   };
 
@@ -129,7 +129,6 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
                 />
               </form>
 
-              {/* Date and Toggles */}
               <div className="toggles-section">
                 <p className="nepali-date">{nepaliDate}</p>
                 <button className="toggle-btn" onClick={handleLanguageToggle}>
@@ -145,10 +144,13 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
 
               <hr className="divider" />
 
-              {/* Quick Links */}
               <div className="links-section">
                 {getNavItems(t).map((item) => (
-                  <button key={item.path} className="link-btn" onClick={() => { navigate(item.path); onClose(); }}>
+                  <button key={item.path} className="link-btn" onClick={() => {
+                    const path = item.labelKey === 'nav.profile' ? `/profile/${user?.username}` : item.path;
+                    navigate(path);
+                    onClose();
+                  }}>
                     <div style={{ position: 'relative' }}>
                       <item.icon />
                       {item.showBadge && item.labelKey === 'nav.notification' && unreadNotifications > 0 && (
@@ -161,7 +163,13 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
                     <span>{t(item.labelKey)}</span>
                   </button>
                 ))}
-                <button className="link-btn create-btn" onClick={() => { navigate('/create'); onClose(); }}>
+                <button
+                  className="link-btn create-btn"
+                  onClick={() => {
+                    openCreatePostModal();
+                    onClose();
+                  }}
+                >
                   <FaPlus />
                   <span>{t('nav.createPost')}</span>
                 </button>
@@ -169,7 +177,6 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
 
               <hr className="divider" />
 
-              {/* User Menu */}
               <div className="user-section">
                 {user?.profilePicture ? (
                   <img src={user.profilePicture} alt="avatar" className="user-avatar" />
@@ -181,7 +188,7 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
                   <p>@{user?.username}</p>
                 </div>
                 <div className="user-actions">
-                  {userNavItems(t).map((item) => (
+                  {userNavItems(t).filter(item => item.labelKey !== 'nav.logout').map((item) => (
                     <button
                       key={item.path}
                       className="user-btn"
