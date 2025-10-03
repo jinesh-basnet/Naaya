@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FaEdit, FaUserPlus } from 'react-icons/fa';
+import { FaEdit, FaUserPlus, FaPlus } from 'react-icons/fa';
 import { usersAPI, postsAPI, reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { safeString, formatLocation } from '../utils/locationUtils';
 import ErrorBoundary from '../components/ErrorBoundary';
+import HighlightViewer from '../components/HighlightViewer';
+import HighlightManager from '../components/HighlightManager';
+import UserHighlights from '../components/UserHighlights';
 import toast from 'react-hot-toast';
 import './ProfilePage.css';
 
@@ -41,6 +44,10 @@ const ProfilePage: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'bookmarks'>('posts');
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
+  const [selectedHighlight, setSelectedHighlight] = useState<any>(null);
+  const [isHighlightViewerOpen, setIsHighlightViewerOpen] = useState(false);
+  const [isHighlightManagerOpen, setIsHighlightManagerOpen] = useState(false);
+  const [highlightToEdit, setHighlightToEdit] = useState<any>(null);
 
   const {
     data: profileData,
@@ -243,6 +250,57 @@ const ProfilePage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {isCurrentUser && (
+          <div className="highlights-section">
+            <div className="highlights-header">
+              <h4>Story Highlights</h4>
+              <button
+                className="add-highlight-button"
+                onClick={() => {
+                  setHighlightToEdit(null);
+                  setIsHighlightManagerOpen(true);
+                }}
+                aria-label="Add new highlight"
+              >
+                <FaPlus />
+              </button>
+            </div>
+            <UserHighlights
+              userId={profile._id}
+              onHighlightClick={(highlight: any) => {
+                setSelectedHighlight(highlight);
+                setIsHighlightViewerOpen(true);
+              }}
+              onEditHighlight={(highlight: any) => {
+                setHighlightToEdit(highlight);
+                setIsHighlightManagerOpen(true);
+              }}
+            />
+          </div>
+        )}
+
+        {selectedHighlight && (
+          <HighlightViewer
+            highlight={selectedHighlight}
+            isOpen={isHighlightViewerOpen}
+            onClose={() => setIsHighlightViewerOpen(false)}
+            onEdit={() => {
+              setHighlightToEdit(selectedHighlight);
+              setIsHighlightManagerOpen(true);
+              setIsHighlightViewerOpen(false);
+            }}
+          />
+        )}
+
+        <HighlightManager
+          isOpen={isHighlightManagerOpen}
+          onClose={() => {
+            setIsHighlightManagerOpen(false);
+            setHighlightToEdit(null);
+            queryClient.invalidateQueries(['userHighlights']);
+          }}
+        />
 
         <div className="profile-tabs">
           <button
