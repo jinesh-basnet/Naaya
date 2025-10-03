@@ -173,8 +173,8 @@ export const storiesAPI = {
   deleteStory: (storyId: string) =>
     api.delete(`/stories/${storyId}`),
   
-  getUserStories: (userId: string) =>
-    api.get(`/stories/user/${userId}`),
+  getUserStories: (username: string) =>
+    api.get(`/stories/user/${username}`),
   
   createPollStory: (pollData: any) =>
     api.post('/stories/poll', pollData),
