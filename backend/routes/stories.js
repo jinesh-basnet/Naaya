@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const Story = require('../models/Story');
 const StoryHighlight = require('../models/StoryHighlight');
@@ -43,6 +44,9 @@ router.post('/', authenticateToken, [
   body('media.type').if(body('media').exists()).isIn(['image', 'video']).withMessage('Media type is required and must be image or video'),
   body('media.url').if(body('media').exists()).isString().withMessage('Media url is required and must be a string'),
   body('expiresAt').optional().isISO8601().toDate().withMessage('ExpiresAt must be a valid date'),
+  body('visibility').optional().isIn(['public', 'followers', 'close_friends', 'private']).withMessage('Visibility must be public, followers, close_friends, or private'),
+  body('closeFriends').optional().isArray().withMessage('Close friends must be an array'),
+  body('closeFriends.*').if(body('closeFriends').exists()).isMongoId().withMessage('Each close friend must be a valid user ID'),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -56,11 +60,16 @@ router.post('/', authenticateToken, [
     const storyData = {
       author: req.user._id,
       content: req.body.content || '',
-      expiresAt: req.body.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000)
+      expiresAt: req.body.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000),
+      visibility: req.body.visibility || 'public'
     };
 
     if (req.body.media) {
       storyData.media = req.body.media;
+    }
+
+    if (req.body.closeFriends && req.body.closeFriends.length > 0) {
+      storyData.closeFriends = req.body.closeFriends;
     }
 
     const story = new Story(storyData);
@@ -90,25 +99,30 @@ router.get('/', authenticateToken, async (req, res) => {
     const now = new Date();
     const userId = req.user._id;
 
-    const user = await User.findById(userId).populate('following', '_id');
+    const user = await User.findById(userId).populate('following', '_id').populate('closeFriends', '_id');
     const userFollowing = user.following.map(f => f._id.toString());
-    const userCloseFriends = []; 
+    const userCloseFriends = user.closeFriends.map(f => f._id.toString());
 
     const allStories = await Story.find({
       expiresAt: { $gt: now },
       isDeleted: false
     })
-    .populate('author', 'username fullName profilePicture')
+    .populate('author', 'username fullName profilePicture closeFriends')
     .populate('closeFriends', '_id')
     .sort({ createdAt: -1 });
 
     const visibleStories = allStories.filter(story =>
-      story.canView(userId.toString(), userFollowing, story.closeFriends.map(cf => cf._id.toString()))
+      story.canView(userId.toString(), userFollowing, userCloseFriends)
     );
+
+    const storiesWithViews = visibleStories.map(story => ({
+      ...story.toObject(),
+      viewsCount: story.viewsCount
+    }));
 
     res.json({
       message: 'Stories retrieved successfully',
-      stories: visibleStories
+      stories: storiesWithViews
     });
 
   } catch (error) {
@@ -120,9 +134,44 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/stories/user/:username
-// @desc    Get active stories by a specific user
-// @access  Private
+router.get('/highlights', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    console.log('Get highlights - userId:', userId);
+
+    if (!userId) {
+      console.error('Get highlights error: userId is undefined');
+      return res.status(400).json({
+        message: 'User ID is required',
+        code: 'USER_ID_MISSING'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.error('Get highlights error: Invalid userId');
+      return res.status(400).json({
+        message: 'Invalid user ID',
+        code: 'INVALID_USER_ID'
+      });
+    }
+
+    const highlights = await StoryHighlight.getUserHighlights(userId);
+    console.log('Get highlights - highlights count:', highlights.length);
+
+    res.json({
+      message: 'Highlights retrieved successfully',
+      highlights
+    });
+
+  } catch (error) {
+    console.error('Get highlights error:', error.stack || error);
+    res.status(500).json({
+      message: 'Server error retrieving highlights',
+      code: 'GET_HIGHLIGHTS_ERROR'
+    });
+  }
+});
+
 router.get('/user/:username', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
@@ -158,16 +207,27 @@ router.get('/user/:username', authenticateToken, async (req, res) => {
   }
 });
 
+
 // @route   GET /api/stories/:storyId
 // @desc    Get a specific story and mark as viewed
 // @access  Private
 router.get('/:storyId', authenticateToken, async (req, res) => {
   try {
     const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
     const userId = req.user._id;
 
+    const user = await User.findById(userId).populate('following', '_id').populate('closeFriends', '_id');
+    const userFollowing = user.following.map(f => f._id.toString());
+    const userCloseFriends = user.closeFriends.map(f => f._id.toString());
+
     const story = await Story.findById(storyId)
-      .populate('author', 'username fullName profilePicture')
+      .populate('author', 'username fullName profilePicture closeFriends')
       .populate('views.user', '_id')
       .populate('reactions.user', '_id')
       .populate('replies.author', 'username fullName profilePicture');
@@ -179,7 +239,7 @@ router.get('/:storyId', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!story.canView(userId.toString(), [], [])) {
+    if (!story.canView(userId.toString(), userFollowing, userCloseFriends)) {
       return res.status(403).json({
         message: 'You do not have permission to view this story',
         code: 'STORY_ACCESS_DENIED'
@@ -219,8 +279,18 @@ router.post('/:storyId/reaction', authenticateToken, [
     }
 
     const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
     const { type } = req.body;
     const userId = req.user._id;
+
+    const user = await User.findById(userId).populate('following', '_id');
+    const userFollowing = user.following.map(f => f._id.toString());
+    const userCloseFriends = []; // TODO: Implement user-level close friends
 
     const story = await Story.findById(storyId);
     if (!story) {
@@ -230,7 +300,7 @@ router.post('/:storyId/reaction', authenticateToken, [
       });
     }
 
-    if (!story.canView(userId.toString(), [], [])) {
+    if (!story.canView(userId.toString(), userFollowing, userCloseFriends)) {
       return res.status(403).json({
         message: 'You do not have permission to react to this story',
         code: 'STORY_ACCESS_DENIED'
@@ -260,6 +330,12 @@ router.post('/:storyId/reaction', authenticateToken, [
 router.delete('/:storyId/reaction', authenticateToken, async (req, res) => {
   try {
     const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
     const userId = req.user._id;
 
     const story = await Story.findById(storyId);
@@ -303,8 +379,18 @@ router.post('/:storyId/reply', authenticateToken, [
     }
 
     const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
     const { content } = req.body;
     const userId = req.user._id;
+
+    const user = await User.findById(userId).populate('following', '_id');
+    const userFollowing = user.following.map(f => f._id.toString());
+    const userCloseFriends = []; // TODO: Implement user-level close friends
 
     const story = await Story.findById(storyId);
     if (!story) {
@@ -314,7 +400,7 @@ router.post('/:storyId/reply', authenticateToken, [
       });
     }
 
-    if (!story.canView(userId.toString(), [], [])) {
+    if (!story.canView(userId.toString(), userFollowing, userCloseFriends)) {
       return res.status(403).json({
         message: 'You do not have permission to reply to this story',
         code: 'STORY_ACCESS_DENIED'
@@ -406,6 +492,12 @@ router.post('/:storyId/vote', authenticateToken, [
     }
 
     const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
     const { option } = req.body;
     const userId = req.user._id;
 
@@ -462,6 +554,12 @@ router.post('/:storyId/vote', authenticateToken, [
 router.delete('/:storyId', authenticateToken, async (req, res) => {
   try {
     const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
     const userId = req.user._id;
 
     const story = await Story.findById(storyId);
@@ -492,6 +590,256 @@ router.delete('/:storyId', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error deleting story',
       code: 'DELETE_STORY_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/stories/highlights
+// @desc    Create a new story highlight
+// @access  Private
+router.post('/highlights', authenticateToken, [
+  body('title').isString().isLength({ min: 1, max: 30 }).withMessage('Title must be 1-30 characters'),
+  body('coverStory').isMongoId().withMessage('Cover story must be a valid story ID'),
+  body('stories').isArray().withMessage('Stories must be an array'),
+  body('stories.*').isMongoId().withMessage('Each story must be a valid story ID'),
+  body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { title, coverStory, stories, isPublic } = req.body;
+    const userId = req.user._id;
+
+    const userStories = await Story.find({
+      _id: { $in: stories },
+      author: userId,
+      isDeleted: false
+    });
+
+    if (userStories.length !== stories.length) {
+      return res.status(400).json({
+        message: 'Some stories not found or do not belong to you',
+        code: 'INVALID_STORIES'
+      });
+    }
+
+    const coverStoryDoc = await Story.findOne({
+      _id: coverStory,
+      author: userId,
+      isDeleted: false
+    });
+
+    if (!coverStoryDoc) {
+      return res.status(400).json({
+        message: 'Cover story not found or does not belong to you',
+        code: 'INVALID_COVER_STORY'
+      });
+    }
+
+    const highlightData = {
+      author: userId,
+      title,
+      coverStory,
+      stories,
+      isPublic: isPublic !== undefined ? isPublic : true
+    };
+
+    const highlight = await StoryHighlight.createHighlight(highlightData);
+
+    await highlight.populate('coverStory', 'media');
+    await highlight.populate('stories', '_id');
+
+    res.status(201).json({
+      message: 'Highlight created successfully',
+      highlight
+    });
+
+  } catch (error) {
+    console.error('Create highlight error:', error);
+    res.status(500).json({
+      message: 'Server error creating highlight',
+      code: 'CREATE_HIGHLIGHT_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/stories/highlights/:highlightId
+// @desc    Get a specific highlight with stories
+// @access  Private
+router.get('/highlights/:highlightId', authenticateToken, async (req, res) => {
+  try {
+    const { highlightId } = req.params;
+    const userId = req.user._id;
+
+    const highlight = await StoryHighlight.findById(highlightId)
+      .populate('author', 'username fullName profilePicture')
+      .populate({
+        path: 'stories',
+        match: { isDeleted: false },
+        populate: {
+          path: 'author',
+          select: 'username fullName profilePicture'
+        }
+      })
+      .populate('coverStory', 'media');
+
+    if (!highlight) {
+      return res.status(404).json({
+        message: 'Highlight not found',
+        code: 'HIGHLIGHT_NOT_FOUND'
+      });
+    }
+
+    if (highlight.author._id.toString() !== userId.toString() && !highlight.isPublic) {
+      return res.status(403).json({
+        message: 'You do not have permission to view this highlight',
+        code: 'HIGHLIGHT_ACCESS_DENIED'
+      });
+    }
+
+    res.json({
+      message: 'Highlight retrieved successfully',
+      highlight
+    });
+
+  } catch (error) {
+    console.error('Get highlight error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving highlight',
+      code: 'GET_HIGHLIGHT_ERROR'
+    });
+  }
+});
+
+// @route   PUT /api/stories/highlights/:highlightId
+// @desc    Update a story highlight
+// @access  Private
+router.put('/highlights/:highlightId', authenticateToken, [
+  body('title').optional().isString().isLength({ min: 1, max: 30 }).withMessage('Title must be 1-30 characters'),
+  body('coverStory').optional().isMongoId().withMessage('Cover story must be a valid story ID'),
+  body('stories').optional().isArray().withMessage('Stories must be an array'),
+  body('stories.*').optional().isMongoId().withMessage('Each story must be a valid story ID'),
+  body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { highlightId } = req.params;
+    const userId = req.user._id;
+    const updateData = req.body;
+
+    const highlight = await StoryHighlight.findById(highlightId);
+    if (!highlight) {
+      return res.status(404).json({
+        message: 'Highlight not found',
+        code: 'HIGHLIGHT_NOT_FOUND'
+      });
+    }
+
+    if (highlight.author.toString() !== userId.toString()) {
+      return res.status(403).json({
+        message: 'You can only update your own highlights',
+        code: 'UPDATE_PERMISSION_DENIED'
+      });
+    }
+
+    if (updateData.stories) {
+      const userStories = await Story.find({
+        _id: { $in: updateData.stories },
+        author: userId,
+        isDeleted: false
+      });
+
+      if (userStories.length !== updateData.stories.length) {
+        return res.status(400).json({
+          message: 'Some stories not found or do not belong to you',
+          code: 'INVALID_STORIES'
+        });
+      }
+    }
+
+    if (updateData.coverStory) {
+      const coverStoryDoc = await Story.findOne({
+        _id: updateData.coverStory,
+        author: userId,
+        isDeleted: false
+      });
+
+      if (!coverStoryDoc) {
+        return res.status(400).json({
+          message: 'Cover story not found or does not belong to you',
+          code: 'INVALID_COVER_STORY'
+        });
+      }
+    }
+
+    Object.assign(highlight, updateData);
+    await highlight.save();
+
+    await highlight.populate('coverStory', 'media');
+    await highlight.populate('stories', '_id');
+
+    res.json({
+      message: 'Highlight updated successfully',
+      highlight
+    });
+
+  } catch (error) {
+    console.error('Update highlight error:', error);
+    res.status(500).json({
+      message: 'Server error updating highlight',
+      code: 'UPDATE_HIGHLIGHT_ERROR'
+    });
+  }
+});
+
+// @route   DELETE /api/stories/highlights/:highlightId
+// @desc    Delete a story highlight
+// @access  Private
+router.delete('/highlights/:highlightId', authenticateToken, async (req, res) => {
+  try {
+    const { highlightId } = req.params;
+    const userId = req.user._id;
+
+    const highlight = await StoryHighlight.findById(highlightId);
+    if (!highlight) {
+      return res.status(404).json({
+        message: 'Highlight not found',
+        code: 'HIGHLIGHT_NOT_FOUND'
+      });
+    }
+
+    if (highlight.author.toString() !== userId.toString()) {
+      return res.status(403).json({
+        message: 'You can only delete your own highlights',
+        code: 'DELETE_PERMISSION_DENIED'
+      });
+    }
+
+    highlight.isArchived = true;
+    await highlight.save();
+
+    res.json({
+      message: 'Highlight deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete highlight error:', error);
+    res.status(500).json({
+      message: 'Server error deleting highlight',
+      code: 'DELETE_HIGHLIGHT_ERROR'
     });
   }
 });
