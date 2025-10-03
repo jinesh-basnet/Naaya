@@ -1,0 +1,16 @@
+{
+  "createPost": "पोस्ट बनाउनुहोस्",
+  "postCreated": "पोस्ट सफलतापूर्वक बनाइयो",
+  "postDeleted": "पोस्ट हटाइयो",
+  "like": "मन पर्‍यो",
+  "unlike": "मन परेन",
+  "comment": "कमेन्ट",
+  "save": "सेभ",
+  "unsave": "अनसेभ",
+  "feed": "फिड",
+  "nearby": "नजिकै",
+  "following": "फलोइङ",
+  "invalidFileType": "मात्र फोटो र भिडियो अनुमति छ",
+  "fileTooLarge": "फाइल साइज सीमा नाघ्यो"
+}
+
