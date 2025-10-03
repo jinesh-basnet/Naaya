@@ -205,9 +205,15 @@ storySchema.methods.canView = function(userId, userFollowing, userCloseFriends) 
     case 'public':
       return true;
     case 'followers':
-      return userFollowing.includes(this.author);
+      return userFollowing.includes(this.author.toString());
     case 'close_friends':
-      return this.closeFriends.includes(userId);
+      if (this.closeFriends && this.closeFriends.length > 0) {
+        return this.closeFriends.map(id => id.toString()).includes(userId.toString());
+      }
+      if (userCloseFriends && userCloseFriends.length > 0) {
+        return userCloseFriends.includes(this.author.toString());
+      }
+      return false;
     case 'private':
       return false;
     default:
