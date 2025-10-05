@@ -1,46 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import logo from '../assets/logo.png';
+import './RegisterPage.css';
 
 
 
-const Visibility: React.FC<{ color?: string }> = ({ color }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill={color || '#666'} />
-  </svg>
-);
 
-const VisibilityOff: React.FC<{ color?: string }> = ({ color }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92 1.11-1.11c-1.73-4.39-6-7.5-11-7.5-1.55 0-3.04.3-4.38.84l1.47 1.47C9.94 7.47 10.94 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42 2.93 2.93 1.41-1.41L3.51 2.86 2.1 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z" fill={color || '#666'} />
-  </svg>
-);
 
-const Email: React.FC<{ color?: string }> = ({ color }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill={color || '#666'} />
-  </svg>
-);
+const nepaliProvincesAndDistricts = {
+  "Province No. 1 (Koshi Province)": [
+    "Bhojpur", "Dhankuta", "Ilam", "Jhapa", "Khotang", "Morang", "Okhaldhunga",
+    "Panchthar", "Sankhuwasabha", "Solukhumbu", "Sunsari", "Taplejung", "Terhathum", "Udayapur"
+  ],
+  "Province No. 2 (Madhesh Province)": [
+    "Bara", "Dhanusha", "Mahottari", "Parsa", "Rautahat", "Saptari", "Sarlahi", "Siraha"
+  ],
+  "Province No. 3 (Bagmati Province)": [
+    "Bhaktapur", "Chitwan", "Dhading", "Dolakha", "Kathmandu", "Kavrepalanchok",
+    "Lalitpur", "Makwanpur", "Nuwakot", "Ramechhap", "Rasuwa", "Sindhuli", "Sindhupalchok"
+  ],
+  "Province No. 4 (Gandaki Province)": [
+    "Baglung", "Gorkha", "Kaski", "Lamjung", "Manang", "Mustang", "Myagdi",
+    "Nawalpur (Nawalparasi East)", "Parbat", "Syangja", "Tanahun"
+  ],
+  "Province No. 5 (Lumbini Province)": [
+    "Arghakhanchi", "Banke", "Bardiya", "Dang", "Gulmi", "Kapilvastu", "Palpa",
+    "Parasi (Nawalparasi West)", "Pyuthan", "Rolpa", "Rupandehi", "Rukum (East)"
+  ],
+  "Province No. 6 (Karnali Province)": [
+    "Dailekh", "Dolpa", "Humla", "Jajarkot", "Jumla", "Kalikot", "Mugu",
+    "Rukum (West)", "Salyan", "Surkhet"
+  ],
+  "Province No. 7 (Sudurpashchim Province)": [
+    "Achham", "Baitadi", "Bajhang", "Bajura", "Dadeldhura", "Darchula", "Doti",
+    "Kailali", "Kanchanpur"
+  ]
+};
 
-const Lock: React.FC<{ color?: string }> = ({ color }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm3 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill={color || '#666'} />
-  </svg>
-);
-
-const Person: React.FC<{ color?: string }> = ({ color }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill={color || '#666'} />
-  </svg>
-);
-
-const Phone: React.FC<{ color?: string }> = ({ color }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill={color || '#666'} />
-  </svg>
-);
+type ProvinceKey = keyof typeof nepaliProvincesAndDistricts;
 
 interface RegisterFormData {
   username: string;
@@ -55,12 +55,15 @@ interface RegisterFormData {
   languagePreference: 'nepali' | 'english' | 'both';
 }
 
+
+
 const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const [passwordStrength, setPasswordStrength] = useState(0);
+
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
 
@@ -73,10 +76,23 @@ const RegisterPage: React.FC = () => {
 
   const password = watch('password');
 
+  useEffect(() => {
+    const calculatePasswordStrength = (password: string) => {
+      let strength = 0;
+      if (password.length >= 8) strength += 1;
+      if (/[A-Z]/.test(password)) strength += 1;
+      if (/[a-z]/.test(password)) strength += 1;
+      if (/\d/.test(password)) strength += 1;
+      if (/[@$!%*?&]/.test(password)) strength += 1;
+      return strength;
+    };
+    setPasswordStrength(calculatePasswordStrength(password || ''));
+  }, [password]);
+
   const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     setError('');
-    
+
     try {
       const { confirmPassword, ...userData } = data;
       await registerUser({
@@ -97,153 +113,197 @@ const RegisterPage: React.FC = () => {
     }
   };
 
-  const nepaliProvinces = [
-    'Province 1', 'Madhesh Province', 'Bagmati Province', 'Gandaki Province',
-    'Lumbini Province', 'Karnali Province', 'Sudurpashchim Province'
-  ];
+  const handleInputChange = () => {
+    if (error) {
+      setError('');
+    }
+  };
 
-  const districts = [
-    'Kathmandu', 'Lalitpur', 'Bhaktapur', 'Pokhara', 'Chitwan', 'Bharatpur',
-    'Biratnagar', 'Birgunj', 'Janakpur', 'Hetauda', 'Butwal', 'Nepalgunj'
-  ];
+
+
+  const [selectedProvince, setSelectedProvince] = useState<ProvinceKey | ''>('');  
+  const availableDistricts = selectedProvince ? nepaliProvincesAndDistricts[selectedProvince as ProvinceKey] : [];
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', position: 'relative', boxSizing: 'border-box', overflowY: 'auto' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255, 255, 255, 0.02)', backdropFilter: 'blur(2px)', zIndex: 1 }}></div>
-      <div style={{ position: 'relative', zIndex: 2, maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
-        <div style={{ padding: '3rem 2.5rem', borderRadius: '20px', background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(30px) saturate(1.4)', boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)', border: '1px solid rgba(255, 255, 255, 0.15)', maxWidth: '600px', width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: 900, color: '#1a1a1a', marginBottom: '0.5rem', margin: '0', textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>Join नाया</h1>
-            <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1a', margin: '0', textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)' }}>Create your account on The Nepali Network</p>
+    <div className="register-page">
+      <div className="register-container">
+        <div className="register-paper">
+          <div className="register-header">
+            <img src={logo} alt="Logo" className="register-logo" />
+            <h1 className="register-title">Join नाया</h1>
+            <p className="register-subtitle">Create your account on The Nepali Network</p>
           </div>
 
-          {error && <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: '#ffebee', color: '#c62828', marginBottom: '1.5rem', border: '1px solid #ffcdd2' }}>{error}</div>}
+          {error && <div className="register-alert">{error}</div>}
 
-          <form style={{ display: 'flex', flexDirection: 'column' }} onSubmit={handleSubmit(onSubmit)}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              <div>
-                <div style={{ marginBottom: '1rem', position: 'relative' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Full Name</label>
-                  <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}><Person /></div>
-                  <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} {...register('fullName', {
-                    required: 'Full name is required',
-                    minLength: { value: 2, message: 'Name must be at least 2 characters' },
-                  })} />
-                  {errors.fullName && <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginTop: '0.25rem' }}>{errors.fullName.message}</div>}
-                </div>
+          <form className="register-form" onSubmit={handleSubmit(onSubmit)}>
+            <div className="register-grid">
+              <div className={`register-textfield ${errors.fullName ? 'error' : ''}`}>
+                <label>Full Name</label>
+                <div className="input-adornment start icon-person"></div>
+                <input className="register-input with-start" {...register('fullName', {
+                  required: 'Full name is required',
+                  minLength: { value: 2, message: 'Name must be at least 2 characters' },
+                  maxLength: { value: 50, message: 'Name must be at most 50 characters' },
+                  onChange: handleInputChange,
+                })} />
+                {errors.fullName && <div className="register-helper-text">{errors.fullName.message}</div>}
               </div>
-              <div>
-                <div style={{ marginBottom: '1rem', position: 'relative' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Username</label>
-                  <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} {...register('username', {
-                    required: 'Username is required',
-                    minLength: { value: 3, message: 'Username must be at least 3 characters' },
-                    pattern: {
-                      value: /^[a-zA-Z0-9_]+$/,
-                      message: 'Username can only contain letters, numbers, and underscores',
-                    },
-                  })} />
-                  {errors.username && <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginTop: '0.25rem' }}>{errors.username.message}</div>}
-                </div>
+              <div className={`register-textfield ${errors.username ? 'error' : ''}`}>
+                <label>Username</label>
+                <input className="register-input" {...register('username', {
+                  required: 'Username is required',
+                  minLength: { value: 3, message: 'Username must be at least 3 characters' },
+                  maxLength: { value: 30, message: 'Username must be at most 30 characters' },
+                  pattern: {
+                    value: /^[a-zA-Z0-9_]+$/,
+                    message: 'Username can only contain letters, numbers, and underscores',
+                  },
+                  onChange: handleInputChange,
+                })} />
+                {errors.username && <div className="register-helper-text">{errors.username.message}</div>}
               </div>
             </div>
 
-            <div style={{ marginBottom: '1rem', position: 'relative' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Email</label>
-              <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}><Email /></div>
-              <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} type="email" {...register('email', {
+            <div className={`register-textfield ${errors.email ? 'error' : ''}`}>
+              <label>Email</label>
+              <div className="input-adornment start icon-email"></div>
+              <input className="register-input with-start" type="email" {...register('email', {
                 required: 'Email is required',
+                maxLength: { value: 100, message: 'Email must be at most 100 characters' },
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                   message: 'Invalid email address',
                 },
+                onChange: handleInputChange,
               })} />
-              {errors.email && <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginTop: '0.25rem' }}>{errors.email.message}</div>}
+              {errors.email && <div className="register-helper-text">{errors.email.message}</div>}
             </div>
 
-            <div style={{ marginBottom: '1rem', position: 'relative' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Phone (Optional)</label>
-              <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}><Phone /></div>
-              <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} {...register('phone')} />
+            <div className={`register-textfield ${errors.phone ? 'error' : ''}`}>
+              <label>Phone (Optional)</label>
+              <div className="input-adornment start icon-phone"></div>
+              <input className="register-input with-start" {...register('phone', {
+                pattern: {
+                  value: /^98\d{8}$/,
+                  message: 'Phone number must start with 98 and be 10 digits long',
+                },
+                onChange: handleInputChange,
+              })} />
+              {errors.phone && <div className="register-helper-text">{errors.phone.message}</div>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem', marginBottom: '1rem' }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Province</label>
-                <select style={{ width: '100%', padding: '0.75rem', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem', backgroundColor: 'white', transition: 'border-color 0.3s ease' }} {...register('province', { required: 'Province is required' })}>
-                  {nepaliProvinces.map((province) => (
+            <div className="register-location-grid">
+              <div className={`register-form-control ${errors.province ? 'error' : ''}`}>
+                <label>Province</label>
+                <select
+                  className="register-select"
+                  {...register('province', { required: 'Province is required' })}
+                  onChange={(e) => {
+                    setSelectedProvince(e.target.value as ProvinceKey | '');
+                    handleInputChange();
+                  }}
+                >
+                  <option value="">Select Province</option>
+                  {Object.keys(nepaliProvincesAndDistricts).map((province) => (
                     <option key={province} value={province}>
                       {province}
                     </option>
                   ))}
                 </select>
+                {errors.province && <div className="register-helper-text">{errors.province.message}</div>}
               </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>District</label>
-                <select style={{ width: '100%', padding: '0.75rem', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem', backgroundColor: 'white', transition: 'border-color 0.3s ease' }} {...register('district', { required: 'District is required' })}>
-                  {districts.map((district) => (
+              <div className={`register-form-control ${errors.district ? 'error' : ''}`}>
+                <label>District</label>
+                <select
+                  className="register-select"
+                  {...register('district', { required: 'District is required' })}
+                  disabled={!selectedProvince}
+                  onChange={handleInputChange}
+                >
+                  <option value="">Select District</option>
+                  {availableDistricts.map((district) => (
                     <option key={district} value={district}>
                       {district}
                     </option>
                   ))}
                 </select>
+                {errors.district && <div className="register-helper-text">{errors.district.message}</div>}
               </div>
-              <div style={{ marginBottom: '1rem', position: 'relative' }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>City</label>
-                <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} {...register('city', { required: 'City is required' })} />
-                {errors.city && <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginTop: '0.25rem' }}>{errors.city.message}</div>}
+              <div className={`register-textfield ${errors.city ? 'error' : ''}`}>
+                <label>City</label>
+                <input className="register-input" {...register('city', { required: 'City is required', onChange: handleInputChange })} />
+                {errors.city && <div className="register-helper-text">{errors.city.message}</div>}
               </div>
             </div>
 
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Language Preference</label>
-              <select style={{ width: '100%', padding: '0.75rem', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem', backgroundColor: 'white', transition: 'border-color 0.3s ease' }} {...register('languagePreference')} defaultValue="both">
+            <div className="register-form-control">
+              <label>Language Preference</label>
+              <select className="register-select" {...register('languagePreference')} defaultValue="both">
                 <option value="nepali">नेपाली (Nepali)</option>
                 <option value="english">English</option>
                 <option value="both">Both</option>
               </select>
             </div>
 
-            <div style={{ marginBottom: '1rem', position: 'relative' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Password</label>
-              <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}><Lock /></div>
-              <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} type={showPassword ? 'text' : 'password'} {...register('password', {
+            <div className={`register-textfield ${errors.password ? 'error' : ''}`}>
+              <label>Password</label>
+              <div className="input-adornment start icon-lock"></div>
+              <input className="register-input with-start with-end" type={showPassword ? 'text' : 'password'} {...register('password', {
                 required: 'Password is required',
-                minLength: { value: 6, message: 'Password must be at least 6 characters' },
+                minLength: { value: 8, message: 'Password must be at least 8 characters' },
+                pattern: {
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+                  message: 'Password must include at least one uppercase letter, one lowercase letter, one number, and one special character',
+                },
+                onChange: handleInputChange,
               })} />
-              <div style={{ position: 'absolute', top: '50%', right: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}>
-                <button className="icon-button" type="button" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <VisibilityOff /> : <Visibility />}
+              <div className="input-adornment end">
+                <button className={`icon-button visibility-toggle ${showPassword ? 'icon-visibility-off' : 'icon-visibility'}`} type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
-              {errors.password && <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginTop: '0.25rem' }}>{errors.password.message}</div>}
+              {password && (
+                <div className="password-strength">
+                  <div className="strength-bar">
+                    <div className={`strength-fill strength-${passwordStrength}`}></div>
+                  </div>
+                  <span className="strength-text">
+                    {passwordStrength === 0 && 'Very Weak'}
+                    {passwordStrength === 1 && 'Weak'}
+                    {passwordStrength === 2 && 'Fair'}
+                    {passwordStrength === 3 && 'Good'}
+                    {passwordStrength === 4 && 'Strong'}
+                    {passwordStrength === 5 && 'Very Strong'}
+                  </span>
+                </div>
+              )}
+              {errors.password && <div className="register-helper-text">{errors.password.message}</div>}
             </div>
 
-            <div style={{ marginBottom: '1rem', position: 'relative' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>Confirm Password</label>
-              <div style={{ position: 'absolute', top: '50%', left: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}><Lock /></div>
-              <input style={{ width: '100%', padding: '1.125rem 3rem 1.125rem 3rem', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxSizing: 'border-box', background: 'rgba(255, 255, 255, 0.05)', color: '#333', position: 'relative', minHeight: '44px' }} type={showConfirmPassword ? 'text' : 'password'} {...register('confirmPassword', {
+            <div className={`register-textfield ${errors.confirmPassword ? 'error' : ''}`}>
+              <label>Confirm Password</label>
+              <div className="input-adornment start icon-lock"></div>
+              <input className="register-input with-start with-end" type={showConfirmPassword ? 'text' : 'password'} {...register('confirmPassword', {
                 required: 'Please confirm your password',
                 validate: (value: string) => value === password || 'Passwords do not match',
+                onChange: handleInputChange,
               })} />
-              <div style={{ position: 'absolute', top: '50%', right: '0.75rem', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '2rem', height: '2rem', color: '#666' }}>
-                <button className="icon-button" type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+              <div className="input-adornment end">
+                <button className={`icon-button visibility-toggle ${showConfirmPassword ? 'icon-visibility-off' : 'icon-visibility'}`} type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}>
+                  {showConfirmPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
-              {errors.confirmPassword && <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a', marginTop: '0.25rem' }}>{errors.confirmPassword.message}</div>}
+              {errors.confirmPassword && <div className="register-helper-text">{errors.confirmPassword.message}</div>}
             </div>
 
-            <button className="register-button" type="submit" disabled={loading} style={{ padding: '1rem 2rem', border: 'none', borderRadius: '12px', background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)', color: 'white', fontSize: '1.125rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.3s ease', marginTop: '2rem', marginBottom: '1rem', boxShadow: '0 4px 15px rgba(255, 107, 53, 0.3)', position: 'relative', overflow: 'hidden', width: '100%' }}>
+            <button className="register-button" type="submit" disabled={loading}>
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
 
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <p style={{ margin: '0.5rem 0', fontSize: '0.875rem', color: '#666' }}>
-                Already have an account?{' '}
-                <RouterLink className="register-link" to="/login" style={{ color: '#845340', textDecoration: 'none', fontWeight: 'bold', transition: 'color 0.3s ease' }}>
-                  Sign in here
-                </RouterLink>
+            <div className="register-links">
+              <p className="register-link-text">
+                Already have an account? <RouterLink className="register-link" to="/login">Sign in here</RouterLink>
               </p>
             </div>
           </form>

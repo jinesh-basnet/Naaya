@@ -144,6 +144,30 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  failedLoginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
+  },
+  refreshTokens: [{
+    token: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    expiresAt: {
+      type: Date,
+      required: true
+    },
+    userAgent: String,
+    ipAddress: String
+  }],
   pushSubscriptions: [{
     endpoint: String,
     keys: {
@@ -231,5 +255,76 @@ userSchema.virtual('followersCount').get(function() {
 userSchema.virtual('followingCount').get(function() {
   return this.following.length;
 });
+
+userSchema.virtual('isLocked').get(function() {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+});
+
+userSchema.methods.incLoginAttempts = function() {
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    return this.updateOne({
+      $unset: { lockUntil: 1 },
+      $set: { failedLoginAttempts: 1 }
+    });
+  }
+  const updates = { $inc: { failedLoginAttempts: 1 } };
+  if (this.failedLoginAttempts + 1 >= 5 && !this.isLocked) {
+    updates.$set = {
+      lockUntil: Date.now() + 2 * 60 * 60 * 1000 
+    };
+  }
+  return this.updateOne(updates);
+};
+
+userSchema.methods.resetLoginAttempts = function() {
+  return this.updateOne({
+    $unset: { failedLoginAttempts: 1, lockUntil: 1 },
+    $set: { lastActive: new Date() }
+  });
+};
+
+userSchema.methods.addRefreshToken = function(token, userAgent, ipAddress) {
+  const crypto = require('crypto');
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+  this.refreshTokens.push({
+    token: hashedToken,
+    expiresAt,
+    userAgent,
+    ipAddress
+  });
+
+  if (this.refreshTokens.length > 5) {
+    this.refreshTokens = this.refreshTokens.slice(-5);
+  }
+
+  return this.save();
+};
+
+userSchema.methods.removeRefreshToken = function(token) {
+  const crypto = require('crypto');
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+  this.refreshTokens = this.refreshTokens.filter(rt => rt.token !== hashedToken);
+  return this.save();
+};
+
+userSchema.methods.removeExpiredRefreshTokens = function() {
+  const now = new Date();
+  this.refreshTokens = this.refreshTokens.filter(rt => rt.expiresAt > now);
+  return this.save();
+};
+
+userSchema.methods.isValidRefreshToken = function(token) {
+  const crypto = require('crypto');
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+  return this.refreshTokens.some(rt => rt.token === hashedToken && rt.expiresAt > new Date());
+};
+
+userSchema.methods.clearAllRefreshTokens = function() {
+  this.refreshTokens = [];
+  return this.save();
+};
 
 module.exports = mongoose.model('User', userSchema);

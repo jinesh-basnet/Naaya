@@ -11,8 +11,7 @@
   box-sizing: border-box;
 }
 
-.login-page::before {
-  content: '';
+.login-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -22,12 +21,9 @@
   z-index: 1;
 }
 
-.login-page > * {
+.login-container {
   position: relative;
   z-index: 2;
-}
-
-.login-container {
   max-width: 600px;
   margin: 0 auto;
   padding: 0 1rem;
@@ -47,6 +43,20 @@
 .login-header {
   text-align: center;
   margin-bottom: 3rem;
+}
+
+.login-logo {
+  width: 80px;
+  height: auto;
+  margin-bottom: 1rem;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  transition: transform 0.3s ease;
+}
+
+.login-logo:hover {
+  transform: scale(1.1);
 }
 
 .login-title {
@@ -82,13 +92,32 @@
   flex-direction: column;
 }
 
-.login-textfield {
+.login-input-container {
   margin-bottom: 1rem;
   position: relative;
 }
 
-.login-textfield input,
-.login-textfield textarea {
+.login-input-adornment {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  color: #666;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.login-input-adornment.right {
+  left: auto;
+  right: 0.75rem;
+}
+
+.login-input {
   width: 100%;
   padding: 1.125rem 4rem 1.125rem 3rem;
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -99,79 +128,7 @@
   background: rgba(255, 255, 255, 0.05);
   color: #333;
   position: relative;
-  min-height: 44px; /* Minimum touch target size */
-}
-
-/* Ensure icons remain visible when text is entered */
-.login-textfield input:focus + .input-adornment.start,
-.login-textfield input:focus + .input-adornment.end {
-  z-index: 5;
-}
-
-/* Enhanced icon positioning to prevent overlap */
-.input-adornment.start {
-  position: absolute;
-  top: 50%;
-  left: 0.75rem;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  color: #666;
-  z-index: 3;
-  pointer-events: none;
-}
-
-.input-adornment.end {
-  position: absolute;
-  top: 50%;
-  right: 0.75rem;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  color: #666;
-  z-index: 3;
-  pointer-events: none;
-}
-
-/* Override for visibility toggle button */
-.visibility-toggle {
-  pointer-events: auto !important;
-  cursor: pointer;
-}
-
-.login-textfield input:hover,
-.login-textfield textarea:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
-}
-
-.login-textfield input:focus,
-.login-textfield textarea:focus {
-  outline: none;
-  border-color: #FF6B35;
-  box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.25), 0 8px 25px rgba(255, 107, 53, 0.15);
-  background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-2px) scale(1.02);
-  color: #333;
-}
-
-.login-textfield.error input {
-  border-color: #c62828;
-  background: rgba(198, 40, 40, 0.05);
-  animation: shake 0.5s ease-in-out;
-}
-
-.login-textfield.error input:focus {
-  border-color: #c62828;
-  box-shadow: 0 0 0 4px rgba(198, 40, 40, 0.25), 0 8px 25px rgba(198, 40, 40, 0.15);
-  background: rgba(255, 255, 255, 0.95);
+  min-height: 44px;
 }
 
 .login-helper-text {
@@ -180,30 +137,6 @@
   color: #1a1a1a;
   margin-top: 0.25rem;
   margin-left: 0.75rem;
-}
-
-.login-textfield.error .login-helper-text {
-  color: #c62828;
-}
-
-.input-adornment {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  color: #666;
-}
-
-.input-adornment.start {
-  left: 0.75rem;
-}
-
-.input-adornment.end {
-  right: 0.75rem;
 }
 
 .login-button {
@@ -223,40 +156,12 @@
   overflow: hidden;
 }
 
-.login-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
-
-.login-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e55a2b 0%, #FF6B35 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
-}
-
-.login-button:hover:not(:disabled)::before {
-  left: 100%;
-}
-
-.login-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
 .login-links {
   text-align: center;
   margin-top: 1rem;
 }
 
-.login-links p {
+.login-link-text {
   margin: 0.5rem 0;
   font-size: 0.875rem;
   color: #1a1a1a;
@@ -269,11 +174,6 @@
   transition: color 0.3s ease;
 }
 
-.login-link:hover {
-  color: #e46d6d;
-  text-decoration: underline;
-}
-
 .forgot-password-link {
   font-size: 0.9rem;
   color: #1a1a1a;
@@ -281,271 +181,13 @@
   transition: color 0.3s ease;
 }
 
-.forgot-password-link:hover {
-  color: #f43c3c;
-  text-decoration: underline;
-}
-
-/* Global Responsive System - Reusable across entire UI */
-:root {
-  /* Responsive Breakpoints */
-  --breakpoint-xs: 380px;
-  --breakpoint-sm: 480px;
-  --breakpoint-md: 576px;
-  --breakpoint-lg: 768px;
-  --breakpoint-xl: 992px;
-  --breakpoint-xxl: 1200px;
-
-  /* Fluid Typography Scale */
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 1.875rem;
-  --font-size-4xl: 2.25rem;
-  --font-size-5xl: 3rem;
-
-  /* Fluid Spacing Scale */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  --space-2xl: 3rem;
-  --space-3xl: 4rem;
-  --space-4xl: 6rem;
-}
-
-/* Responsive Utility Classes - Reusable across entire UI */
-.container-fluid {
-  width: 100%;
-  padding-left: var(--space-md);
-  padding-right: var(--space-md);
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.container-responsive {
-  width: 100%;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: var(--space-md);
-  padding-right: var(--space-md);
-}
-
-/* Typography Utilities */
-.text-responsive-xs { font-size: var(--font-size-xs); }
-.text-responsive-sm { font-size: var(--font-size-sm); }
-.text-responsive-base { font-size: var(--font-size-base); }
-.text-responsive-lg { font-size: var(--font-size-lg); }
-.text-responsive-xl { font-size: var(--font-size-xl); }
-.text-responsive-2xl { font-size: var(--font-size-2xl); }
-.text-responsive-3xl { font-size: var(--font-size-3xl); }
-.text-responsive-4xl { font-size: var(--font-size-4xl); }
-.text-responsive-5xl { font-size: var(--font-size-5xl); }
-
-/* Spacing Utilities */
-.m-0 { margin: 0; }
-.m-xs { margin: var(--space-xs); }
-.m-sm { margin: var(--space-sm); }
-.m-md { margin: var(--space-md); }
-.m-lg { margin: var(--space-lg); }
-.m-xl { margin: var(--space-xl); }
-.m-2xl { margin: var(--space-2xl); }
-
-.p-0 { padding: 0; }
-.p-xs { padding: var(--space-xs); }
-.p-sm { padding: var(--space-sm); }
-.p-md { padding: var(--space-md); }
-.p-lg { padding: var(--space-lg); }
-.p-xl { padding: var(--space-xl); }
-.p-2xl { padding: var(--space-2xl); }
-
-/* Display Utilities */
-.d-none { display: none; }
-.d-block { display: block; }
-.d-flex { display: flex; }
-.d-grid { display: grid; }
-.d-inline { display: inline; }
-.d-inline-block { display: inline-block; }
-
-/* Flex Utilities */
-.flex-row { flex-direction: row; }
-.flex-column { flex-direction: column; }
-.flex-wrap { flex-wrap: wrap; }
-.flex-nowrap { flex-wrap: nowrap; }
-.justify-start { justify-content: flex-start; }
-.justify-center { justify-content: center; }
-.justify-end { justify-content: flex-end; }
-.justify-between { justify-content: space-between; }
-.align-start { align-items: flex-start; }
-.align-center { align-items: center; }
-.align-end { align-items: flex-end; }
-
-/* Grid System */
-.grid { display: grid; }
-.grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
-.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
-.grid-cols-6 { grid-template-columns: repeat(6, 1fr); }
-.grid-cols-12 { grid-template-columns: repeat(12, 1fr); }
-
-.gap-xs { gap: var(--space-xs); }
-.gap-sm { gap: var(--space-sm); }
-.gap-md { gap: var(--space-md); }
-.gap-lg { gap: var(--space-lg); }
-.gap-xl { gap: var(--space-xl); }
-
-/* Responsive Display Utilities */
-@media (max-width: 768px) {
-  .d-lg-none { display: none; }
-  .d-lg-block { display: block; }
-  .d-lg-flex { display: flex; }
-
-  .grid-cols-lg-1 { grid-template-columns: repeat(1, 1fr); }
-  .grid-cols-lg-2 { grid-template-columns: repeat(2, 1fr); }
-  .grid-cols-lg-3 { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (max-width: 576px) {
-  .d-md-none { display: none; }
-  .d-md-block { display: block; }
-  .d-md-flex { display: flex; }
-
-  .grid-cols-md-1 { grid-template-columns: repeat(1, 1fr); }
-  .grid-cols-md-2 { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 480px) {
-  .d-sm-none { display: none; }
-  .d-sm-block { display: block; }
-  .d-sm-flex { display: flex; }
-
-  .grid-cols-sm-1 { grid-template-columns: repeat(1, 1fr); }
-  .grid-cols-sm-2 { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 380px) {
-  .d-xs-none { display: none; }
-  .d-xs-block { display: block; }
-  .d-xs-flex { display: flex; }
-
-  .grid-cols-xs-1 { grid-template-columns: repeat(1, 1fr); }
-}
-
-/* Global Button System */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-height: 44px;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%);
-  color: white;
-  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-}
-
-.btn-primary:hover {
-  background: linear-gradient(135deg, #e55a2b 0%, #FF6B35 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-/* Card Component System */
-.card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-/* Global Animation System */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideIn {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-.animate-fade-in { animation: fadeIn 0.6s ease-out; }
-.animate-slide-in { animation: slideIn 0.4s ease-out; }
-.animate-scale-in { animation: scaleIn 0.3s ease-out; }
-
-/* Auto-Responsive Design */
-@media (max-width: 1200px) {
-  .login-paper {
-    max-width: 400px;
-    padding: 2.5rem 2rem;
-  }
-
-  .login-title {
-    font-size: 2.25rem;
-  }
-}
-
-@media (max-width: 992px) {
-  .login-page {
-    padding: 1.5rem;
-  }
-
-  .login-paper {
-    max-width: 380px;
-    padding: 2.25rem 1.75rem;
-  }
-
-  .login-title {
-    font-size: 2.1rem;
-  }
-
-  .login-subtitle {
-    font-size: 1rem;
-  }
-}
-
 @media (max-width: 768px) {
   .login-page {
     padding: 1rem;
-    min-height: 100vh;
+  }
+
+  .login-container {
+    padding: 0 0.5rem;
   }
 
   .login-paper {
@@ -560,7 +202,7 @@
   }
 
   .login-subtitle {
-    font-size: 0.95rem;
+    font-size: 1.125rem;
   }
 
   .login-header {
@@ -572,9 +214,18 @@
     font-size: 1rem;
   }
 
-  .login-textfield input,
-  .login-textfield textarea {
-    padding: 1rem 2.5rem 1rem 0.875rem;
+  .login-input {
+    padding: 1rem 3.5rem 1rem 2.5rem;
+    font-size: 0.95rem;
+  }
+
+  .login-input-adornment {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .login-input-adornment.right {
+    right: 0.5rem;
   }
 }
 
@@ -589,11 +240,11 @@
   }
 
   .login-title {
-    font-size: 1.85rem;
+    font-size: 1.8rem;
   }
 
   .login-subtitle {
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
 
   .login-header {
@@ -605,10 +256,18 @@
     font-size: 0.95rem;
   }
 
-  .login-textfield input,
-  .login-textfield textarea {
-    padding: 0.9rem 2.25rem 0.9rem 0.75rem;
-    font-size: 0.95rem;
+  .login-input {
+    padding: 0.9rem 3rem 0.9rem 2.25rem;
+    font-size: 0.9rem;
+  }
+
+  .login-input-adornment {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .login-input-adornment.right {
+    right: 0.4rem;
   }
 }
 
@@ -623,11 +282,11 @@
   }
 
   .login-title {
-    font-size: 1.75rem;
+    font-size: 1.7rem;
   }
 
   .login-subtitle {
-    font-size: 0.85rem;
+    font-size: 0.95rem;
   }
 
   .login-header {
@@ -639,10 +298,18 @@
     font-size: 0.9rem;
   }
 
-  .login-textfield input,
-  .login-textfield textarea {
-    padding: 0.8rem 2rem 0.8rem 0.7rem;
-    font-size: 0.9rem;
+  .login-input {
+    padding: 0.8rem 2.75rem 0.8rem 2rem;
+    font-size: 0.85rem;
+  }
+
+  .login-input-adornment {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+
+  .login-input-adornment.right {
+    right: 0.35rem;
   }
 }
 
@@ -661,7 +328,7 @@
   }
 
   .login-subtitle {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
   }
 
   .login-header {
@@ -673,14 +340,21 @@
     font-size: 0.85rem;
   }
 
-  .login-textfield input,
-  .login-textfield textarea {
-    padding: 0.75rem 1.75rem 0.75rem 0.6rem;
-    font-size: 0.85rem;
+  .login-input {
+    padding: 0.75rem 2.5rem 0.75rem 1.75rem;
+    font-size: 0.8rem;
+  }
+
+  .login-input-adornment {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+
+  .login-input-adornment.right {
+    right: 0.3rem;
   }
 }
 
-/* Landscape orientation adjustments */
 @media (max-height: 500px) and (orientation: landscape) {
   .login-page {
     padding: 0.5rem;
@@ -690,15 +364,15 @@
 
   .login-paper {
     padding: 1.25rem 1.5rem;
-    max-width: 400px;
+    max-width: 450px;
   }
 
   .login-title {
-    font-size: 1.75rem;
+    font-size: 1.6rem;
   }
 
   .login-subtitle {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
   }
 
   .login-header {
@@ -706,212 +380,28 @@
   }
 }
 
-/* High DPI / Retina displays */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .login-paper {
-    border: 1px solid rgba(255, 255, 255, 0.4);
-  }
-
-  .login-textfield input,
-  .login-textfield textarea {
-    border: 2px solid rgba(255, 255, 255, 0.25);
-  }
-}
-
-/* Touch device optimizations */
 @media (hover: none) and (pointer: coarse) {
-  .login-textfield input:hover,
-  .login-textfield textarea:hover {
+  .login-input:hover {
     border-color: rgba(255, 255, 255, 0.3);
     background: rgba(255, 255, 255, 0.06);
     transform: none;
   }
 
   .login-button {
-    min-height: 44px; /* Minimum touch target size */
+    min-height: 44px; 
   }
 
-  .login-textfield input,
-  .login-textfield textarea {
+  .login-input {
     min-height: 44px;
   }
 }
 
-/* Accessibility Improvements */
 .login-button:focus {
   outline: 2px solid #FF6B35;
   outline-offset: 2px;
 }
 
-.login-textfield input:focus,
-.login-textfield textarea:focus {
+.login-input:focus {
   outline: 2px solid #FF6B35;
   outline-offset: -2px;
-}
-
-/* Loading state for button */
-.login-button.loading {
-  pointer-events: none;
-  position: relative;
-  color: transparent;
-}
-
-.login-button.loading::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
-  border: 2px solid transparent;
-  border-top: 2px solid currentColor;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-/* Icon components */
-.icon-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.3s ease;
-  min-width: 44px;
-  min-height: 44px;
-  position: relative;
-}
-
-.icon-button:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-}
-
-.icon-button:focus {
-  outline: 2px solid #FF6B35;
-  outline-offset: 2px;
-  background-color: rgba(255, 107, 53, 0.1);
-}
-
-/* Visibility toggle specific styling */
-.visibility-toggle {
-  min-width: 48px;
-  min-height: 48px;
-  padding: 0.75rem;
-  margin: 0.5rem auto 0;
-  border-radius: 50%;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 15;
-  pointer-events: auto;
-  /* Ensure visibility toggle is always visible */
-  opacity: 1;
-  visibility: visible;
-}
-
-.visibility-toggle:hover {
-  background-color: rgba(255, 107, 53, 0.15);
-  transform: scale(1.05);
-}
-
-.visibility-toggle:focus {
-  background-color: rgba(255, 107, 53, 0.2);
-  outline: 2px solid #FF6B35;
-  outline-offset: 2px;
-}
-
-.visibility-toggle:active {
-  transform: scale(0.95);
-  background-color: rgba(255, 107, 53, 0.25);
-}
-
-.icon-svg {
-  width: 1.5rem;
-  height: 1.5rem;
-  fill: currentColor;
-  transition: all 0.3s ease;
-}
-
-/* Enhanced icon visibility */
-.visibility-toggle .icon-svg {
-  width: 1.6rem;
-  height: 1.6rem;
-  fill: #555;
-  background: transparent;
-}
-
-.visibility-toggle:hover .icon-svg {
-  fill: #FF6B35;
-  transform: scale(1.1);
-}
-
-.visibility-toggle:focus .icon-svg {
-  fill: #FF6B35;
-}
-
-.visibility-toggle:active .icon-svg {
-  transform: scale(0.9);
-}
-
-/* Responsive icon sizing for better visibility on small screens */
-@media (max-width: 576px) {
-  .visibility-toggle .icon-svg {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  .visibility-toggle {
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0.6rem;
-    margin: -0.6rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .visibility-toggle .icon-svg {
-    width: 1.4rem;
-    height: 1.4rem;
-  }
-
-  .visibility-toggle {
-    min-width: 42px;
-    min-height: 42px;
-    padding: 0.55rem;
-    margin: -0.55rem;
-  }
-}
-
-@media (max-width: 380px) {
-  .visibility-toggle .icon-svg {
-    width: 1.3rem;
-    height: 1.3rem;
-  }
-
-  .visibility-toggle {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 0.5rem;
-    margin: -0.5rem;
-  }
 }

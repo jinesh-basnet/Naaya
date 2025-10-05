@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const csrfProtection = require('./middleware/csrfProtection');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const connectDB = require('./config/database');
@@ -10,7 +11,7 @@ const path = require('path');
 
 const app = express();
 
-app.set('trust proxy', false);
+app.set('trust proxy', 'loopback');
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -97,10 +98,14 @@ app.use(express.urlencoded({
 const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:3000';
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res, path) => {
+  setHeaders: (res, filePath) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+    if (filePath.endsWith('.mp4')) {
+      res.setHeader('Content-Type', 'video/mp4');
+    }
   }
 }));
 
@@ -171,17 +176,18 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/posts', require('./routes/posts/index'));
+app.use('/api/users', csrfProtection, require('./routes/users'));
+app.use('/api/posts', csrfProtection, require('./routes/posts/index'));
 app.use('/api/feed', require('./routes/feed'));
-app.use('/api/stories', require('./routes/stories'));
-app.use('/api/reels', require('./routes/reels'));
-app.use('/api/messages', require('./routes/messages'));
-app.use('/api/password-reset', require('./routes/passwordReset'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/reports', require('./routes/reports'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/bookmark-collections', require('./routes/bookmarkCollections'));
+app.use('/api/stories', csrfProtection, require('./routes/stories'));
+app.use('/api/reels', csrfProtection, require('./routes/reels'));
+app.use('/api/messages', csrfProtection, require('./routes/messages'));
+app.use('/api/password-reset', csrfProtection, require('./routes/passwordReset'));
+app.use('/api/notifications', csrfProtection, require('./routes/notifications'));
+app.use('/api/reports', csrfProtection, require('./routes/reports'));
+app.use('/api/admin', csrfProtection, require('./routes/admin'));
+app.use('/api/bookmark-collections', csrfProtection, require('./routes/bookmarkCollections'));
+app.use('/api/welcome', require('./routes/welcome'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
@@ -243,6 +249,7 @@ app.use('*', (req, res) => {
     code: 'ROUTE_NOT_FOUND',
     availableRoutes: [
       '/api/health',
+      '/api/welcome',
       '/api/auth',
       '/api/users',
       '/api/posts',

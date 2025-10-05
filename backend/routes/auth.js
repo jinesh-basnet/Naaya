@@ -4,21 +4,27 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const { loginRateLimiter, registerRateLimiter } = require('../middleware/rateLimiter');
+const SecurityLogger = require('../services/securityLogger');
 
 const router = express.Router();
 
-const generateToken = (userId) => {
+const generateAccessToken = (userId) => {
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '15m' } 
   );
+};
+
+const generateRefreshToken = () => {
+  return require('crypto').randomBytes(64).toString('hex');
 };
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
-router.post('/register', [
+router.post('/register', registerRateLimiter, [
   body('username')
     .isLength({ min: 3, max: 30 })
     .withMessage('Username must be between 3 and 30 characters'),
@@ -27,8 +33,10 @@ router.post('/register', [
     .withMessage('Please provide a valid email')
     .normalizeEmail(),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)
+    .withMessage('Password must include at least one uppercase letter, one lowercase letter, one number, and one special character'),
   body('fullName')
     .isLength({ min: 2, max: 50 })
     .withMessage('Full name must be between 2 and 50 characters')
@@ -72,7 +80,7 @@ router.post('/register', [
 
     await user.save();
 
-    const token = generateToken(user._id);
+    const token = generateAccessToken(user._id);
 
     const userData = user.getPublicProfile();
 
@@ -94,7 +102,7 @@ router.post('/register', [
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
-router.post('/login', [
+router.post('/login', loginRateLimiter, [
   body('identifier')
     .notEmpty()
     .withMessage('Email, username, or phone is required'),
@@ -122,9 +130,18 @@ router.post('/login', [
     });
 
     if (!user) {
+      await new SecurityLogger().logFailedLogin(identifier, 'User not found', req.ip, req.headers['user-agent']);
       return res.status(401).json({
         message: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS'
+      });
+    }
+
+    if (user.isLocked) {
+      await new SecurityLogger().logAccountLockout(identifier, req.ip, req.headers['user-agent']);
+      return res.status(423).json({
+        message: 'Account is temporarily locked due to too many failed login attempts',
+        code: 'ACCOUNT_LOCKED'
       });
     }
 
@@ -137,16 +154,18 @@ router.post('/login', [
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
+      await user.incLoginAttempts();
+      await new SecurityLogger().logFailedLogin(identifier, 'Invalid password', req.ip, req.headers['user-agent']);
       return res.status(401).json({
         message: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS'
       });
     }
 
-    user.lastActive = new Date();
-    await user.save();
+    await user.resetLoginAttempts();
+    await new SecurityLogger().logLoginAttempt(identifier, true, req.ip, req.headers['user-agent']);
 
-    const token = generateToken(user._id);
+    const token = generateAccessToken(user._id);
 
     const userData = user.getPublicProfile();
 
