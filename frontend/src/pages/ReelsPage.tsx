@@ -285,7 +285,7 @@ const ReelsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="loading-container">
-        <h6 style={{ color: 'white' }}>Loading reels...</h6>
+        <h6>Loading reels...</h6>
       </div>
     );
   }
@@ -306,20 +306,13 @@ const ReelsPage: React.FC = () => {
         return (
           <motion.div
             key={`${reel._id}-${index}`}
+            className={`reel-item ${isActive ? 'active' : 'inactive'}`}
             initial={{ opacity: 0 }}
             animate={{
               opacity: isActive ? 1 : 0,
               scale: isActive ? 1 : 0.8,
             }}
             transition={{ duration: 0.3 }}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              display: isActive ? 'block' : 'none',
-            }}
           >
             <div className="video-container">
               {videoUrl && !videoErrors[reel._id] ? (
@@ -349,18 +342,7 @@ const ReelsPage: React.FC = () => {
                 />
               ) : (
                 <div className="video-placeholder">
-                  <div style={{
-                    width: '100%',
-                    height: '100%',
-                    background: '#333',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '1.2rem'
-                  }}>
-                    {videoErrors[reel._id] ? 'Video unavailable' : 'No video available'}
-                  </div>
+                  {videoErrors[reel._id] ? 'Video unavailable' : 'No video available'}
                 </div>
               )}
 
@@ -394,7 +376,7 @@ const ReelsPage: React.FC = () => {
                   </div>
                 )}
                 <div className="user-details">
-                  <div className="user-name" onClick={() => navigate(`/profile/${reel.author?.username}`)} style={{ cursor: 'pointer' }}>
+                  <div className="user-name" onClick={() => navigate(`/profile/${reel.author?.username}`)}>
                     {reel.author ? safeRender(reel.author.fullName) : 'Unknown User'}
                     {reel.author?.isVerified && (
                       <div className="verified-badge">
