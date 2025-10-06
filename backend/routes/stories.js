@@ -290,7 +290,7 @@ router.post('/:storyId/reaction', authenticateToken, [
 
     const user = await User.findById(userId).populate('following', '_id');
     const userFollowing = user.following.map(f => f._id.toString());
-    const userCloseFriends = []; // TODO: Implement user-level close friends
+    const userCloseFriends = []; 
 
     const story = await Story.findById(storyId);
     if (!story) {
@@ -390,7 +390,7 @@ router.post('/:storyId/reply', authenticateToken, [
 
     const user = await User.findById(userId).populate('following', '_id');
     const userFollowing = user.following.map(f => f._id.toString());
-    const userCloseFriends = []; // TODO: Implement user-level close friends
+    const userCloseFriends = []; 
 
     const story = await Story.findById(storyId);
     if (!story) {

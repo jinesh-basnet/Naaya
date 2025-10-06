@@ -354,7 +354,7 @@ router.get('/search', authenticateToken, async (req, res) => {
     .select('username fullName profilePicture isVerified bio location followers')
     .limit(limit * 1)
     .skip((page - 1) * limit)
-    .sort({ followers: -1, createdAt: -1 }); // Sort by popularity and recency
+    .sort({ followers: -1, createdAt: -1 }); 
 
     const total = await User.countDocuments({
       $or: [
