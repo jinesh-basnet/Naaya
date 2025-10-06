@@ -226,8 +226,8 @@ const HomePage: React.FC = () => {
         formData.append('language', language);
 
         if (post.postType === 'reel') {
-          formData.append('caption', post.caption);
-          if (post.media) formData.append('video', post.media);
+          formData.append('content', post.caption);
+          if (post.media) formData.append('media', post.media);
         formData.append('hashtags', JSON.stringify(post.tags));
         if (post.location.trim()) {
           formData.append('location', JSON.stringify({ name: post.location }));
@@ -329,7 +329,7 @@ const HomePage: React.FC = () => {
                 }
               }}
             >
-              <FaMapMarkerAlt className="icon" style={{ marginRight: 4 }} />
+              <FaMapMarkerAlt className="icon" />
               Enable Location
             </button>
           </div>
@@ -337,7 +337,7 @@ const HomePage: React.FC = () => {
 
         {locationData && (
           <div className="location-box">
-            <FaMapMarkerAlt className="icon" style={{ color: '#1976d2', fontSize: 16 }} />
+            <FaMapMarkerAlt className="icon" />
             <span>
               Showing content near {locationData.city || 'your location'}
             </span>
@@ -361,14 +361,14 @@ const HomePage: React.FC = () => {
                     <div className="skeleton-header">
                       <div className="skeleton-avatar"></div>
                       <div className="skeleton-text">
-                        <div style={{ width: '60%', height: 20, background: '#f5f5f5', borderRadius: 4 }}></div>
-                        <div style={{ width: '40%', height: 16, background: '#f5f5f5', borderRadius: 4 }}></div>
+                        <div className="skeleton-line-60"></div>
+                        <div className="skeleton-line-40"></div>
                       </div>
                     </div>
                     <div className="skeleton-rect"></div>
                     <div className="skeleton-actions">
-                      <div style={{ width: '20%', height: 16, background: '#f5f5f5', borderRadius: 4 }}></div>
-                      <div style={{ width: '30%', height: 16, background: '#f5f5f5', borderRadius: 4 }}></div>
+                      <div className="skeleton-line-20"></div>
+                      <div className="skeleton-line-30"></div>
                     </div>
                   </div>
                 </div>
@@ -458,10 +458,7 @@ const HomePage: React.FC = () => {
                         )}
 
                         {post.media && post.media.length > 0 && (
-                            <div
-                              className="media-box"
-                              style={{ position: 'relative' }}
-                            >
+                            <div className="media-box">
                               {post.isReel ? (
                                 <video
                                   src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
@@ -476,7 +473,7 @@ post.media.map((media, index) => {
     fullUrl = `${BACKEND_BASE_URL}${normalizedUrl}`;
   }
 
-  let paddingTop = '56.25%'; // default 16:9
+  let paddingTop = '56.25%'; 
   if (media.width && media.height) {
     paddingTop = `${(media.height / media.width) * 100}%`;
   }
@@ -556,7 +553,7 @@ post.media.map((media, index) => {
                             </div>
                           </div>
 
-                          <div style={{ marginBottom: 8 }}>
+                          <div className="likes-comments-section">
                             {(post.likes || []).length > 0 && (
                               <p className="likes-count">
                                 {(post.likes || []).length.toLocaleString()} {(post.likes || []).length === 1 ? 'like' : 'likes'}
