@@ -109,12 +109,10 @@ class SecurityLogger {
   }
 
   maskIdentifier(identifier) {
-    // Mask email addresses and phone numbers for privacy
     if (identifier.includes('@')) {
       const [local, domain] = identifier.split('@');
       return `${local.substring(0, 2)}***@${domain}`;
     }
-    // For phone numbers, show only last 3 digits
     if (/^\+?\d+$/.test(identifier)) {
       return `***${identifier.slice(-3)}`;
     }

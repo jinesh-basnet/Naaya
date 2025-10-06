@@ -8,31 +8,28 @@ class NotificationService {
   }
 
   /**
-   * Create and send a notification
-   * @param {Object} notificationData - Notification data
-   * @param {string} notificationData.recipientId - Recipient user ID
-   * @param {string} notificationData.senderId - Sender user ID
-   * @param {string} notificationData.type - Notification type
-   * @param {string} notificationData.title - Notification title
-   * @param {string} notificationData.message - Notification message
-   * @param {Object} notificationData.data - Additional data
+   * 
+   * @param {Object} notificationData 
+   * @param {string} notificationData.recipientId 
+   * @param {string} notificationData.senderId 
+   * @param {string} notificationData.type 
+   * @param {string} notificationData.title 
+   * @param {string} notificationData.message 
+   * @param {Object} notificationData.data 
    */
   async createNotification(notificationData) {
     try {
       const { recipientId, senderId, type, title, message, data = {} } = notificationData;
 
-      // Don't send notification to self
       if (recipientId === senderId) {
         return null;
       }
 
-      // Check if recipient exists and is active
       const recipient = await User.findById(recipientId);
       if (!recipient || !recipient.isActive) {
         return null;
       }
 
-      // Create notification
       const notification = await Notification.createNotification({
         recipient: recipientId,
         sender: senderId,
@@ -42,10 +39,8 @@ class NotificationService {
         data
       });
 
-      // Send real-time notification
       this.sendRealtimeNotification(recipientId, notification);
 
-      // Send push notification
       this.sendPushNotification(recipientId, notification);
 
       return notification;
@@ -56,9 +51,9 @@ class NotificationService {
   }
 
   /**
-   * Send real-time notification via Socket.io
-   * @param {string} userId - User ID to send notification to
-   * @param {Object} notification - Notification object
+   * 
+   * @param {string} userId 
+   * @param {Object} notification 
    */
   sendRealtimeNotification(userId, notification) {
     if (this.io) {
@@ -67,9 +62,9 @@ class NotificationService {
   }
 
   /**
-   * Send push notification to user
-   * @param {string} userId - User ID to send push notification to
-   * @param {Object} notification - Notification object
+   * 
+   * @param {string} userId 
+   * @param {Object} notification 
    */
   async sendPushNotification(userId, notification) {
     try {
@@ -79,7 +74,6 @@ class NotificationService {
         return;
       }
 
-      // Check notification preferences
       const preferences = user.notificationPreferences || {
         emailNotifications: true,
         pushNotifications: true,
@@ -108,11 +102,9 @@ class NotificationService {
         tag: `naaya-${notification.type}-${notification._id}`
       });
 
-      // Send push notification to all user's subscriptions
       const promises = user.pushSubscriptions.map(subscription => {
         return webpush.sendNotification(subscription, payload).catch(error => {
           console.error('Error sending push notification:', error);
-          // If subscription is invalid, remove it
           if (error.statusCode === 410 || error.statusCode === 400) {
             User.findByIdAndUpdate(userId, {
               $pull: { pushSubscriptions: subscription }
@@ -129,10 +121,10 @@ class NotificationService {
   }
 
   /**
-   * Create like notification
-   * @param {string} postId - Post ID
-   * @param {string} likerId - User who liked the post
-   * @param {string} postAuthorId - Post author ID
+   *
+   * @param {string} postId 
+   * @param {string} likerId 
+   * @param {string} postAuthorId 
    */
   async createLikeNotification(postId, likerId, postAuthorId) {
     const liker = await User.findById(likerId).select('username fullName');
@@ -148,11 +140,11 @@ class NotificationService {
   }
 
   /**
-   * Create comment notification
-   * @param {string} postId - Post ID
-   * @param {string} commenterId - User who commented
-   * @param {string} postAuthorId - Post author ID
-   * @param {string} commentId - Comment ID
+   * 
+   * @param {string} postId 
+   * @param {string} commenterId 
+   * @param {string} postAuthorId 
+   * @param {string} commentId 
    */
   async createCommentNotification(postId, commenterId, postAuthorId, commentId) {
     const commenter = await User.findById(commenterId).select('username fullName');
@@ -168,9 +160,9 @@ class NotificationService {
   }
 
   /**
-   * Create follow notification
-   * @param {string} followerId - User who followed
-   * @param {string} followingId - User being followed
+   * 
+   * @param {string} followerId 
+   * @param {string} followingId 
    */
   async createFollowNotification(followerId, followingId) {
     const follower = await User.findById(followerId).select('username fullName');
@@ -186,11 +178,11 @@ class NotificationService {
   }
 
   /**
-   * Create mention notification
-   * @param {string} mentionedUserId - User who was mentioned
-   * @param {string} mentionerId - User who mentioned
-   * @param {string} postId - Post ID where mention occurred
-   * @param {string} commentId - Comment ID (if mentioned in comment)
+   * 
+   * @param {string} mentionedUserId 
+   * @param {string} mentionerId 
+   * @param {string} postId 
+   * @param {string} commentId 
    */
   async createMentionNotification(mentionedUserId, mentionerId, postId, commentId = null) {
     const mentioner = await User.findById(mentionerId).select('username fullName');
@@ -206,11 +198,11 @@ class NotificationService {
   }
 
   /**
-   * Create message notification
-   * @param {string} recipientId - Message recipient
-   * @param {string} senderId - Message sender
-   * @param {string} messageId - Message ID
-   * @param {string} messagePreview - Preview of the message
+   * 
+   * @param {string} recipientId 
+   * @param {string} senderId 
+   * @param {string} messageId 
+   * @param {string} messagePreview 
    */
   async createMessageNotification(recipientId, senderId, messageId, messagePreview) {
     const sender = await User.findById(senderId).select('username fullName');
@@ -226,10 +218,10 @@ class NotificationService {
   }
 
   /**
-   * Create story reply notification
-   * @param {string} storyAuthorId - Story author ID
-   * @param {string} replierId - User who replied to story
-   * @param {string} storyId - Story ID
+   * 
+   * @param {string} storyAuthorId 
+   * @param {string} replierId 
+   * @param {string} storyId 
    */
   async createStoryReplyNotification(storyAuthorId, replierId, storyId) {
     const replier = await User.findById(replierId).select('username fullName');
@@ -245,16 +237,16 @@ class NotificationService {
   }
 
   /**
-   * Create system notification
-   * @param {string} recipientId - Recipient user ID
-   * @param {string} title - Notification title
-   * @param {string} message - Notification message
-   * @param {Object} data - Additional data
+   * 
+   * @param {string} recipientId 
+   * @param {string} title 
+   * @param {string} message 
+   * @param {Object} data 
    */
   async createSystemNotification(recipientId, title, message, data = {}) {
     return this.createNotification({
       recipientId,
-      senderId: recipientId, // System notifications have same sender and recipient
+      senderId: recipientId, 
       type: 'system',
       title,
       message,
@@ -263,9 +255,9 @@ class NotificationService {
   }
 
   /**
-   * Bulk create notifications for multiple users
-   * @param {Array} userIds - Array of user IDs
-   * @param {Object} notificationData - Notification data
+   *
+   * @param {Array} userIds 
+   * @param {Object} notificationData 
    */
   async createBulkNotification(userIds, notificationData) {
     const notifications = [];
