@@ -4,9 +4,9 @@ const Notification = require('../models/Notification');
 
 class CleanupService {
   /**
-   * Clean up expired stories
-   * @param {boolean} dryRun - If true, only count expired stories without deleting
-   * @returns {Object} Cleanup results
+   * 
+   * @param {boolean} dryRun 
+   * @returns {Object} 
    */
   async cleanupExpiredStories(dryRun = false) {
     try {
@@ -23,7 +23,6 @@ class CleanupService {
         };
       }
 
-      // Soft delete expired stories
       const result = await Story.updateMany(
         {
           expiresAt: { $lt: new Date() },
@@ -52,9 +51,9 @@ class CleanupService {
   }
 
   /**
-   * Clean up old notifications (older than 30 days)
-   * @param {boolean} dryRun - If true, only count old notifications without deleting
-   * @returns {Object} Cleanup results
+   * 
+   * @param {boolean} dryRun 
+   * @returns {Object} 
    */
   async cleanupOldNotifications(dryRun = false) {
     try {
@@ -95,9 +94,10 @@ class CleanupService {
   }
 
   /**
-   * Clean up soft-deleted posts older than 30 days
-   * @param {boolean} dryRun - If true, only count deleted posts without permanently deleting
-   * @returns {Object} Cleanup results
+   * 
+   * @param {boolean} dryRun 
+   * 
+   * @returns {Object} 
    */
   async cleanupDeletedPosts(dryRun = false) {
     try {
@@ -138,9 +138,9 @@ class CleanupService {
   }
 
   /**
-   * Run all cleanup tasks
-   * @param {boolean} dryRun - If true, only count items without deleting
-   * @returns {Object} Complete cleanup results
+   * 
+   * @param {boolean} dryRun 
+   * @returns {Object} 
    */
   async runAllCleanup(dryRun = false) {
     const results = {
@@ -149,16 +149,12 @@ class CleanupService {
       tasks: {}
     };
 
-    // Clean up expired stories
     results.tasks.stories = await this.cleanupExpiredStories(dryRun);
 
-    // Clean up old notifications
     results.tasks.notifications = await this.cleanupOldNotifications(dryRun);
 
-    // Clean up deleted posts
     results.tasks.posts = await this.cleanupDeletedPosts(dryRun);
 
-    // Calculate totals
     results.summary = {
       totalDeleted: Object.values(results.tasks).reduce((sum, task) => 
         sum + (task.deletedCount || 0), 0
@@ -173,8 +169,8 @@ class CleanupService {
   }
 
   /**
-   * Get cleanup statistics
-   * @returns {Object} Current cleanup statistics
+   * 
+   * @returns {Object} 
    */
   async getCleanupStats() {
     try {
@@ -182,31 +178,26 @@ class CleanupService {
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
       const stats = await Promise.all([
-        // Expired stories
         Story.countDocuments({
           expiresAt: { $lt: now },
           isDeleted: false
         }),
         
-        // Old read notifications
         Notification.countDocuments({
           createdAt: { $lt: thirtyDaysAgo },
           isRead: true
         }),
         
-        // Deleted posts ready for permanent deletion
         Post.countDocuments({
           isDeleted: true,
           deletedAt: { $lt: thirtyDaysAgo }
         }),
         
-        // Total active stories
         Story.countDocuments({
           isDeleted: false,
           expiresAt: { $gt: now }
         }),
         
-        // Total unread notifications
         Notification.countDocuments({
           isRead: false
         })
