@@ -65,6 +65,7 @@ router.get('/user/:username', authenticateToken, async (req, res) => {
       isArchived: false
     })
     .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+    .populate('comments.author', 'username fullName profilePicture')
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -116,7 +117,6 @@ router.get('/:postId', optionalAuth, async (req, res) => {
       });
     }
 
-    // Add view if user is authenticated
     if (req.user && !post.views.some(view => view.user.toString() === req.user._id.toString())) {
       post.views.push({ user: req.user._id });
       await post.save();
@@ -150,11 +150,14 @@ router.get('/search', authenticateToken, async (req, res) => {
       });
     }
 
-    const searchRegex = new RegExp(query.trim(), 'i');
+    const escapeRegex = (string) => {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const searchRegex = new RegExp(escapeRegex(query.trim()), 'i');
 
     const posts = await Post.find({
       $or: [
-        { caption: { $regex: searchRegex } },
         { content: { $regex: searchRegex } }
       ],
       isDeleted: false,
@@ -167,7 +170,6 @@ router.get('/search', authenticateToken, async (req, res) => {
 
     const total = await Post.countDocuments({
       $or: [
-        { caption: { $regex: searchRegex } },
         { content: { $regex: searchRegex } }
       ],
       isDeleted: false,

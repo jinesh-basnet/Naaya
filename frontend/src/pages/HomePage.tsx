@@ -14,11 +14,6 @@ import CreatePostModal from '../components/CreatePostModal';
 import PullToRefresh from 'react-pull-to-refresh';
 import './HomePage.css';
 
-interface HomePageProps {
-  isCollapsed: boolean;
-  setIsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
 interface Post {
   _id: string;
   content: string;
@@ -26,6 +21,8 @@ interface Post {
     type: string;
     url: string;
     thumbnail?: string;
+    width?: number;
+    height?: number;
   }>;
   author: {
     _id: string;
@@ -40,6 +37,7 @@ interface Post {
   };
   language: string;
   likes: Array<{ user: string }>;
+  saves: Array<{ user: string }>;
   comments: Array<{
     _id: string;
     author: {
@@ -53,6 +51,7 @@ interface Post {
   createdAt: string;
   likesCount: number;
   commentsCount: number;
+  savesCount: number;
   postType: string;
   isReel?: boolean;
 }
@@ -158,6 +157,21 @@ const HomePage: React.FC = () => {
       refetch();
     } catch (error) {
       toast.error('Failed to like');
+    }
+  };
+
+  const handleSave = async (postId: string, isReel?: boolean) => {
+    try {
+      if (isReel) {
+        await reelsAPI.saveReel(postId);
+        toast.success('Reel saved!');
+      } else {
+        await postsAPI.savePost(postId);
+        toast.success('Post saved!');
+      }
+      refetch();
+    } catch (error) {
+      toast.error('Failed to save');
     }
   };
 
@@ -364,6 +378,7 @@ const HomePage: React.FC = () => {
             <div className="posts-container">
               {filteredPosts.map((post: Post, index: number) => {
                 const isLiked = (post.likes || []).some(like => like.user === user?._id) ?? false;
+                const isSaved = (post.saves || []).some(save => save.user === user?._id) ?? false;
 
                 return (
                   <motion.div
@@ -372,7 +387,7 @@ const HomePage: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <div className="card">
+                    <div className="card" onDoubleClick={() => handleDoubleTap(post._id, post.isReel)}>
                       <div className="card-content">
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
                           {post.author && (
@@ -446,7 +461,6 @@ const HomePage: React.FC = () => {
                         {post.media && post.media.length > 0 && (
                           <div
                             className="media-box"
-                            onDoubleClick={() => handleDoubleTap(post._id, post.isReel)}
                             style={{ position: 'relative' }}
                           >
                             {post.isReel ? (
@@ -463,11 +477,16 @@ post.media.map((media, index) => {
     fullUrl = `${BACKEND_BASE_URL}${normalizedUrl}`;
   }
 
+  let paddingTop = '56.25%'; // default 16:9
+  if (media.width && media.height) {
+    paddingTop = `${(media.height / media.width) * 100}%`;
+  }
+
   return (
     <div
       key={`${post._id}-${index}`}
       className="media-item"
-      style={media.type === 'video' ? { paddingTop: '56.25%' } : {}}
+      style={{ paddingTop }}
     >
       {media.type === 'image' ? (
         <img
@@ -528,15 +547,28 @@ post.media.map((media, index) => {
                               <FaShare className="icon" />
                             </button>
                           </div>
-                          <button className="icon-button">
-                            <FaRegBookmark className="icon" />
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <button
+                              className="icon-button"
+                              onClick={() => handleSave(post._id, post.isReel)}
+                            >
+                              <FaRegBookmark
+                                className={isSaved ? "saved-icon" : "icon"}
+                                style={isSaved ? { color: '#1976d2' } : {}}
+                              />
+                            </button>
+                            {(post.saves || []).length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: '#666', marginTop: 2 }}>
+                                {(post.saves || []).length.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div style={{ marginBottom: 8 }}>
-                          {post.likesCount > 0 && (
+                          {(post.likes || []).length > 0 && (
                             <p style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: 4 }}>
-                              {post.likesCount.toLocaleString()} {post.likesCount === 1 ? 'like' : 'likes'}
+                              {(post.likes || []).length.toLocaleString()} {(post.likes || []).length === 1 ? 'like' : 'likes'}
                             </p>
                           )}
                           <div>
@@ -546,13 +578,13 @@ post.media.map((media, index) => {
                               </p>
                             ))}
                           </div>
-                          {post.commentsCount > 2 && (
+                          {(post.comments || []).length > 2 && (
                             <p
                               style={{ fontSize: '0.875rem', color: '#666', cursor: 'pointer' }}
                               onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
                               onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
                             >
-                              View all {post.commentsCount} comments
+                              View all {(post.comments || []).length} comments
                             </p>
                           )}
                         </div>

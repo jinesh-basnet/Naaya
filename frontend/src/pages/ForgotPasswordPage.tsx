@@ -13,7 +13,6 @@ interface ForgotPasswordForm {
 const ForgotPasswordPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const {
     register,
@@ -21,22 +20,29 @@ const ForgotPasswordPage: React.FC = () => {
     formState: { errors },
   } = useForm<ForgotPasswordForm>();
 
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   const onSubmit = async (data: ForgotPasswordForm) => {
     setLoading(true);
     setError('');
-    setSuccess(false);
+    setOtpSent(false);
+    setEmail(data.email);
 
     try {
       const response = await api.post('/password-reset/request', { email: data.email });
 
       if (response.data.success) {
-        setSuccess(true);
-        toast.success('Password reset link sent to your email!');
+        setOtpSent(true);
+        toast.success('OTP sent to your email!');
       } else {
-        setError(response.data.message || 'Failed to send reset link');
+        setError(response.data.message || 'Failed to send OTP');
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to send reset link';
+      const errorMessage = err.response?.data?.message || 'Failed to send OTP';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -44,35 +50,126 @@ const ForgotPasswordPage: React.FC = () => {
     }
   };
 
-  if (success) {
+  if (otpSent) {
     return (
       <div className="forgot-password-container">
         <div className="forgot-password-paper">
           <div className="forgot-password-header">
             <FaEnvelope className="success-icon" />
-            <h1 className="success-title">Check Your Email</h1>
+            <h1 className="success-title">Enter OTP and New Password</h1>
             <p className="success-text">
-              We've sent a password reset link to your email address.
-              Please check your inbox and follow the instructions to reset your password.
+              An OTP has been sent to your email address: <strong>{email}</strong>.
+              Please enter the OTP and your new password below.
             </p>
-            <div className="alert alert-info">
-              <strong>Note:</strong> The reset link will expire in 10 minutes for security reasons.
-            </div>
           </div>
 
-          <div className="success-actions">
-            <RouterLink to="/login" className="btn btn-outlined">
-              <FaArrowLeft />
-              Back to Login
-            </RouterLink>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!otp || !newPassword || !confirmPassword) {
+                setError('Please fill in all fields');
+                return;
+              }
+              if (newPassword !== confirmPassword) {
+                setError('Passwords do not match');
+                return;
+              }
+              setLoading(true);
+              setError('');
+              try {
+                const resetResponse = await api.post('/password-reset/reset-with-otp', {
+                  email,
+                  otp,
+                  newPassword
+                });
+                if (resetResponse.data.success) {
+                  toast.success('Password reset successfully!');
+                } else {
+                  setError(resetResponse.data.message || 'Failed to reset password');
+                  toast.error(resetResponse.data.message || 'Failed to reset password');
+                }
+              } catch (err: any) {
+                const errorMessage = err.response?.data?.message || 'Failed to reset password';
+                setError(errorMessage);
+                toast.error(errorMessage);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            <div className="form-group">
+              <label className="form-label" htmlFor="otp">OTP</label>
+              <input
+                id="otp"
+                type="text"
+                className={`form-input ${error ? 'error' : ''}`}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="newPassword">New Password</label>
+              <input
+                id="newPassword"
+                type="password"
+                className={`form-input ${error ? 'error' : ''}`}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="confirmPassword">Confirm New Password</label>
+              <input
+                id="confirmPassword"
+                type="password"
+                className={`form-input ${error ? 'error' : ''}`}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            {error && (
+              <div className="alert alert-error">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn btn-contained"
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="spinner"></div>
+              ) : (
+                'Reset Password'
+              )}
+            </button>
+
             <button
               type="button"
               className="btn btn-text"
-              onClick={() => setSuccess(false)}
+              onClick={() => {
+                setOtpSent(false);
+                setOtp('');
+                setNewPassword('');
+                setConfirmPassword('');
+                setError('');
+              }}
             >
-              Try Again
+              Resend OTP
             </button>
-          </div>
+
+            <RouterLink to="/login" className="back-link">
+              <FaArrowLeft />
+              Back to Login
+            </RouterLink>
+          </form>
         </div>
       </div>
     );

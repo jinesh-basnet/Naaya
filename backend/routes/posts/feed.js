@@ -90,6 +90,13 @@ router.get('/feed', authenticateToken, async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
+      posts = posts.map(post => ({
+        ...post,
+        likesCount: post.likes ? post.likes.length : 0,
+        commentsCount: post.comments ? post.comments.length : 0,
+        savesCount: post.saves ? post.saves.length : 0
+      }));
+
     } else if (feedType === 'fyp') {
       console.log(`[DEBUG] FYP feed requested for user ${userId}, page ${page}, limit ${limit}`);
 
@@ -106,13 +113,20 @@ router.get('/feed', authenticateToken, async (req, res) => {
         .limit(limit * 1)
         .skip((page - 1) * limit);
 
+        posts = posts.map(post => ({
+          ...post,
+          likesCount: post.likes ? post.likes.length : 0,
+          commentsCount: post.comments ? post.comments.length : 0,
+          savesCount: post.saves ? post.saves.length : 0
+        }));
+
         console.log(`[DEBUG] FYP posts returned: ${posts.length}`);
       } catch (queryError) {
         console.error('[DEBUG] FYP query error:', {
           message: queryError.message,
           stack: queryError.stack
         });
-        throw queryError; 
+        throw queryError;
       }
 
     } else if (feedType === 'nearby') {
@@ -127,7 +141,15 @@ router.get('/feed', authenticateToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-    } else if (feedType === 'explore') {
+
+      posts = posts.map(post => ({
+        ...post,
+        likesCount: post.likes ? post.likes.length : 0,
+        commentsCount: post.comments ? post.comments.length : 0,
+        savesCount: post.saves ? post.saves.length : 0
+      }));
+    }
+    else if (feedType === 'explore') {
       posts = await Post.find({
         postType: 'post',
         isDeleted: false,
@@ -139,6 +161,13 @@ router.get('/feed', authenticateToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
+
+      posts = posts.map(post => ({
+        ...post,
+        likesCount: post.likes ? post.likes.length : 0,
+        commentsCount: post.comments ? post.comments.length : 0,
+        savesCount: post.saves ? post.saves.length : 0
+      }));
     } else if (feedType === 'trending') {
       posts = await Post.find({
         isDeleted: false,
@@ -150,6 +179,13 @@ router.get('/feed', authenticateToken, async (req, res) => {
       .sort({ likesCount: -1, createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
+
+      posts = posts.map(post => ({
+        ...post,
+        likesCount: post.likes ? post.likes.length : 0,
+        commentsCount: post.comments ? post.comments.length : 0,
+        savesCount: post.saves ? post.saves.length : 0
+      }));
     }
 
     res.json({

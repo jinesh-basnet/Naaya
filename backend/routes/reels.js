@@ -101,6 +101,134 @@ router.post('/', authenticateToken, uploadSingle('video'), (req, res, next) => {
   }
 });
 
+router.get('/saved', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const userId = req.user._id;
+
+    console.log('Getting saved reels for user:', userId, 'page:', page, 'limit:', limit);
+
+    const totalCount = await Reel.countDocuments({
+      'saves.user': userId,
+      isDeleted: false,
+      isArchived: false,
+      'video.url': { $exists: true, $ne: '' }
+    });
+
+    console.log('Total saved reels count:', totalCount);
+
+    if (totalCount === 0) {
+      return res.json({
+        message: 'Saved reels retrieved successfully',
+        reels: [],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0,
+          totalPages: 0
+        }
+      });
+    }
+
+    const savedReels = await Reel.aggregate([
+      {
+        $match: {
+          'saves.user': userId,
+          isDeleted: false,
+          isArchived: false,
+          'video.url': { $exists: true, $ne: '' }
+        }
+      },
+      {
+        $addFields: {
+          userSave: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: '$saves',
+                  cond: { $eq: ['$$this.user', userId] }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $sort: { 'userSave.savedAt': -1 }
+      },
+      {
+        $skip: (page - 1) * limit
+      },
+      {
+        $limit: limit * 1
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author'
+        }
+      },
+      {
+        $unwind: {
+          path: '$author',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $project: {
+          'author.password': 0,
+          'author.email': 0,
+          'author.emailVerified': 0,
+          'author.verificationToken': 0,
+          'author.resetPasswordToken': 0,
+          'author.resetPasswordExpires': 0,
+          'author.twoFactorSecret': 0,
+          'author.twoFactorEnabled': 0,
+          'author.loginAttempts': 0,
+          'author.lockUntil': 0,
+          'author.createdAt': 0,
+          'author.updatedAt': 0
+        }
+      }
+    ]);
+
+    console.log('Aggregation completed, found', savedReels.length, 'saved reels');
+
+    const finalReels = savedReels.map(reel => ({
+      ...reel,
+      likesCount: reel.likes.length,
+      commentsCount: reel.comments.length,
+      sharesCount: reel.shares.length,
+      savesCount: reel.saves.length,
+      viewsCount: reel.views.length
+    }));
+
+    res.json({
+      message: 'Saved reels retrieved successfully',
+      reels: finalReels,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get saved reels error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      message: 'Server error retrieving saved reels',
+      code: 'GET_SAVED_REELS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 router.get('/feed', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;

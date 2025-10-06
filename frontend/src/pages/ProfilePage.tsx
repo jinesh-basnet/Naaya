@@ -9,6 +9,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import HighlightViewer from '../components/HighlightViewer';
 import HighlightManager from '../components/HighlightManager';
 import UserHighlights from '../components/UserHighlights';
+
 import toast from 'react-hot-toast';
 import './ProfilePage.css';
 
@@ -42,12 +43,13 @@ const ProfilePage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'bookmarks'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'bookmarks' | 'savedReels'>('posts');
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
   const [selectedHighlight, setSelectedHighlight] = useState<any>(null);
   const [isHighlightViewerOpen, setIsHighlightViewerOpen] = useState(false);
   const [isHighlightManagerOpen, setIsHighlightManagerOpen] = useState(false);
-  const [highlightToEdit, setHighlightToEdit] = useState<any>(null);
+
+
 
   const {
     data: profileData,
@@ -89,6 +91,16 @@ const ProfilePage: React.FC = () => {
   } = useQuery({
     queryKey: ['userBookmarks'],
     queryFn: () => postsAPI.getUserBookmarks(),
+    enabled: isCurrentUser && !!profile,
+  });
+
+  const {
+    data: savedReelsData,
+    isLoading: savedReelsLoading,
+    error: savedReelsError,
+  } = useQuery({
+    queryKey: ['userSavedReels'],
+    queryFn: () => reelsAPI.getSavedReels(),
     enabled: isCurrentUser && !!profile,
   });
 
@@ -258,7 +270,6 @@ const ProfilePage: React.FC = () => {
               <button
                 className="add-highlight-button"
                 onClick={() => {
-                  setHighlightToEdit(null);
                   setIsHighlightManagerOpen(true);
                 }}
                 aria-label="Add new highlight"
@@ -273,7 +284,6 @@ const ProfilePage: React.FC = () => {
                 setIsHighlightViewerOpen(true);
               }}
               onEditHighlight={(highlight: any) => {
-                setHighlightToEdit(highlight);
                 setIsHighlightManagerOpen(true);
               }}
             />
@@ -286,7 +296,6 @@ const ProfilePage: React.FC = () => {
             isOpen={isHighlightViewerOpen}
             onClose={() => setIsHighlightViewerOpen(false)}
             onEdit={() => {
-              setHighlightToEdit(selectedHighlight);
               setIsHighlightManagerOpen(true);
               setIsHighlightViewerOpen(false);
             }}
@@ -297,7 +306,6 @@ const ProfilePage: React.FC = () => {
           isOpen={isHighlightManagerOpen}
           onClose={() => {
             setIsHighlightManagerOpen(false);
-            setHighlightToEdit(null);
             queryClient.invalidateQueries(['userHighlights']);
           }}
         />
@@ -336,17 +344,17 @@ const ProfilePage: React.FC = () => {
                 <p className="no-posts">No posts yet.</p>
               ) : (
                 <div className="posts-grid">
-                  {postsData.data.posts.map((post: Post) => (
-                    <div key={post._id} className="post-item">
-                      {post.media?.[0]?.url && (
-                        <img
-                          src={post.media[0].url}
-                          alt={post.content || 'Post image'}
-                        />
-                      )}
-                      <p className="post-content">{safeString(post.content)}</p>
-                    </div>
-                  ))}
+{postsData.data.posts.map((post: Post) => (
+  <div key={post._id} className="post-item">
+    {post.media?.[0]?.url && (
+      <img
+        src={post.media[0].url}
+        alt={post.content || 'Post image'}
+      />
+    )}
+    <p className="post-content">{safeString(post.content)}</p>
+  </div>
+))}
                 </div>
               )}
             </>
@@ -400,30 +408,74 @@ const ProfilePage: React.FC = () => {
 
           {activeTab === 'bookmarks' && isCurrentUser && (
             <>
-              {bookmarksLoading ? (
+              {(bookmarksLoading || savedReelsLoading) ? (
                 <div className="loading-spinner"></div>
-              ) : bookmarksError ? (
-                <div className="error-alert">Failed to load bookmarks.</div>
-              ) : !bookmarksData?.data?.posts || bookmarksData.data.posts.length === 0 ? (
-                <p className="no-posts">No bookmarks yet.</p>
+              ) : (bookmarksError || savedReelsError) ? (
+                <div className="error-alert">Failed to load saved items.</div>
+              ) : (
+                !bookmarksData?.data?.posts?.length && !savedReelsData?.data?.reels?.length
+              ) ? (
+                <p className="no-posts">No saved items yet.</p>
               ) : (
                 <div className="posts-grid">
-                  {bookmarksData.data.posts.map((post: Post) => (
-                    <div key={post._id} className="post-item">
+                  {bookmarksData?.data?.posts?.map((post: Post) => (
+                    <div key={`post-${post._id}`} className="post-item">
                       {post.media?.[0]?.url && (
                         <img
                           src={post.media[0].url}
-                          alt={post.content || 'Bookmarked post image'}
+                          alt={post.content || 'Saved post image'}
                         />
                       )}
                       <p className="post-content">{safeString(post.content)}</p>
+                      <div className="item-type">Post</div>
+                    </div>
+                  ))}
+
+                  {savedReelsData?.data?.reels?.map((reel: any) => (
+                    <div key={`reel-${reel._id}`} className="post-item">
+                      {reel.video?.url && !videoErrors[reel._id] ? (
+                        <video
+                          style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                          src={reel.video.url.startsWith('http') ? reel.video.url : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${reel.video.url}`}
+                          muted
+                          onError={(e) => {
+                            setVideoErrors(prev => ({ ...prev, [reel._id]: true }));
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '200px',
+                            backgroundColor: '#f0f0f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#666',
+                            fontSize: '14px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {videoErrors[reel._id] ? 'Video unavailable' : 'No video'}
+                        </div>
+                      )}
+                      <p className="post-content">{safeString(reel.content)}</p>
+                      <div className="item-type">Reel</div>
                     </div>
                   ))}
                 </div>
               )}
             </>
           )}
+
+          {activeTab === 'savedReels' && isCurrentUser && (
+            <>
+              <p>Saved reels feature coming soon.</p>
+            </>
+          )}
         </div>
+
+
       </div>
     </ErrorBoundary>
   );

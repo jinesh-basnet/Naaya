@@ -135,6 +135,18 @@
   margin-top: 8px;
 }
 
+.item-type {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
 .no-posts {
   font-size: 0.875rem;
   color: #666;

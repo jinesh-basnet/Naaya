@@ -136,6 +136,14 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  otp: {
+    type: String,
+    default: null
+  },
+  otpExpires: {
+    type: Date,
+    default: null
+  },
   emailVerificationToken: {
     type: String,
     default: null
@@ -233,11 +241,20 @@ userSchema.methods.generatePasswordResetToken = function() {
 userSchema.methods.generateEmailVerificationToken = function() {
   const crypto = require('crypto');
   const verificationToken = crypto.randomBytes(32).toString('hex');
-  
+
   this.emailVerificationToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
-  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; 
-  
+  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+
   return verificationToken;
+};
+
+userSchema.methods.generateOTP = function() {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+
+  this.otp = otp;
+  this.otpExpires = Date.now() + 10 * 60 * 1000; 
+
+  return otp;
 };
 
 userSchema.methods.getPublicProfile = function() {

@@ -76,7 +76,11 @@ export const authAPI = {
 export const postsAPI = {
   createPost: (postData: any) => {
     if (postData instanceof FormData) {
-      return api.post('/posts', postData);
+      return api.post('/posts', postData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
     }
     return api.post('/posts', postData);
   },
@@ -101,7 +105,11 @@ export const postsAPI = {
   
   updatePost: (postId: string, postData: any) => {
     if (postData instanceof FormData) {
-      return api.put(`/posts/${postId}`, postData);
+      return api.put(`/posts/${postId}`, postData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
     }
     return api.put(`/posts/${postId}`, postData);
   },
@@ -248,6 +256,9 @@ export const reelsAPI = {
 
   getUserReels: (userId: string, page: number = 1, limit: number = 10) =>
     api.get(`/reels/user/${userId}?page=${page}&limit=${limit}`),
+
+  getSavedReels: (page: number = 1, limit: number = 10) =>
+    api.get(`/reels/saved?page=${page}&limit=${limit}`),
 };
 
 export const bookmarkCollectionsAPI = {

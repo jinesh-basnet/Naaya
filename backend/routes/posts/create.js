@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
-const { uploadMultiple } = require('../../middleware/upload');
+const { upload, uploadMultiple } = require('../../middleware/upload');
 const { body, validationResult } = require('express-validator');
 const { authenticateToken } = require('../../middleware/auth');
 const Post = require('../../models/Post');
@@ -12,7 +12,7 @@ const router = express.Router();
 // @route   POST /api/posts
 // @desc    Create a new post
 // @access  Private
-router.post('/', authenticateToken, uploadMultiple('media'), [
+router.post('/', authenticateToken, upload.any(), [
   body('content').optional().isString().isLength({ max: 2200 }),
   body('tags').optional(),
   body('location').optional(),
@@ -46,9 +46,10 @@ router.post('/', authenticateToken, uploadMultiple('media'), [
       postData.content = req.body.content;
     }
 
-    if (req.files && req.files.length > 0) {
+    const mediaFiles = req.files ? req.files.filter(f => f.fieldname === 'media') : [];
+    if (mediaFiles.length > 0) {
       try {
-        postData.media = req.files.map(file => {
+        postData.media = mediaFiles.map(file => {
           const filename = path.basename(file.path);
 
           return {
@@ -105,10 +106,10 @@ router.post('/', authenticateToken, uploadMultiple('media'), [
       }
     }
 
-    if ((!postData.content || postData.content.trim() === '') && (!postData.media || postData.media.length === 0)) {
+    if (!postData.media || postData.media.length === 0) {
       return res.status(400).json({
-        message: 'Post must have either content or media',
-        code: 'MISSING_CONTENT_OR_MEDIA'
+        message: 'Media is required',
+        code: 'MISSING_MEDIA'
       });
     }
 

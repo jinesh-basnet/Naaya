@@ -81,6 +81,7 @@ const ReelsPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
+  const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
 
   const likeMutation = useMutation({
     mutationFn: (reelId: string) => reelsAPI.likeReel(reelId),
@@ -93,6 +94,27 @@ const ReelsPage: React.FC = () => {
     },
   });
 
+  const saveMutation = useMutation({
+    mutationFn: reelsAPI.saveReel,
+    onSuccess: (response, reelId) => {
+      const data = response.data;
+      setSavedReels(prev => {
+        const newSet = new Set(prev);
+        if (data.isSaved) {
+          newSet.add(reelId);
+        } else {
+          newSet.delete(reelId);
+        }
+        return newSet;
+      });
+      queryClient.invalidateQueries({ queryKey: ['reels'] });
+      toast.success(data.message);
+    },
+    onError: () => {
+      toast.error('Failed to save reel');
+    },
+  });
+
   const { data: reelsData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['reels'],
     queryFn: ({ pageParam = 1 }) => reelsAPI.getFeed(pageParam),
@@ -101,6 +123,18 @@ const ReelsPage: React.FC = () => {
       return allPages.length + 1;
     },
   });
+
+  useEffect(() => {
+    if (user) {
+      const fetchSavedReels = async () => {
+        try {
+        } catch (error) {
+          console.error('Failed to fetch saved reels:', error);
+        }
+      };
+      fetchSavedReels();
+    }
+  }, [user]);
 
   const reels = reelsData?.pages?.flatMap(page => page.data?.reels || []) || [];
 
@@ -213,6 +247,10 @@ const ReelsPage: React.FC = () => {
     likeMutation.mutate(reelId);
   };
 
+  const handleSave = (reelId: string) => {
+    saveMutation.mutate(reelId);
+  };
+
   const handleVideoProgress = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
     const progress = (video.currentTime / video.duration) * 100;
@@ -221,6 +259,15 @@ const ReelsPage: React.FC = () => {
 
   const handleVideoClick = () => {
     setIsPlaying(!isPlaying);
+  };
+
+  const handleVideoEnd = () => {
+    if (currentReelIndex < reels.length - 1) {
+      setCurrentReelIndex(prev => prev + 1);
+    } else if (hasNextPage && !isFetchingNextPage) {
+      setPendingAdvance(true);
+      fetchNextPage();
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -253,6 +300,7 @@ const ReelsPage: React.FC = () => {
       {reels.map((reel: Reel, index: number) => {
         const isActive = index === currentReelIndex;
         const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
+        const isSaved = savedReels.has(reel._id);
         const videoUrl = reel.video?.url ? (reel.video.url.startsWith('http') ? reel.video.url : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${reel.video.url}`) : '';
 
         return (
@@ -282,11 +330,12 @@ const ReelsPage: React.FC = () => {
                     }
                   }}
                   src={videoUrl}
-                  loop
+                  autoPlay
                   muted={isMuted}
                   playsInline
                   onTimeUpdate={handleVideoProgress}
                   onClick={handleVideoClick}
+                  onEnded={handleVideoEnd}
                   onError={(e) => {
                     console.error(`[ReelsPage] Video load error for reel ${reel._id}:`, {
                       videoUrl,
@@ -436,8 +485,23 @@ const ReelsPage: React.FC = () => {
                 whileTap={{ scale: 0.9 }}
                 className="side-action-item"
               >
-                <div className="side-action-btn">
-                  <MdBookmarkBorder style={{ color: 'white', fontSize: 28 }} />
+                <div
+                  className="side-action-btn"
+                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                    e.stopPropagation();
+                    if (user) {
+                      handleSave(reel._id);
+                    } else {
+                      toast.error('Please login to save reels');
+                    }
+                  }}
+                  title={isSaved ? 'Unsave Reel' : 'Save Reel'}
+                >
+                  {isSaved ? (
+                    <MdBookmarkBorder style={{ color: '#e91e63', fontSize: 28 }} />
+                  ) : (
+                    <MdBookmarkBorder style={{ color: 'white', fontSize: 28 }} />
+                  )}
                 </div>
               </motion.div>
 
