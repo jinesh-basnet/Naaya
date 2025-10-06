@@ -310,7 +310,7 @@ const HomePage: React.FC = () => {
           <div className="alert">
             Enable location to see posts from people near you and discover local content!
             <button
-              className="button"
+              className="alert-button"
               onClick={async () => {
                 try {
                   const permission = await locationService.requestPermission();
@@ -329,7 +329,7 @@ const HomePage: React.FC = () => {
                 }
               }}
             >
-              <FaMapMarkerAlt style={{ fontSize: 16, marginRight: 4 }} />
+              <FaMapMarkerAlt className="icon" style={{ marginRight: 4 }} />
               Enable Location
             </button>
           </div>
@@ -337,11 +337,11 @@ const HomePage: React.FC = () => {
 
         {locationData && (
           <div className="location-box">
-            <FaMapMarkerAlt style={{ fontSize: 16, color: '#1976d2' }} />
-            <span style={{ fontSize: '0.875rem', color: '#666' }}>
+            <FaMapMarkerAlt className="icon" style={{ color: '#1976d2', fontSize: 16 }} />
+            <span>
               Showing content near {locationData.city || 'your location'}
             </span>
-            <span className="chip" style={{ borderColor: '#1976d2', color: '#1976d2' }}>
+            <span className="chip location-chip">
               Local
             </span>
           </div>
@@ -389,87 +389,86 @@ const HomePage: React.FC = () => {
                   >
                     <div className="card" onDoubleClick={() => handleDoubleTap(post._id, post.isReel)}>
                       <div className="card-content">
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                          {post.author && (
-                            <>
-                              <img
-                                src={post.author.profilePicture}
-                                alt={post.author.username}
-                                className="avatar"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                  if (fallback) fallback.style.display = 'flex';
-                                }}
-                              />
-                              <div className="avatar-fallback" style={{ display: 'none', width: 32, height: 32, border: '1px solid #e0e0e0', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: '#f0f0f0', fontSize: 14, fontWeight: 'bold' }}>
-                                {typeof post.author.fullName === 'string' ? post.author.fullName.charAt(0) : 'U'}
-                              </div>
-                              <div className="author-box">
-                                <div className="name-box">
-                                  <span
-                                    style={{ fontSize: '0.875rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                    onClick={() => {
-                                      if (post.author._id !== user?._id) {
-                                        navigate(`/profile/${post.author.username}`);
-                                      }
-                                    }}
-                                  >
-                                    {typeof post.author.fullName === 'string' ? post.author.fullName : ''}
-                                  </span>
-                                  {post.author.isVerified && (
-                                    <div className="verified-badge">
-                                      ✓
+                              <div className="author-info">
+                                {post.author && (
+                                  <>
+                                    <img
+                                      src={post.author.profilePicture}
+                                      alt={post.author.username}
+                                      className="avatar"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                                        if (fallback) fallback.style.display = 'flex';
+                                      }}
+                                    />
+                                    <div className="avatar-fallback">
+                                      {typeof post.author.fullName === 'string' ? post.author.fullName.charAt(0) : 'U'}
                                     </div>
-                                  )}
-                                </div>
-                                <div className="time-box">
-                                  <span style={{ fontSize: '0.75rem', color: '#666' }}>
-                                    {formatTimeAgo(post.createdAt)}
-                                  </span>
-                                  {post.location?.city && (
-                                    <>
-                                      <span style={{ fontSize: '0.75rem', color: '#666' }}>·</span>
-                                      <span style={{ fontSize: '0.75rem', color: '#666' }}>
-                                        📍 {post.location.city}
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
+                                    <div className="author-box">
+                                      <div className="name-box">
+                                        <span
+                                          onClick={() => {
+                                            if (post.author._id !== user?._id) {
+                                              navigate(`/profile/${post.author.username}`);
+                                            }
+                                          }}
+                                        >
+                                          {typeof post.author.fullName === 'string' ? post.author.fullName : ''}
+                                        </span>
+                                        {post.author.isVerified && (
+                                          <div className="verified-badge">
+                                            ✓
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="time-box">
+                                        <span>
+                                          {formatTimeAgo(post.createdAt)}
+                                        </span>
+                                        {post.location?.city && (
+                                          <>
+                                            <span>·</span>
+                                            <span>
+                                              📍 {post.location.city}
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button className="icon-button">
+                                      <FaEllipsisV className="icon" />
+                                    </button>
+                                  </>
+                                )}
                               </div>
-                              <button className="icon-button">
-                                <FaEllipsisV className="icon" />
-                              </button>
-                            </>
-                          )}
-                        </div>
 
                         {post.content && (
                           <div>
                             {expandedCaptions[post._id] || post.content.length <= 100 ? (
-                              <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
+                              <p className="post-content">
                                 {typeof post.content === 'string' ? post.content : ''}
                               </p>
                             ) : (
-                              <p style={{ marginBottom: 16, whiteSpace: 'pre-wrap', fontSize: '14px' }}>
-                                {typeof post.content === 'string' ? post.content.slice(0, 100) : ''}... <span style={{ color: '#666', cursor: 'pointer' }} onClick={() => setExpandedCaptions(prev => ({ ...prev, [post._id]: true }))}>more</span>
+                              <p className="post-content">
+                                {typeof post.content === 'string' ? post.content.slice(0, 100) : ''}... <span className="post-content-more" onClick={() => setExpandedCaptions(prev => ({ ...prev, [post._id]: true }))}>more</span>
                               </p>
                             )}
                           </div>
                         )}
 
                         {post.media && post.media.length > 0 && (
-                          <div
-                            className="media-box"
-                            style={{ position: 'relative' }}
-                          >
-                            {post.isReel ? (
-                              <video
-                                src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
-                                controls
-                                className="media-video"
-                              />
-                            ) : (
+                            <div
+                              className="media-box"
+                              style={{ position: 'relative' }}
+                            >
+                              {post.isReel ? (
+                                <video
+                                  src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
+                                  controls
+                                  className="media-video"
+                                />
+                              ) : (
 post.media.map((media, index) => {
   let fullUrl = media.url;
   if (!fullUrl.startsWith('http')) {
@@ -504,90 +503,82 @@ post.media.map((media, index) => {
     </div>
   );
 })
-                            )}
-                            <AnimatePresence>
-                              {heartBurst[post._id] && (
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1.5 }}
-                                  exit={{ scale: 0 }}
-                                  transition={{ duration: 0.5 }}
-                                  style={{
-                                    position: 'absolute',
-                                    top: '50%',
-                                    left: '50%',
-                                    transform: 'translate(-50%, -50%)',
-                                    zIndex: 10,
-                                    pointerEvents: 'none'
-                                  }}
-                                >
-                                  <FaHeart size={50} color="red" />
-                                </motion.div>
                               )}
-                            </AnimatePresence>
-                          </div>
+                              <AnimatePresence>
+                                {heartBurst[post._id] && (
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1.5 }}
+                                    exit={{ scale: 0 }}
+                                    transition={{ duration: 0.5 }}
+                                    className="heart-burst"
+                                  >
+                                    <FaHeart size={50} color="red" />
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
                         )}
 
-                        <div className="actions-box">
-                          <div className="left-actions">
-                            <button
-                              className="icon-button"
-                              onClick={() => handleLike(post._id, post.isReel)}
-                            >
-                              {isLiked ? (
-                                <FaHeart className="liked-icon" />
-                              ) : (
-                                <FaRegHeart className="icon" />
+                          <div className="actions-box">
+                            <div className="left-actions">
+                              <button
+                                className="icon-button"
+                                onClick={() => handleLike(post._id, post.isReel)}
+                              >
+                                {isLiked ? (
+                                  <FaHeart className="liked-icon" />
+                                ) : (
+                                  <FaRegHeart className="icon" />
+                                )}
+                              </button>
+                              <button className="icon-button">
+                                <FaComment className="icon" />
+                              </button>
+                              <button className="icon-button">
+                                <FaShare className="icon" />
+                              </button>
+                            </div>
+                            <div className="save-container">
+                              <button
+                                className="icon-button"
+                                onClick={() => handleSave(post._id, post.isReel)}
+                              >
+                                <FaRegBookmark
+                                  className={isSaved ? "saved-icon" : "icon"}
+                                />
+                              </button>
+                              {(post.saves || []).length > 0 && (
+                                <span className="save-count">
+                                  {(post.saves || []).length.toLocaleString()}
+                                </span>
                               )}
-                            </button>
-                            <button className="icon-button">
-                              <FaComment className="icon" />
-                            </button>
-                            <button className="icon-button">
-                              <FaShare className="icon" />
-                            </button>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <button
-                              className="icon-button"
-                              onClick={() => handleSave(post._id, post.isReel)}
-                            >
-                              <FaRegBookmark
-                                className={isSaved ? "saved-icon" : "icon"}
-                                style={isSaved ? { color: '#1976d2' } : {}}
-                              />
-                            </button>
-                            {(post.saves || []).length > 0 && (
-                              <span style={{ fontSize: '0.75rem', color: '#666', marginTop: 2 }}>
-                                {(post.saves || []).length.toLocaleString()}
-                              </span>
+
+                          <div style={{ marginBottom: 8 }}>
+                            {(post.likes || []).length > 0 && (
+                              <p className="likes-count">
+                                {(post.likes || []).length.toLocaleString()} {(post.likes || []).length === 1 ? 'like' : 'likes'}
+                              </p>
+                            )}
+                            <div>
+                              {(post.comments || []).slice(0, 2).map((comment) => (
+                                <p key={`${post._id}-${comment._id}`} className="comment-item">
+                                  <strong>{comment.author.username}</strong> {comment.content}
+                                </p>
+                              ))}
+                            </div>
+                            {(post.comments || []).length > 2 && (
+                              <p
+                                className="view-all-comments"
+                                onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+                              >
+                                View all {(post.comments || []).length} comments
+                              </p>
                             )}
                           </div>
-                        </div>
-
-                        <div style={{ marginBottom: 8 }}>
-                          {(post.likes || []).length > 0 && (
-                            <p style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: 4 }}>
-                              {(post.likes || []).length.toLocaleString()} {(post.likes || []).length === 1 ? 'like' : 'likes'}
-                            </p>
-                          )}
-                          <div>
-                            {(post.comments || []).slice(0, 2).map((comment) => (
-                              <p key={`${post._id}-${comment._id}`} style={{ fontSize: '0.875rem', marginBottom: 4 }}>
-                                <strong>{comment.author.username}</strong> {comment.content}
-                              </p>
-                            ))}
-                          </div>
-                          {(post.comments || []).length > 2 && (
-                            <p
-                              style={{ fontSize: '0.875rem', color: '#666', cursor: 'pointer' }}
-                              onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
-                              onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
-                            >
-                              View all {(post.comments || []).length} comments
-                            </p>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </motion.div>
