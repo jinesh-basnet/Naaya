@@ -1,13 +1,8 @@
 /**
- * Shared utility functions for posts routes
- * Consolidates duplicate helper functions used across multiple post route files
- */
-
-/**
- * Helper function to find a comment by ID recursively in the comment tree
- * @param {Array} comments - Array of comments to search in
- * @param {string} id - Comment ID to find
- * @returns {Object|null} - Found comment object or null if not found
+ * 
+ * @param {Array} comments 
+ * @param {string} id 
+ * @returns {Object|null} 
  */
 function findCommentById(comments, id) {
   for (let comment of comments) {
@@ -21,14 +16,15 @@ function findCommentById(comments, id) {
 }
 
 /**
- * Helper function to count total comments including replies recursively
- * @param {Array} comments - Array of comments to count
- * @returns {number} - Total count of comments including all replies
+ * 
+ * @param {Array} comments 
+ * @returns {number} 
  */
 function countTotalComments(comments) {
   let count = 0;
   for (let comment of comments) {
-    count += 1; // count the comment itself
+    count += 1; 
+    
     if (comment.replies && comment.replies.length > 0) {
       count += countTotalComments(comment.replies);
     }

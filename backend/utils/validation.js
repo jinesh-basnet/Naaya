@@ -1,6 +1,5 @@
 const { body, validationResult } = require('express-validator');
 
-// Common validation rules
 const commonValidations = {
   username: body('username')
     .isLength({ min: 3, max: 30 })
