@@ -33,7 +33,6 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   const [editingCollection, setEditingCollection] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
-  // Fetch user's collections
   const {
     data: collectionsData,
     isLoading: collectionsLoading,
@@ -44,7 +43,6 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     enabled: open && !!user,
   });
 
-  // Create collection mutation
   const createCollectionMutation = useMutation({
     mutationFn: (data: { name: string }) => bookmarkCollectionsAPI.createCollection(data.name),
     onSuccess: () => {
@@ -57,7 +55,6 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     },
   });
 
-  // Delete collection mutation
   const deleteCollectionMutation = useMutation({
     mutationFn: (collectionId: string) => bookmarkCollectionsAPI.deleteCollection(collectionId),
     onSuccess: () => {
@@ -69,7 +66,6 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     },
   });
 
-  // Update collection mutation
   const updateCollectionMutation = useMutation({
     mutationFn: ({ collectionId, name }: { collectionId: string; name: string }) =>
       bookmarkCollectionsAPI.updateCollection(collectionId, name),
@@ -84,7 +80,6 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     },
   });
 
-  // Add/remove post from collection mutation
   const togglePostInCollectionMutation = useMutation({
     mutationFn: ({ collectionId, postId, isInCollection }: { collectionId: string; postId: string; isInCollection: boolean }) => {
       if (isInCollection) {
@@ -179,7 +174,6 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
                 </button>
               </div>
 
-              {/* Collections list */}
               {collections.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">📚</div>
