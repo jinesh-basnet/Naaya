@@ -40,17 +40,13 @@ router.put('/preferences', authenticateToken, async (req, res) => {
 });
 
 
-// VAPID keys - generate your own keys and store in env variables
-// To generate: npx web-push generate-vapid-keys
 const vapidKeys = {
   publicKey: process.env.VAPID_PUBLIC_KEY || 'BO29u1ck5VdSsN-rk_DadjWdFxy5eYo6oZkmXNiLQBCiboGK3WAXMiFn0V_m3bttKbJaivWTYJgQOzX1CsOM3AI',
   privateKey: process.env.VAPID_PRIVATE_KEY || 'z6Iln9uBGGwNDIHVms2VPHrtTer3m3p7dZmg5jjoGE8'
 };
 
-// Only set VAPID details if valid keys are provided
 if (vapidKeys.publicKey !== 'YOUR_PUBLIC_VAPID_KEY_HERE' && vapidKeys.privateKey !== 'YOUR_PRIVATE_VAPID_KEY_HERE') {
   try {
-    // Validate key lengths (public key should be 88 chars base64url = 65 bytes decoded)
     const publicKeyLength = Buffer.from(vapidKeys.publicKey.replace(/-/g, '+').replace(/_/g, '/'), 'base64').length;
     if (publicKeyLength !== 65) {
       throw new Error(`Vapid public key should be 65 bytes long when decoded, got ${publicKeyLength} bytes`);
@@ -69,24 +65,20 @@ if (vapidKeys.publicKey !== 'YOUR_PUBLIC_VAPID_KEY_HERE' && vapidKeys.privateKey
   console.warn('VAPID keys not configured, push notifications will not work');
 }
 
-// POST /api/notifications/subscribe - return VAPID public key
 router.post('/subscribe', authenticateToken, (req, res) => {
   res.json({ publicKey: vapidKeys.publicKey });
 });
 
-// POST /api/notifications/subscription - save subscription object
 router.post('/subscription', authenticateToken, async (req, res) => {
   try {
     const subscription = req.body;
     const userId = req.user._id;
     const userAgent = req.get('User-Agent') || 'Unknown';
 
-    // Validate subscription object
     if (!subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
       return res.status(400).json({ message: 'Invalid subscription object' });
     }
 
-    // Check if subscription already exists
     const existingSubscription = await User.findOne({
       _id: userId,
       'pushSubscriptions.endpoint': subscription.endpoint
@@ -96,7 +88,6 @@ router.post('/subscription', authenticateToken, async (req, res) => {
       return res.status(200).json({ message: 'Subscription already exists' });
     }
 
-    // Add subscription to user
     await User.findByIdAndUpdate(userId, {
       $push: {
         pushSubscriptions: {

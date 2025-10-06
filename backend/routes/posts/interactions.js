@@ -26,11 +26,9 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
     const existingLike = post.likes.find(like => like.user.toString() === userId.toString());
 
     if (existingLike) {
-      // Unlike
       post.likes.pull(existingLike._id);
       await post.save();
 
-      // Emit socket event for unlike with proper error handling
       if (global.notificationService && global.notificationService.io) {
         try {
           global.notificationService.io.to(`user:${post.author._id}`).emit('post_unliked', {
@@ -41,7 +39,6 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
           });
         } catch (notificationError) {
           console.error('Error sending unlike notification:', notificationError);
-          // Don't fail the request if notification fails
         }
       }
 
@@ -51,11 +48,9 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
         likesCount: post.likes.length
       });
     } else {
-      // Like
       post.likes.push({ user: userId });
       await post.save();
 
-      // Emit socket event for like with proper error handling
       if (global.notificationService && global.notificationService.io) {
         try {
           global.notificationService.io.to(`user:${post.author._id}`).emit('post_liked', {
@@ -66,19 +61,15 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
           });
         } catch (notificationError) {
           console.error('Error sending like notification:', notificationError);
-          // Don't fail the request if notification fails
         }
       }
 
-      // Update interaction history for algorithm
       try {
         await updateInteractionHistory(userId, post.author._id, 'like', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
       } catch (interactionError) {
         console.error('Error updating interaction history:', interactionError);
-        // Don't fail the request if interaction update fails
       }
 
-      // Send notification if not liking own post
       if (userId.toString() !== post.author._id.toString()) {
         try {
           if (global.notificationService && global.notificationService.createLikeNotification) {
@@ -90,7 +81,6 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
           }
         } catch (error) {
           console.error('Error creating like notification:', error);
-          // Don't fail the request if notification creation fails
         }
       }
 
@@ -129,7 +119,6 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
     const existingSave = post.saves.find(save => save.user.toString() === userId.toString());
 
     if (existingSave) {
-      // Unsave
       post.saves.pull(existingSave._id);
       await post.save();
 
@@ -139,16 +128,13 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
         savesCount: post.saves.length
       });
     } else {
-      // Save
       post.saves.push({ user: userId });
       await post.save();
 
-      // Update interaction history for algorithm
       try {
         await updateInteractionHistory(userId, post.author._id, 'save', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
       } catch (interactionError) {
         console.error('Error updating interaction history:', interactionError);
-        // Don't fail the request if interaction update fails
       }
 
       res.json({
@@ -198,7 +184,6 @@ router.post('/:postId/share', authenticateToken, [
     const existingShare = post.shares.find(share => share.user.toString() === userId.toString());
 
     if (existingShare) {
-      // Unshare - remove the shared post and decrement shares count
       const sharedPost = await Post.findOne({
         author: userId,
         sharedFrom: postId,
@@ -220,11 +205,10 @@ router.post('/:postId/share', authenticateToken, [
         sharesCount: post.shares.length
       });
     } else {
-      // Share - create a new post and increment shares count
       const sharedPostData = {
         author: userId,
-        content: req.body.caption || '', // Sharing user's caption (empty if not provided)
-        media: [], // No media for shared posts - original media will be shown separately
+        content: req.body.caption || '', 
+        media: [], 
         location: req.body.location ? JSON.parse(req.body.location) : post.location,
         language: post.language,
         postType: post.postType,
@@ -233,7 +217,6 @@ router.post('/:postId/share', authenticateToken, [
         mentions: post.mentions,
         hashtags: post.hashtags,
         sharedFrom: post._id,
-        // Store original post data for display
         originalContent: post.content,
         originalMedia: post.media,
         originalAuthor: post.author,
@@ -247,15 +230,12 @@ router.post('/:postId/share', authenticateToken, [
       post.shares.push({ user: userId });
       await post.save();
 
-      // Update interaction history for algorithm
       try {
         await updateInteractionHistory(userId, post.author._id, 'share', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
       } catch (interactionError) {
         console.error('Error updating interaction history:', interactionError);
-        // Don't fail the request if interaction update fails
       }
 
-      // Populate the shared post for response
       await sharedPost.populate('author', 'username fullName profilePicture isVerified location languagePreference');
       await sharedPost.populate('originalAuthor', 'username fullName profilePicture isVerified');
 

@@ -98,7 +98,6 @@ router.post('/comment/:commentId', authenticateToken, [
     const { reason, description = '', evidence = [] } = req.body;
     const reporterId = req.user._id;
 
-    // Find the post containing this comment
     const post = await Post.findOne({ 'comments._id': commentId });
     if (!post) {
       return res.status(404).json({
@@ -115,7 +114,6 @@ router.post('/comment/:commentId', authenticateToken, [
       });
     }
 
-    // Create report
     const report = await Report.createReport({
       reporter: reporterId,
       contentType: 'comment',
@@ -171,7 +169,6 @@ router.post('/story/:storyId', authenticateToken, [
     const { reason, description = '', evidence = [] } = req.body;
     const reporterId = req.user._id;
 
-    // Check if story exists
     const story = await Story.findById(storyId);
     if (!story) {
       return res.status(404).json({
@@ -180,7 +177,6 @@ router.post('/story/:storyId', authenticateToken, [
       });
     }
 
-    // Create report
     const report = await Report.createReport({
       reporter: reporterId,
       contentType: 'story',
@@ -245,7 +241,6 @@ router.post('/user/:userId', authenticateToken, [
       });
     }
 
-    // Can't report yourself
     if (userId === reporterId) {
       return res.status(400).json({
         message: 'Cannot report yourself',
@@ -253,7 +248,6 @@ router.post('/user/:userId', authenticateToken, [
       });
     }
 
-    // Create report
     const report = await Report.createReport({
       reporter: reporterId,
       contentType: 'user',
@@ -313,7 +307,6 @@ router.get('/my', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin routes for moderation
 const adminAuth = [authenticateToken, requireOffice];
 
 // @route   GET /api/reports

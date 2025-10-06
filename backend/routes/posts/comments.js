@@ -42,20 +42,16 @@ router.post('/:postId/comment', authenticateToken, [
     post.comments.push(comment);
     await post.save();
 
-    // Update interaction history for algorithm
     try {
       await updateInteractionHistory(userId, post.author._id, 'comment', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
     } catch (interactionError) {
       console.error('Error updating interaction history:', interactionError);
-      // Don't fail the request if interaction update fails
     }
 
-    // Populate the comment author
     await post.populate('comments.author', 'username fullName profilePicture');
 
     const newComment = post.comments[post.comments.length - 1];
 
-    // Emit socket event for real-time comment update with proper error handling
     if (global.notificationService && global.notificationService.io) {
       try {
         global.notificationService.io.to(`post:${postId}`).emit('comment_added', {
@@ -65,11 +61,9 @@ router.post('/:postId/comment', authenticateToken, [
         });
       } catch (notificationError) {
         console.error('Error sending comment notification:', notificationError);
-        // Don't fail the request if notification fails
       }
     }
 
-    // Send notification if not commenting on own post
     if (userId.toString() !== post.author._id.toString()) {
       try {
         if (global.notificationService && global.notificationService.createCommentNotification) {
@@ -82,11 +76,9 @@ router.post('/:postId/comment', authenticateToken, [
         }
       } catch (error) {
         console.error('Error creating comment notification:', error);
-        // Don't fail the request if notification creation fails
       }
     }
 
-    // Return the new comment with populated author
     res.status(201).json({
       message: 'Comment added successfully',
       comment: newComment
@@ -117,18 +109,15 @@ router.get('/:postId/comments', async (req, res) => {
       });
     }
 
-    // Get comments with pagination
     const comments = post.comments
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice((page - 1) * limit, page * limit);
 
-    // Populate author details for comments and replies
     await Post.populate(comments, {
       path: 'author',
       select: 'username fullName profilePicture'
     });
 
-    // Populate replies authors
     await Post.populate(comments, {
       path: 'replies.author',
       select: 'username fullName profilePicture'
@@ -180,7 +169,6 @@ router.post('/:postId/comments/:commentId/like', authenticateToken, async (req, 
     const existingLike = comment.likes.find(like => like.user.toString() === userId.toString());
 
     if (existingLike) {
-      // Unlike
       comment.likes.pull(existingLike._id);
       await post.save();
 
@@ -190,7 +178,6 @@ router.post('/:postId/comments/:commentId/like', authenticateToken, async (req, 
         likesCount: comment.likes.length
       });
     } else {
-      // Like
       comment.likes.push({ user: userId });
       await post.save();
 
@@ -253,12 +240,10 @@ router.post('/:postId/comments/:commentId/reply', authenticateToken, [
     comment.replies.push(reply);
     await post.save();
 
-    // Populate the reply author
     await post.populate('comments.replies.author', 'username fullName profilePicture');
 
     const newReply = comment.replies[comment.replies.length - 1];
 
-    // Emit socket event for real-time reply update with proper error handling
     if (global.notificationService && global.notificationService.io) {
       try {
         global.notificationService.io.to(`post:${postId}`).emit('comment_reply_added', {
@@ -270,11 +255,9 @@ router.post('/:postId/comments/:commentId/reply', authenticateToken, [
         });
       } catch (notificationError) {
         console.error('Error sending reply notification:', notificationError);
-        // Don't fail the request if notification fails
       }
     }
 
-    // Send notification if not replying to own comment
     if (userId.toString() !== comment.author._id.toString()) {
       try {
         if (global.notificationService && global.notificationService.createCommentNotification) {
@@ -287,11 +270,9 @@ router.post('/:postId/comments/:commentId/reply', authenticateToken, [
         }
       } catch (error) {
         console.error('Error creating reply notification:', error);
-        // Don't fail the request if notification creation fails
       }
     }
 
-    // Return the new reply with populated author
     res.status(201).json({
       message: 'Reply added successfully',
       reply: newReply
@@ -333,7 +314,6 @@ router.post('/:postId/replies/:replyId/like', authenticateToken, async (req, res
     const existingLike = reply.likes.find(like => like.user.toString() === userId.toString());
 
     if (existingLike) {
-      // Unlike
       reply.likes.pull(existingLike._id);
       await post.save();
 
@@ -343,7 +323,6 @@ router.post('/:postId/replies/:replyId/like', authenticateToken, async (req, res
         likesCount: reply.likes.length
       });
     } else {
-      // Like
       reply.likes.push({ user: userId });
       await post.save();
 
@@ -414,12 +393,10 @@ router.post('/:postId/replies/:replyId/reply', authenticateToken, [
     parentReply.replies.push(reply);
     await post.save();
 
-    // Populate the reply author
     await post.populate('comments.replies.author', 'username fullName profilePicture');
 
     const newReply = parentReply.replies[parentReply.replies.length - 1];
 
-    // Emit socket event for real-time reply update with proper error handling
     if (global.notificationService && global.notificationService.io) {
       try {
         global.notificationService.io.to(`post:${postId}`).emit('comment_reply_added', {
@@ -431,11 +408,9 @@ router.post('/:postId/replies/:replyId/reply', authenticateToken, [
         });
       } catch (notificationError) {
         console.error('Error sending reply to reply notification:', notificationError);
-        // Don't fail the request if notification fails
       }
     }
 
-    // Send notification if not replying to own reply
     if (userId.toString() !== parentReply.author._id.toString()) {
       try {
         if (global.notificationService && global.notificationService.createCommentNotification) {
@@ -448,11 +423,9 @@ router.post('/:postId/replies/:replyId/reply', authenticateToken, [
         }
       } catch (error) {
         console.error('Error creating reply to reply notification:', error);
-        // Don't fail the request if notification creation fails
       }
     }
 
-    // Return the new reply with populated author
     res.status(201).json({
       message: 'Reply added successfully',
       reply: newReply

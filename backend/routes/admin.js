@@ -7,7 +7,6 @@ const CleanupService = require('../services/cleanupService');
 
 const router = express.Router();
 
-// Admin middleware - check if user is office (Naayaa office admin)
 const adminAuth = [authenticateToken, requireOffice];
 
 // @route   GET /api/admin/dashboard
@@ -23,13 +22,11 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       isDeleted: false 
     });
 
-    // Get recent signups (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const newSignups = await User.countDocuments({
       createdAt: { $gte: sevenDaysAgo }
     });
 
-    // Get posts from last 7 days
     const recentPosts = await Post.countDocuments({
       createdAt: { $gte: sevenDaysAgo },
       isDeleted: false
@@ -89,7 +86,6 @@ router.get('/users', adminAuth, async (req, res) => {
       query.isBanned = true;
     }
 
-    // Build sort object
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
@@ -150,7 +146,6 @@ router.put('/users/:userId', adminAuth, [
       });
     }
 
-    // Prevent office from modifying other office users
     if (user.role === 'office' && req.user._id.toString() !== userId) {
       return res.status(403).json({
         message: 'Cannot modify other office users',
@@ -158,7 +153,6 @@ router.put('/users/:userId', adminAuth, [
       });
     }
 
-    // Update user
     const updateData = {};
     if (isActive !== undefined) updateData.isActive = isActive;
     if (isBanned !== undefined) updateData.isBanned = isBanned;
@@ -247,7 +241,6 @@ router.delete('/content/:contentId', adminAuth, async (req, res) => {
       });
     }
 
-    // Soft delete
     post.isDeleted = true;
     post.deletedAt = new Date();
     post.deletedBy = req.user._id;
@@ -283,7 +276,6 @@ router.post('/content/:contentId/dismiss-report', adminAuth, async (req, res) =>
       });
     }
 
-    // Remove specific report or all reports
     if (reportId) {
       post.reports.pull(reportId);
     } else {
@@ -327,21 +319,18 @@ router.get('/analytics', adminAuth, async (req, res) => {
         startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     }
 
-    // User analytics
     const totalUsers = await User.countDocuments();
     const newUsers = await User.countDocuments({ createdAt: { $gte: startDate } });
     const activeUsers = await User.countDocuments({ 
       lastActive: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
     });
 
-    // Content analytics
     const totalPosts = await Post.countDocuments({ isDeleted: false });
     const newPosts = await Post.countDocuments({ 
       createdAt: { $gte: startDate },
       isDeleted: false 
     });
 
-    // Engagement analytics
     const totalLikes = await Post.aggregate([
       { $match: { isDeleted: false } },
       { $project: { likesCount: { $size: '$likes' } } },

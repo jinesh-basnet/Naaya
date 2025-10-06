@@ -45,7 +45,6 @@ router.post('/', authenticateToken, [
 
     const { name, description, isPublic, coverImage } = req.body;
 
-    // Check for duplicate collection name
     const existingCollection = await BookmarkCollection.findOne({
       user: req.user._id,
       name: name
@@ -124,7 +123,6 @@ router.put('/:collectionId', authenticateToken, [
     const { name, description, isPublic, coverImage } = req.body;
 
     if (name && name !== collection.name) {
-      // Check if new name conflicts with existing collection
       const existingCollection = await BookmarkCollection.findOne({
         user: req.user._id,
         name,
@@ -139,7 +137,6 @@ router.put('/:collectionId', authenticateToken, [
       }
     }
 
-    // Update fields
     if (name !== undefined) collection.name = name;
     if (description !== undefined) collection.description = description;
     if (isPublic !== undefined) collection.isPublic = isPublic;
@@ -210,7 +207,6 @@ router.post('/:collectionId/posts/:postId', authenticateToken, async (req, res) 
       });
     }
 
-    // Check if post is already in collection
     if (collection.posts.includes(postId)) {
       return res.status(400).json({
         message: 'Post already in collection',
@@ -253,7 +249,6 @@ router.delete('/:collectionId/posts/:postId', authenticateToken, async (req, res
       });
     }
 
-    // Remove post from collection
     collection.posts = collection.posts.filter(id => id.toString() !== postId);
     await collection.save();
 
