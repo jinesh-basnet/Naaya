@@ -1,0 +1,44 @@
+.settings-container {
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.language-section {
+  margin-bottom: 20px;
+}
+
+.language-button {
+  padding: 10px 20px;
+  background: #f0f0f0;
+  color: black;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.language-button.active {
+  background: #007bff;
+  color: white;
+}
+
+.language-button:first-child {
+  margin-right: 10px;
+}
+
+.mode-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.mode-button.dark {
+  background: #333;
+  color: white;
+}
+
+.mode-button.light {
+  background: #f0f0f0;
+  color: black;
+}
