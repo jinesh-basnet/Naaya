@@ -104,3 +104,14 @@
   text-align: center;
   margin-top: 40px;
 }
+.loading-spinner {
+  margin-top: 32px;
+}
+
+.error-alert {
+  margin-top: 32px;
+}
+
+.user-info {
+  cursor: pointer;
+}
