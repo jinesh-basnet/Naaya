@@ -178,7 +178,7 @@ const ProfilePage: React.FC = () => {
 
   if (profileLoading) {
     return (
-      <div className="loading-spinner" style={{ marginTop: '32px' }}>
+      <div className="loading-spinner initial">
         Loading...
       </div>
     );
@@ -186,7 +186,7 @@ const ProfilePage: React.FC = () => {
 
   if (profileError || !profile) {
     return (
-      <div className="profile-container" style={{ maxWidth: '600px', marginTop: '32px' }}>
+      <div className="profile-container error">
         <div className="error-alert">Failed to load profile.</div>
       </div>
     );
@@ -221,7 +221,7 @@ const ProfilePage: React.FC = () => {
             </div>
           )}
           <div className="profile-info">
-            <h5 className="profile-name" {...(!isCurrentUser && { onClick: () => navigate(`/profile/${profile.username}`), style: { cursor: 'pointer' } })}>{safeString(profile.fullName)}</h5>
+            <h5 className={`profile-name ${!isCurrentUser ? 'clickable' : ''}`} {...(!isCurrentUser && { onClick: () => navigate(`/profile/${profile.username}`) })}>{safeString(profile.fullName)}</h5>
             <p className="profile-username">@{safeString(profile.username)}</p>
             <p className="profile-bio">{safeString(profile.bio) || 'No bio available.'}</p>
             {profile.location && (
@@ -230,7 +230,6 @@ const ProfilePage: React.FC = () => {
             <div className="profile-stats">
               <span>
                 <strong
-                  style={{ cursor: 'pointer', textDecoration: 'underline' }}
                   onClick={() => navigate(`/profile/${profile.username}/followers`)}
                   aria-label="View followers"
                 >
@@ -239,7 +238,6 @@ const ProfilePage: React.FC = () => {
               </span>
               <span>
                 <strong
-                  style={{ cursor: 'pointer', textDecoration: 'underline' }}
                   onClick={() => navigate(`/profile/${profile.username}/following`)}
                   aria-label="View following"
                 >
@@ -374,7 +372,6 @@ const ProfilePage: React.FC = () => {
                     <div key={reel._id} className="post-item">
                       {reel.video?.url && !videoErrors[reel._id] ? (
                         <video
-                          style={{ width: '100%', height: '200px', objectFit: 'cover' }}
                           src={reel.video.url.startsWith('http') ? reel.video.url : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${reel.video.url}`}
                           muted
                           onError={(e) => {
@@ -382,19 +379,7 @@ const ProfilePage: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '200px',
-                            backgroundColor: '#f0f0f0',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#666',
-                            fontSize: '14px',
-                            textAlign: 'center'
-                          }}
-                        >
+                        <div className="video-error">
                           {videoErrors[reel._id] ? 'Video unavailable' : 'No video'}
                         </div>
                       )}
@@ -435,7 +420,6 @@ const ProfilePage: React.FC = () => {
                     <div key={`reel-${reel._id}`} className="post-item">
                       {reel.video?.url && !videoErrors[reel._id] ? (
                         <video
-                          style={{ width: '100%', height: '200px', objectFit: 'cover' }}
                           src={reel.video.url.startsWith('http') ? reel.video.url : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${reel.video.url}`}
                           muted
                           onError={(e) => {
@@ -443,19 +427,7 @@ const ProfilePage: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '200px',
-                            backgroundColor: '#f0f0f0',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#666',
-                            fontSize: '14px',
-                            textAlign: 'center'
-                          }}
-                        >
+                        <div className="video-error">
                           {videoErrors[reel._id] ? 'Video unavailable' : 'No video'}
                         </div>
                       )}

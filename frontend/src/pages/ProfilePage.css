@@ -196,3 +196,63 @@
     width: 100%;
   }
 }
+
+
+.loading-spinner.initial {
+  margin-top: 32px;
+}
+
+.profile-container.error {
+  max-width: 600px;
+  margin-top: 32px;
+}
+
+.profile-name.clickable {
+  cursor: pointer;
+}
+
+.profile-stats strong {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.post-item video {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.video-error {
+  width: 100%;
+  height: 200px;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+}
+
+.highlights-section {
+  margin-bottom: 24px;
+}
+
+.highlights-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.highlights-header h4 {
+  margin: 0;
+}
+
+.add-highlight-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: #1976d2;
+}
