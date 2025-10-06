@@ -22,7 +22,7 @@ import { safeRender } from '../utils/safeRender';
 
 interface Reel {
   _id: string;
-  content: string;
+  caption: string;
   video: {
     url: string;
     thumbnail?: string;
@@ -336,7 +336,7 @@ const ReelsPage: React.FC = () => {
                       reelData: reel.video
                     });
                     setVideoErrors(prev => ({ ...prev, [reel._id]: true }));
-                    toast.error(`Failed to load video for reel: ${reel.content?.slice(0, 50) || 'Unknown'}`);
+                    toast.error(`Failed to load video for reel: ${reel.caption?.slice(0, 50) || 'Unknown'}`);
                   }}
                   className="reel-video"
                 />
@@ -398,7 +398,7 @@ const ReelsPage: React.FC = () => {
             <div className="bottom-left-overlay">
               <div className="content-info">
                 <p className="reel-caption">
-                  {safeRender(reel.content)}
+                  {safeRender(reel.caption)}
                 </p>
                 {reel.audio && (
                   <div className="music-info">

@@ -4,9 +4,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 const memoryStorage: { [key: string]: string | null } = {};
@@ -37,6 +34,9 @@ api.interceptors.request.use(
     const token = getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (!(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
     }
     return config;
   },
@@ -76,11 +76,7 @@ export const authAPI = {
 export const postsAPI = {
   createPost: (postData: any) => {
     if (postData instanceof FormData) {
-      return api.post('/posts', postData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      return api.post('/posts', postData);
     }
     return api.post('/posts', postData);
   },
@@ -105,11 +101,7 @@ export const postsAPI = {
   
   updatePost: (postId: string, postData: any) => {
     if (postData instanceof FormData) {
-      return api.put(`/posts/${postId}`, postData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      return api.put(`/posts/${postId}`, postData);
     }
     return api.put(`/posts/${postId}`, postData);
   },
@@ -158,7 +150,7 @@ export const usersAPI = {
 
 export const storiesAPI = {
   uploadStoryMedia: (formData: FormData) =>
-    api.post('/stories/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    api.post('/stories/upload', formData),
 
   createStory: (storyData: any) =>
     api.post('/stories', storyData),
@@ -237,7 +229,7 @@ export const messagesAPI = {
 
 export const reelsAPI = {
   createReel: (formData: FormData) =>
-    api.post('/reels', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    api.post('/reels', formData),
 
   getFeed: (page: number = 1, limit: number = 8) =>
     api.get(`/reels/feed?page=${page}&limit=${limit}`),

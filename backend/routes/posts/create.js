@@ -14,8 +14,8 @@ const router = express.Router();
 // @access  Private
 router.post('/', authenticateToken, upload.any(), [
   body('content').optional().isString().isLength({ max: 2200 }),
-  body('tags').optional(),
-  body('location').optional(),
+  body('tags').optional().isString(),
+  body('location').optional().isString(),
   body('postType').optional().isString(),
   body('visibility').optional().isString(),
   body('language').optional().isIn(['nepali', 'english', 'mixed']).withMessage('Invalid language')
@@ -106,10 +106,10 @@ router.post('/', authenticateToken, upload.any(), [
       }
     }
 
-    if (!postData.media || postData.media.length === 0) {
+    if ((!postData.media || postData.media.length === 0) && (!postData.content || postData.content.trim() === '')) {
       return res.status(400).json({
-        message: 'Media is required',
-        code: 'MISSING_MEDIA'
+        message: 'Either media or content is required',
+        code: 'MISSING_MEDIA_OR_CONTENT'
       });
     }
 
@@ -151,8 +151,8 @@ router.post('/', authenticateToken, upload.any(), [
  // @access  Private
  router.put('/:postId', authenticateToken, uploadMultiple('media'), [
   body('content').optional().isString().isLength({ max: 2200 }),
-  body('tags').optional(),
-  body('location').optional(),
+  body('tags').optional().isString(),
+  body('location').optional().isString(),
   body('postType').optional().isString(),
   body('visibility').optional().isString(),
   body('language').optional().isIn(['nepali', 'english', 'mixed']).withMessage('Invalid language')
