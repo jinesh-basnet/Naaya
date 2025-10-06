@@ -4,6 +4,7 @@ import { MdCheckCircle } from 'react-icons/md';
 import { FaBell } from 'react-icons/fa';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
+import './NotificationsPage.css';
 
 interface Notification {
   _id: string;
@@ -82,181 +83,41 @@ const NotificationsPage: React.FC = () => {
     }
   };
 
-  const containerStyle = {
-    minHeight: '100vh',
-    backgroundColor: 'var(--background)',
-    maxWidth: '600px',
-    margin: '0 auto',
-    padding: '24px'
-  };
-
-  const headerStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: '16px'
-  };
-
-  const iconStyle = {
-    fontSize: '36px',
-    marginRight: '8px'
-  };
-
-  const titleStyle = {
-    fontSize: '1.5rem',
-    fontWeight: 400,
-    margin: '0 0 0 8px'
-  };
-
-  const badgeStyle: React.CSSProperties = {
-    backgroundColor: '#f44336',
-    color: 'white',
-    borderRadius: '50%',
-    padding: '2px 6px',
-    fontSize: '0.75rem',
-    fontWeight: 'bold',
-    marginLeft: '16px',
-    minWidth: '20px',
-    textAlign: 'center'
-  };
-
-  const markAllButtonStyle = {
-    marginLeft: 'auto',
-    padding: '6px 16px',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    backgroundColor: 'white',
-    cursor: 'pointer',
-    fontSize: '0.875rem'
-  };
-
-  const loadingStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    padding: '32px 0'
-  };
-
-  const noNotifStyle: React.CSSProperties = {
-    textAlign: 'center',
-    marginTop: '32px',
-    color: '#666',
-    fontSize: '1rem'
-  };
-
-  const listStyle = {
-    listStyle: 'none',
-    padding: 0,
-    margin: 0
-  };
-
-  const itemBaseStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '16px',
-    marginBottom: '8px',
-    borderRadius: '8px',
-    backgroundColor: 'white',
-    border: '1px solid #e0e0e0'
-  };
-
-  const unreadStyle = {
-    backgroundColor: '#e3f2fd'
-  };
-
-  const avatarStyle: React.CSSProperties = {
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    marginRight: '16px',
-    objectFit: 'cover'
-  };
-
-  const contentStyle = {
-    flex: 1
-  };
-
-  const h3Style = {
-    margin: '0 0 4px 0',
-    fontSize: '1rem',
-    fontWeight: 500
-  };
-
-  const pStyle = {
-    margin: 0,
-    fontSize: '0.875rem',
-    color: '#666'
-  };
-
-  const senderStyle = {
-    color: '#000',
-    fontWeight: 500
-  };
-
-  const markReadButtonStyle = {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: '8px',
-    borderRadius: '50%',
-    color: '#1976d2',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  };
-
-  const loadMoreContainerStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    marginTop: '16px'
-  };
-
-  const loadMoreButtonStyle = {
-    padding: '12px 24px',
-    backgroundColor: '#1976d2',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '1rem'
-  };
-
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <FaBell style={iconStyle} />
-        <h1 style={titleStyle}>Notifications</h1>
-        {unreadCount > 0 && <span style={badgeStyle}>{unreadCount}</span>}
+    <div className="notifications-container">
+      <div className="notifications-header">
+        <FaBell className="notifications-icon" />
+        <h1 className="notifications-title">Notifications</h1>
+        {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
         {unreadCount > 0 && (
-          <button style={markAllButtonStyle} onClick={markAllAsRead}>
+          <button className="mark-all-read-button" onClick={markAllAsRead}>
             Mark all as read
           </button>
         )}
       </div>
 
       {loading && page === 1 ? (
-        <div style={loadingStyle}>Loading...</div>
+        <div className="loading-container">Loading...</div>
       ) : notifications.length === 0 ? (
-        <p style={noNotifStyle}>No notifications yet.</p>
+        <p className="no-notifications">No notifications yet.</p>
       ) : (
-        <ul style={listStyle}>
+        <ul className="notifications-list">
           {notifications.map((notif) => (
             <li 
               key={notif._id} 
-              style={{
-                ...itemBaseStyle,
-                ...(notif.isRead ? {} : unreadStyle)
-              }}
+              className={`notification-item ${notif.isRead ? '' : 'unread'}`}
             >
               <img
                 src={notif.sender.profilePicture}
                 alt={notif.sender.fullName}
-                style={avatarStyle}
+                className="notification-avatar"
                 onError={(e) => { e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM5OTk5OTkiLz4KPHBhdGggZD0iTTIwIDIwQzIyLjc2MTQgMjAgMjUgMTcuNzYxNCAyNSAxNUMyNSAxMi4yMzg2IDIyLjc2MTQgMTAgMjAgMTBDMTcuMjM4NiAxMCAxNSAxMi4yMzg2IDE1IDE1QzE1IDE3Ljc2MTQgMTcuNzYxNCAyMCAyMFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo='; }}
               />
-              <div style={contentStyle}>
-                <h3 style={h3Style}>{notif.title}</h3>
-                <p style={pStyle}>
+              <div className="notification-content">
+                <h3>{notif.title}</h3>
+                <p>
                   <span
-                    style={{ ...senderStyle, cursor: 'pointer' }}
+                    className="sender-name"
                     onClick={() => navigate(`/profile/${notif.sender.username}`)}
                   >
                     {notif.sender.fullName}
@@ -264,7 +125,7 @@ const NotificationsPage: React.FC = () => {
                 </p>
               </div>
               {!notif.isRead && (
-                <button style={markReadButtonStyle} onClick={() => markAsRead(notif._id)}>
+                <button className="mark-read-button" onClick={() => markAsRead(notif._id)}>
                   <MdCheckCircle />
                 </button>
               )}
@@ -274,8 +135,8 @@ const NotificationsPage: React.FC = () => {
       )}
 
       {hasMore && !loading && (
-        <div style={loadMoreContainerStyle}>
-          <button style={loadMoreButtonStyle} onClick={loadMore}>
+        <div className="load-more-container">
+          <button className="load-more-button" onClick={loadMore}>
             Load more
           </button>
         </div>

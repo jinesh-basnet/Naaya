@@ -1,5 +1,6 @@
-/* Notifications Page Container */
 .notifications-container {
+  min-height: 100vh;
+  background-color: var(--background);
   max-width: 600px;
   margin: 0 auto;
   padding: 24px;
@@ -108,6 +109,7 @@
 .sender-name {
   color: #000;
   font-weight: 500;
+  cursor: pointer;
 }
 
 .mark-read-button {
