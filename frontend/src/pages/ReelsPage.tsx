@@ -13,9 +13,10 @@ import {
   MdVisibility,
 } from 'react-icons/md';
 import './ReelsPage.css';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { safeRender } from '../utils/safeRender';
@@ -80,40 +81,11 @@ const ReelsPage: React.FC = () => {
   const previousReelsLength = useRef(0);
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved } = useSocket();
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
   const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
 
-  const likeMutation = useMutation({
-    mutationFn: (reelId: string) => reelsAPI.likeReel(reelId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reels'] });
-      toast.success('Reel liked!');
-    },
-    onError: () => {
-      toast.error('Failed to like reel');
-    },
-  });
 
-  const saveMutation = useMutation({
-    mutationFn: reelsAPI.saveReel,
-    onSuccess: (response, reelId) => {
-      const data = response.data;
-      setSavedReels(prev => {
-        const newSet = new Set(prev);
-        if (data.isSaved) {
-          newSet.add(reelId);
-        } else {
-          newSet.delete(reelId);
-        }
-        return newSet;
-      });
-      queryClient.invalidateQueries({ queryKey: ['reels'] });
-      toast.success(data.message);
-    },
-    onError: () => {
-      toast.error('Failed to save reel');
-    },
-  });
 
   const { data: reelsData, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['reels'],
@@ -135,6 +107,58 @@ const ReelsPage: React.FC = () => {
       fetchSavedReels();
     }
   }, [user]);
+
+  useEffect(() => {
+    const handleFeedReelLiked = (data: any) => {
+      queryClient.setQueryData(['reels'], (oldData: any) => {
+        if (!oldData?.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            data: {
+              ...page.data,
+              reels: page.data.reels.map((reel: Reel) => {
+                if (reel._id === data.reelId) {
+                  const newLikes = data.isLiked
+                    ? [...(reel.likes || []), { user: data.userId }]
+                    : (reel.likes || []).filter(like => like.user !== data.userId);
+                  return {
+                    ...reel,
+                    likes: newLikes,
+                    likesCount: data.likesCount || newLikes.length
+                  };
+                }
+                return reel;
+              })
+            }
+          }))
+        };
+      });
+    };
+
+    const handleFeedReelSaved = (data: any) => {
+      if (data.userId === user?._id) {
+        setSavedReels(prev => {
+          const newSet = new Set(prev);
+          if (data.isSaved) {
+            newSet.add(data.reelId);
+          } else {
+            newSet.delete(data.reelId);
+          }
+          return newSet;
+        });
+      }
+    };
+
+    onFeedReelLiked(handleFeedReelLiked);
+    onFeedReelSaved(handleFeedReelSaved);
+
+    return () => {
+      offFeedReelLiked(handleFeedReelLiked);
+      offFeedReelSaved(handleFeedReelSaved);
+    };
+  }, [queryClient, user?._id, onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved]);
 
   const reels = reelsData?.pages?.flatMap(page => page.data?.reels || []) || [];
 
@@ -243,12 +267,99 @@ const ReelsPage: React.FC = () => {
     }
   }, [isMuted, currentReelIndex]);
 
-  const handleLike = (reelId: string) => {
-    likeMutation.mutate(reelId);
+  const handleLike = async (reelId: string) => {
+    queryClient.setQueryData(['reels'], (oldData: any) => {
+      if (!oldData?.pages) return oldData;
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: any) => ({
+          ...page,
+          data: {
+            ...page.data,
+            reels: page.data.reels.map((reel: Reel) => {
+              if (reel._id === reelId) {
+                const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
+                const newLikes = isLiked
+                  ? reel.likes.filter(like => like.user !== user?._id)
+                  : [...(reel.likes || []), { user: user?._id }];
+                return {
+                  ...reel,
+                  likes: newLikes,
+                  likesCount: newLikes.length
+                };
+              }
+              return reel;
+            })
+          }
+        }))
+      };
+    });
+
+    try {
+      await reelsAPI.likeReel(reelId);
+    } catch (error) {
+      queryClient.setQueryData(['reels'], (oldData: any) => {
+        if (!oldData?.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            data: {
+              ...page.data,
+              reels: page.data.reels.map((reel: Reel) => {
+                if (reel._id === reelId) {
+                  const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
+                  const newLikes = isLiked
+                    ? [...(reel.likes || []), { user: user?._id }]
+                    : reel.likes.filter(like => like.user !== user?._id);
+                  return {
+                    ...reel,
+                    likes: newLikes,
+                    likesCount: newLikes.length
+                  };
+                }
+                return reel;
+              })
+            }
+          }))
+        };
+      });
+      toast.error('Failed to like reel');
+    }
   };
 
-  const handleSave = (reelId: string) => {
-    saveMutation.mutate(reelId);
+  const handleSave = async (reelId: string) => {
+    if (!user) {
+      toast.error('Please login to save reels');
+      return;
+    }
+
+    const isCurrentlySaved = savedReels.has(reelId);
+    setSavedReels(prev => {
+      const newSet = new Set(prev);
+      if (isCurrentlySaved) {
+        newSet.delete(reelId);
+      } else {
+        newSet.add(reelId);
+      }
+      return newSet;
+    });
+
+    try {
+      await reelsAPI.saveReel(reelId);
+    } catch (error) {
+      // Revert optimistic update on error
+      setSavedReels(prev => {
+        const newSet = new Set(prev);
+        if (isCurrentlySaved) {
+          newSet.add(reelId);
+        } else {
+          newSet.delete(reelId);
+        }
+        return newSet;
+      });
+      toast.error('Failed to save reel');
+    }
   };
 
   const handleVideoProgress = (e: React.SyntheticEvent<HTMLVideoElement>) => {

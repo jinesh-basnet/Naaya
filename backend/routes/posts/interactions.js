@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Post = require('../../models/Post');
+const BookmarkCollection = require('../../models/BookmarkCollection');
 const { authenticateToken } = require('../../middleware/auth');
 const { updateInteractionHistory } = require('../../utils/feedAlgorithm');
 const { findCommentById, countTotalComments } = require('../../utils/postHelpers');
@@ -23,47 +24,32 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
       });
     }
 
-    const existingLike = post.likes.find(like => like.user.toString() === userId.toString());
+    const wasLiked = post.addLike(userId);
+    await post.save();
 
-    if (existingLike) {
-      post.likes.pull(existingLike._id);
-      await post.save();
+    if (global.io) {
+      try {
+        const eventType = wasLiked ? 'post_liked' : 'post_unliked';
 
-      if (global.notificationService && global.notificationService.io) {
-        try {
-          global.notificationService.io.to(`user:${post.author._id}`).emit('post_unliked', {
-            postId: post._id,
-            userId: userId,
-            likesCount: post.likes.length,
-            isLiked: false
-          });
-        } catch (notificationError) {
-          console.error('Error sending unlike notification:', notificationError);
-        }
+        global.io.to(`user:${post.author._id}`).emit(eventType, {
+          postId: post._id,
+          userId: userId,
+          likesCount: post.likesCount,
+          isLiked: wasLiked
+        });
+
+        global.io.emit('feed_post_liked', {
+          postId: post._id,
+          userId: userId,
+          likesCount: post.likesCount,
+          isLiked: wasLiked
+        });
+      } catch (socketError) {
+        console.error('Error sending real-time like update:', socketError);
       }
+    }
 
-      res.json({
-        message: 'Post unliked successfully',
-        isLiked: false,
-        likesCount: post.likes.length
-      });
-    } else {
-      post.likes.push({ user: userId });
-      await post.save();
-
-      if (global.notificationService && global.notificationService.io) {
-        try {
-          global.notificationService.io.to(`user:${post.author._id}`).emit('post_liked', {
-            postId: post._id,
-            userId: userId,
-            likesCount: post.likes.length,
-            isLiked: true
-          });
-        } catch (notificationError) {
-          console.error('Error sending like notification:', notificationError);
-        }
-      }
-
+    if (wasLiked) {
       try {
         await updateInteractionHistory(userId, post.author._id, 'like', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
       } catch (interactionError) {
@@ -83,13 +69,13 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
           console.error('Error creating like notification:', error);
         }
       }
-
-      res.json({
-        message: 'Post liked successfully',
-        isLiked: true,
-        likesCount: post.likes.length
-      });
     }
+
+    res.json({
+      message: wasLiked ? 'Post liked successfully' : 'Post unliked successfully',
+      isLiked: wasLiked,
+      likesCount: post.likesCount
+    });
 
   } catch (error) {
     console.error('Like post error:', error);
@@ -118,31 +104,72 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
 
     const existingSave = post.saves.find(save => save.user.toString() === userId.toString());
 
-    if (existingSave) {
-      post.saves.pull(existingSave._id);
-      await post.save();
+    let defaultCollection = await BookmarkCollection.findOne({
+      user: userId,
+      name: 'Saved Posts'
+    });
 
-      res.json({
-        message: 'Post unsaved successfully',
-        isSaved: false,
-        savesCount: post.saves.length
+    if (!defaultCollection) {
+      defaultCollection = new BookmarkCollection({
+        name: 'Saved Posts',
+        description: 'Posts saved by you',
+        isPublic: false,
+        user: userId,
+        posts: []
       });
-    } else {
-      post.saves.push({ user: userId });
-      await post.save();
+    }
+
+    const wasSaved = post.addSave(userId);
+    await post.save();
+
+    if (wasSaved) {
+      if (!defaultCollection.posts.includes(postId)) {
+        defaultCollection.posts.push(postId);
+        await defaultCollection.save();
+      }
 
       try {
         await updateInteractionHistory(userId, post.author._id, 'save', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
       } catch (interactionError) {
         console.error('Error updating interaction history:', interactionError);
       }
+    } else {
+      defaultCollection.posts = defaultCollection.posts.filter(id => id.toString() !== postId);
+      await defaultCollection.save();
+    }
+
+      if (global.io) {
+        try {
+          global.io.emit('feed_post_saved', {
+            postId: post._id,
+            userId: userId,
+            savesCount: post.savesCount,
+            isSaved: wasSaved
+          });
+        } catch (socketError) {
+          console.error('Error sending real-time save update:', socketError);
+        }
+      }
+
+      if (wasSaved && userId.toString() !== post.author._id.toString()) {
+        try {
+          if (global.notificationService && global.notificationService.createSaveNotification) {
+            await global.notificationService.createSaveNotification(
+              post._id,
+              userId,
+              post.author._id
+            );
+          }
+        } catch (error) {
+          console.error('Error creating save notification:', error);
+        }
+      }
 
       res.json({
-        message: 'Post saved successfully',
-        isSaved: true,
-        savesCount: post.saves.length
+        message: wasSaved ? 'Post saved successfully' : 'Post unsaved successfully',
+        isSaved: wasSaved,
+        savesCount: post.savesCount
       });
-    }
 
   } catch (error) {
     console.error('Save post error:', error);
@@ -197,18 +224,32 @@ router.post('/:postId/share', authenticateToken, [
       }
 
       post.shares.pull(existingShare._id);
+      post.sharesCount = Math.max(0, post.sharesCount - 1);
       await post.save();
+
+      if (global.io) {
+        try {
+          global.io.emit('feed_post_shared', {
+            postId: post._id,
+            userId: userId,
+            sharesCount: post.sharesCount,
+            isShared: false
+          });
+        } catch (socketError) {
+          console.error('Error sending real-time unshare update:', socketError);
+        }
+      }
 
       res.json({
         message: 'Post unshared successfully',
         isShared: false,
-        sharesCount: post.shares.length
+        sharesCount: post.sharesCount
       });
     } else {
       const sharedPostData = {
         author: userId,
-        content: req.body.caption || '', 
-        media: [], 
+        content: req.body.caption || '',
+        media: [],
         location: req.body.location ? JSON.parse(req.body.location) : post.location,
         language: post.language,
         postType: post.postType,
@@ -227,7 +268,7 @@ router.post('/:postId/share', authenticateToken, [
       const sharedPost = new Post(sharedPostData);
       await sharedPost.save();
 
-      post.shares.push({ user: userId });
+      post.addShare(userId);
       await post.save();
 
       try {
@@ -239,10 +280,37 @@ router.post('/:postId/share', authenticateToken, [
       await sharedPost.populate('author', 'username fullName profilePicture isVerified location languagePreference');
       await sharedPost.populate('originalAuthor', 'username fullName profilePicture isVerified');
 
+      if (global.io) {
+        try {
+          global.io.emit('feed_post_shared', {
+            postId: post._id,
+            userId: userId,
+            sharesCount: post.sharesCount,
+            isShared: true
+          });
+        } catch (socketError) {
+          console.error('Error sending real-time share update:', socketError);
+        }
+      }
+
+      if (userId.toString() !== post.author._id.toString()) {
+        try {
+          if (global.notificationService && global.notificationService.createShareNotification) {
+            await global.notificationService.createShareNotification(
+              post._id,
+              userId,
+              post.author._id
+            );
+          }
+        } catch (error) {
+          console.error('Error creating share notification:', error);
+        }
+      }
+
       res.json({
         message: 'Post shared successfully',
         isShared: true,
-        sharesCount: post.shares.length,
+        sharesCount: post.sharesCount,
         sharedPost
       });
     }

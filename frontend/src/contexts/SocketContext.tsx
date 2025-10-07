@@ -13,6 +13,21 @@ interface SocketContextType {
   joinUserRoom: (userId: string) => void;
   onNotification: (callback: (notification: any) => void) => void;
   offNotification: (callback: (notification: any) => void) => void;
+
+  onFeedPostLiked: (callback: (data: any) => void) => void;
+  offFeedPostLiked: (callback: (data: any) => void) => void;
+  onFeedPostSaved: (callback: (data: any) => void) => void;
+  offFeedPostSaved: (callback: (data: any) => void) => void;
+  onFeedPostShared: (callback: (data: any) => void) => void;
+  offFeedPostShared: (callback: (data: any) => void) => void;
+  onFeedReelLiked: (callback: (data: any) => void) => void;
+  offFeedReelLiked: (callback: (data: any) => void) => void;
+  onFeedReelSaved: (callback: (data: any) => void) => void;
+  offFeedReelSaved: (callback: (data: any) => void) => void;
+  onFeedReelShared: (callback: (data: any) => void) => void;
+  offFeedReelShared: (callback: (data: any) => void) => void;
+  onFeedReelCommented: (callback: (data: any) => void) => void;
+  offFeedReelCommented: (callback: (data: any) => void) => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -88,7 +103,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       }
       return;
     }
-  }, [isAuthenticated, token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, token]); 
 
   const joinRoom = (room: string) => {
     if (socket) {
@@ -122,7 +137,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
   const joinUserRoom = (userId: string) => {
     if (socket) {
-      socket.emit('join_user_room', userId);
+      socket.emit('join_room', `user:${userId}`);
     }
   };
 
@@ -138,6 +153,90 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     }
   };
 
+  const onFeedPostLiked = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_post_liked', callback);
+    }
+  };
+
+  const offFeedPostLiked = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_post_liked', callback);
+    }
+  };
+
+  const onFeedPostSaved = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_post_saved', callback);
+    }
+  };
+
+  const offFeedPostSaved = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_post_saved', callback);
+    }
+  };
+
+  const onFeedPostShared = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_post_shared', callback);
+    }
+  };
+
+  const offFeedPostShared = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_post_shared', callback);
+    }
+  };
+
+  const onFeedReelLiked = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_reel_liked', callback);
+    }
+  };
+
+  const offFeedReelLiked = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_reel_liked', callback);
+    }
+  };
+
+  const onFeedReelSaved = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_reel_saved', callback);
+    }
+  };
+
+  const offFeedReelSaved = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_reel_saved', callback);
+    }
+  };
+
+  const onFeedReelShared = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_reel_shared', callback);
+    }
+  };
+
+  const offFeedReelShared = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_reel_shared', callback);
+    }
+  };
+
+  const onFeedReelCommented = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('feed_reel_commented', callback);
+    }
+  };
+
+  const offFeedReelCommented = (callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('feed_reel_commented', callback);
+    }
+  };
+
   const value: SocketContextType = {
     socket,
     isConnected,
@@ -149,6 +248,20 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     joinUserRoom,
     onNotification,
     offNotification,
+    onFeedPostLiked,
+    offFeedPostLiked,
+    onFeedPostSaved,
+    offFeedPostSaved,
+    onFeedPostShared,
+    offFeedPostShared,
+    onFeedReelLiked,
+    offFeedReelLiked,
+    onFeedReelSaved,
+    offFeedReelSaved,
+    onFeedReelShared,
+    offFeedReelShared,
+    onFeedReelCommented,
+    offFeedReelCommented,
   };
 
   return (

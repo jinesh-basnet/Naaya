@@ -159,6 +159,26 @@ const reelSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  likesCount: {
+    type: Number,
+    default: 0
+  },
+  commentsCount: {
+    type: Number,
+    default: 0
+  },
+  sharesCount: {
+    type: Number,
+    default: 0
+  },
+  savesCount: {
+    type: Number,
+    default: 0
+  },
+  viewsCount: {
+    type: Number,
+    default: 0
+  },
   effects: [{
     type: {
       type: String,
@@ -254,25 +274,7 @@ reelSchema.index({ 'saves.user': 1 });
 reelSchema.index({ 'views.user': 1 });
 reelSchema.index({ 'comments.author': 1, createdAt: -1 });
 
-reelSchema.virtual('likesCount').get(function() {
-  return this.likes.length;
-});
 
-reelSchema.virtual('commentsCount').get(function() {
-  return this.comments.length;
-});
-
-reelSchema.virtual('sharesCount').get(function() {
-  return this.shares.length;
-});
-
-reelSchema.virtual('savesCount').get(function() {
-  return this.saves.length;
-});
-
-reelSchema.virtual('viewsCount').get(function() {
-  return this.views.length;
-});
 
 reelSchema.methods.calculateEngagementScore = function() {
   const likesWeight = 1;
@@ -345,6 +347,7 @@ reelSchema.methods.calculateFinalScore = function(userLocation, userLanguagePref
 reelSchema.methods.addView = function(userId) {
   if (!this.views.some(view => view.user.toString() === userId.toString())) {
     this.views.push({ user: userId });
+    this.viewsCount += 1;
     return true;
   }
   return false;
@@ -352,12 +355,14 @@ reelSchema.methods.addView = function(userId) {
 
 reelSchema.methods.addLike = function(userId) {
   const existingLike = this.likes.find(like => like.user.toString() === userId.toString());
-  
+
   if (existingLike) {
     this.likes.pull(existingLike._id);
-    return false;
+    this.likesCount = Math.max(0, this.likesCount - 1);
+    return false; 
   } else {
     this.likes.push({ user: userId });
+    this.likesCount += 1;
     return true; 
   }
 };
@@ -367,22 +372,26 @@ reelSchema.methods.addComment = function(userId, content) {
     author: userId,
     content
   });
+  this.commentsCount += 1;
   return this.comments[this.comments.length - 1];
 };
 
 reelSchema.methods.addShare = function(userId) {
   this.shares.push({ user: userId });
+  this.sharesCount += 1;
   return true;
 };
 
 reelSchema.methods.addSave = function(userId) {
   const existingSave = this.saves.find(save => save.user.toString() === userId.toString());
-  
+
   if (existingSave) {
     this.saves.pull(existingSave._id);
-    return false;
+    this.savesCount = Math.max(0, this.savesCount - 1);
+    return false; 
   } else {
     this.saves.push({ user: userId });
+    this.savesCount += 1;
     return true; 
   }
 };

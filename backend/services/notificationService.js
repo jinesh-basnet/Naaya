@@ -140,15 +140,15 @@ class NotificationService {
   }
 
   /**
-   * 
-   * @param {string} postId 
-   * @param {string} commenterId 
-   * @param {string} postAuthorId 
-   * @param {string} commentId 
+   *
+   * @param {string} postId
+   * @param {string} commenterId
+   * @param {string} postAuthorId
+   * @param {string} commentId
    */
   async createCommentNotification(postId, commenterId, postAuthorId, commentId) {
     const commenter = await User.findById(commenterId).select('username fullName');
-    
+
     return this.createNotification({
       recipientId: postAuthorId,
       senderId: commenterId,
@@ -156,6 +156,44 @@ class NotificationService {
       title: 'New Comment',
       message: `${commenter.fullName} commented on your post`,
       data: { postId, commentId }
+    });
+  }
+
+  /**
+   *
+   * @param {string} postId
+   * @param {string} sharerId
+   * @param {string} postAuthorId
+   */
+  async createShareNotification(postId, sharerId, postAuthorId) {
+    const sharer = await User.findById(sharerId).select('username fullName');
+
+    return this.createNotification({
+      recipientId: postAuthorId,
+      senderId: sharerId,
+      type: 'share',
+      title: 'Post Shared',
+      message: `${sharer.fullName} shared your post`,
+      data: { postId }
+    });
+  }
+
+  /**
+   *
+   * @param {string} postId
+   * @param {string} saverId
+   * @param {string} postAuthorId
+   */
+  async createSaveNotification(postId, saverId, postAuthorId) {
+    const saver = await User.findById(saverId).select('username fullName');
+
+    return this.createNotification({
+      recipientId: postAuthorId,
+      senderId: saverId,
+      type: 'save',
+      title: 'Post Saved',
+      message: `${saver.fullName} saved your post`,
+      data: { postId }
     });
   }
 

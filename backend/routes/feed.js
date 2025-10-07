@@ -34,11 +34,11 @@ router.get('/simple', authenticateToken, async (req, res) => {
     const reelsWithFlag = reels.map(reel => ({
       ...reel,
       isReel: true,
-      likesCount: reel.likes.length,
-      commentsCount: reel.comments.length,
-      sharesCount: reel.shares.length,
-      savesCount: reel.saves.length,
-      viewsCount: reel.views.length
+      likesCount: reel.likesCount,
+      commentsCount: reel.commentsCount,
+      sharesCount: reel.sharesCount,
+      savesCount: reel.savesCount,
+      viewsCount: reel.viewsCount
     }));
 
     const combinedFeed = [

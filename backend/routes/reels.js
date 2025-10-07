@@ -199,11 +199,11 @@ router.get('/saved', authenticateToken, async (req, res) => {
 
     const finalReels = savedReels.map(reel => ({
       ...reel,
-      likesCount: reel.likes.length,
-      commentsCount: reel.comments.length,
-      sharesCount: reel.shares.length,
-      savesCount: reel.saves.length,
-      viewsCount: reel.views.length
+      likesCount: reel.likesCount,
+      commentsCount: reel.commentsCount,
+      sharesCount: reel.sharesCount,
+      savesCount: reel.savesCount,
+      viewsCount: reel.viewsCount
     }));
 
     res.json({
@@ -254,11 +254,11 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
     const finalReels = allReels.map(reel => ({
       ...reel,
-      likesCount: reel.likes.length,
-      commentsCount: reel.comments.length,
-      sharesCount: reel.shares.length,
-      savesCount: reel.saves.length,
-      viewsCount: reel.views.length
+      likesCount: reel.likesCount,
+      commentsCount: reel.commentsCount,
+      sharesCount: reel.sharesCount,
+      savesCount: reel.savesCount,
+      viewsCount: reel.viewsCount
     }));
 
     console.log('Final reels count:', finalReels.length);
@@ -334,10 +334,46 @@ router.post('/:reelId/like', authenticateToken, async (req, res) => {
     const wasLiked = reel.addLike(userId);
     await reel.save();
 
+    if (global.io) {
+      try {
+        const eventType = wasLiked ? 'reel_liked' : 'reel_unliked';
+
+        global.io.to(`user:${reel.author._id}`).emit(eventType, {
+          reelId: reel._id,
+          userId: userId,
+          likesCount: reel.likesCount,
+          isLiked: wasLiked
+        });
+
+        global.io.emit('feed_reel_liked', {
+          reelId: reel._id,
+          userId: userId,
+          likesCount: reel.likesCount,
+          isLiked: wasLiked
+        });
+      } catch (socketError) {
+        console.error('Error sending real-time like update:', socketError);
+      }
+    }
+
+    if (wasLiked && userId.toString() !== reel.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createLikeNotification) {
+          await global.notificationService.createLikeNotification(
+            reel._id,
+            userId,
+            reel.author._id
+          );
+        }
+      } catch (error) {
+        console.error('Error creating like notification:', error);
+      }
+    }
+
     res.json({
       message: wasLiked ? 'Reel liked successfully' : 'Reel unliked successfully',
       isLiked: wasLiked,
-      likesCount: reel.likes.length
+      likesCount: reel.likesCount
     });
 
   } catch (error) {
@@ -380,6 +416,41 @@ router.post('/:reelId/comment', authenticateToken, [
 
     const newComment = reel.comments[reel.comments.length - 1];
 
+    if (global.io) {
+      try {
+        global.io.to(`user:${reel.author._id}`).emit('reel_commented', {
+          reelId: reel._id,
+          userId: userId,
+          commentId: newComment._id,
+          commentsCount: reel.commentsCount
+        });
+
+        global.io.emit('feed_reel_commented', {
+          reelId: reel._id,
+          userId: userId,
+          commentId: newComment._id,
+          commentsCount: reel.commentsCount
+        });
+      } catch (socketError) {
+        console.error('Error sending real-time comment update:', socketError);
+      }
+    }
+
+    if (userId.toString() !== reel.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createCommentNotification) {
+          await global.notificationService.createCommentNotification(
+            reel._id,
+            userId,
+            reel.author._id,
+            newComment._id
+          );
+        }
+      } catch (error) {
+        console.error('Error creating comment notification:', error);
+      }
+    }
+
     res.status(201).json({
       message: 'Comment added successfully',
       comment: newComment
@@ -410,9 +481,41 @@ router.post('/:reelId/share', authenticateToken, async (req, res) => {
     reel.addShare(userId);
     await reel.save();
 
+    if (global.io) {
+      try {
+        global.io.to(`user:${reel.author._id}`).emit('reel_shared', {
+          reelId: reel._id,
+          userId: userId,
+          sharesCount: reel.sharesCount
+        });
+
+        global.io.emit('feed_reel_shared', {
+          reelId: reel._id,
+          userId: userId,
+          sharesCount: reel.sharesCount
+        });
+      } catch (socketError) {
+        console.error('Error sending real-time share update:', socketError);
+      }
+    }
+
+    if (userId.toString() !== reel.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createShareNotification) {
+          await global.notificationService.createShareNotification(
+            reel._id,
+            userId,
+            reel.author._id
+          );
+        }
+      } catch (error) {
+        console.error('Error creating share notification:', error);
+      }
+    }
+
     res.json({
       message: 'Reel shared successfully',
-      sharesCount: reel.shares.length
+      sharesCount: reel.sharesCount
     });
 
   } catch (error) {
@@ -440,10 +543,46 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
     const wasSaved = reel.addSave(userId);
     await reel.save();
 
+    if (global.io) {
+      try {
+        const eventType = wasSaved ? 'reel_saved' : 'reel_unsaved';
+
+        global.io.to(`user:${reel.author._id}`).emit(eventType, {
+          reelId: reel._id,
+          userId: userId,
+          savesCount: reel.savesCount,
+          isSaved: wasSaved
+        });
+
+        global.io.emit('feed_reel_saved', {
+          reelId: reel._id,
+          userId: userId,
+          savesCount: reel.savesCount,
+          isSaved: wasSaved
+        });
+      } catch (socketError) {
+        console.error('Error sending real-time save update:', socketError);
+      }
+    }
+
+    if (wasSaved && userId.toString() !== reel.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createSaveNotification) {
+          await global.notificationService.createSaveNotification(
+            reel._id,
+            userId,
+            reel.author._id
+          );
+        }
+      } catch (error) {
+        console.error('Error creating save notification:', error);
+      }
+    }
+
     res.json({
       message: wasSaved ? 'Reel saved successfully' : 'Reel unsaved successfully',
       isSaved: wasSaved,
-      savesCount: reel.saves.length
+      savesCount: reel.savesCount
     });
 
   } catch (error) {
@@ -470,9 +609,18 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     .limit(limit * 1)
     .skip((page - 1) * limit);
 
+    const finalReels = reels.map(reel => ({
+      ...reel.toObject(),
+      likesCount: reel.likesCount,
+      commentsCount: reel.commentsCount,
+      sharesCount: reel.sharesCount,
+      savesCount: reel.savesCount,
+      viewsCount: reel.viewsCount
+    }));
+
     res.json({
       message: 'User reels retrieved successfully',
-      reels,
+      reels: finalReels,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

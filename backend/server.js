@@ -319,6 +319,11 @@ const startServer = async () => {
         console.log(`📱 Socket ${socket.id} joined room: ${room}`);
       });
 
+      socket.on('leave_room', (room) => {
+        socket.leave(room);
+        console.log(`📱 Socket ${socket.id} left room: ${room}`);
+      });
+
       socket.on('send_message', (data) => {
         socket.to(data.room).emit('receive_message', data);
       });

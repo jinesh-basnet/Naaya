@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { postsAPI, reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCreatePost } from '../contexts/CreatePostContext';
+import { useSocket } from '../contexts/SocketContext';
 import { locationService, LocationData } from '../services/locationService';
 import { offlineQueueService } from '../services/offlineQueueService';
 import toast from 'react-hot-toast';
@@ -68,6 +69,7 @@ const HomePage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { socket, onFeedPostLiked, offFeedPostLiked, onFeedPostSaved, offFeedPostSaved, onFeedPostShared, offFeedPostShared, onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved, onFeedReelShared, offFeedReelShared } = useSocket();
 
   useEffect(() => {
     const initializeLocation = async () => {
@@ -146,31 +148,254 @@ const HomePage: React.FC = () => {
       return;
     }
 
+    queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+      if (!oldData?.data?.posts) return oldData;
+      return {
+        ...oldData,
+        data: {
+          ...oldData.data,
+          posts: oldData.data.posts.map((post: Post) => {
+            if (post._id === postId) {
+              const isLiked = post.likes?.some(like => like.user === user?._id) ?? false;
+              const newLikes = isLiked
+                ? post.likes.filter(like => like.user !== user?._id)
+                : [...(post.likes || []), { user: user?._id }];
+              return {
+                ...post,
+                likes: newLikes,
+                likesCount: newLikes.length
+              };
+            }
+            return post;
+          })
+        }
+      };
+    });
+
     try {
       if (isReel) {
         await reelsAPI.likeReel(postId);
-        toast.success('Reel liked!');
       } else {
         await postsAPI.likePost(postId);
-        toast.success('Post liked!');
       }
       refetch();
     } catch (error) {
+      queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+        if (!oldData?.data?.posts) return oldData;
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            posts: oldData.data.posts.map((post: Post) => {
+              if (post._id === postId) {
+                const isLiked = post.likes?.some(like => like.user === user?._id) ?? false;
+                const newLikes = isLiked
+                  ? [...(post.likes || []), { user: user?._id }]
+                  : post.likes.filter(like => like.user !== user?._id);
+                return {
+                  ...post,
+                  likes: newLikes,
+                  likesCount: newLikes.length
+                };
+              }
+              return post;
+            })
+          }
+        };
+      });
       toast.error('Failed to like');
     }
   };
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleFeedPostLiked = (data: any) => {
+      queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+        if (!oldData?.data?.posts) return oldData;
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            posts: oldData.data.posts.map((post: Post) => {
+              if (post._id === data.postId) {
+                const newLikes = data.isLiked
+                  ? (post.likes || []).some(like => like.user === data.userId)
+                    ? post.likes
+                    : [...(post.likes || []), { user: data.userId }]
+                  : (post.likes || []).filter(like => like.user !== data.userId);
+                return {
+                  ...post,
+                  likes: newLikes,
+                  likesCount: data.likesCount || newLikes.length
+                };
+              }
+              return post;
+            })
+          }
+        };
+      });
+    };
+
+    const handleFeedPostSaved = (data: any) => {
+      queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+        if (!oldData?.data?.posts) return oldData;
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            posts: oldData.data.posts.map((post: Post) => {
+              if (post._id === data.postId) {
+                const newSaves = data.isSaved
+                  ? [...(post.saves || []), { user: data.userId }]
+                  : (post.saves || []).filter(save => save.user !== data.userId);
+                return {
+                  ...post,
+                  saves: newSaves,
+                  savesCount: data.savesCount || newSaves.length
+                };
+              }
+              return post;
+            })
+          }
+        };
+      });
+    };
+
+    const handleFeedPostShared = (data: any) => {
+      refetch();
+    };
+
+    const handleFeedReelLiked = (data: any) => {
+      queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+        if (!oldData?.data?.posts) return oldData;
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            posts: oldData.data.posts.map((post: Post) => {
+              if (post._id === data.reelId) {
+                const newLikes = data.isLiked
+                  ? (post.likes || []).some(like => like.user === data.userId)
+                    ? post.likes
+                    : [...(post.likes || []), { user: data.userId }]
+                  : (post.likes || []).filter(like => like.user !== data.userId);
+                return {
+                  ...post,
+                  likes: newLikes,
+                  likesCount: data.likesCount || newLikes.length
+                };
+              }
+              return post;
+            })
+          }
+        };
+      });
+    };
+
+    const handleFeedReelSaved = (data: any) => {
+      queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+        if (!oldData?.data?.posts) return oldData;
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            posts: oldData.data.posts.map((post: Post) => {
+              if (post._id === data.reelId) {
+                const newSaves = data.isSaved
+                  ? [...(post.saves || []), { user: data.userId }]
+                  : (post.saves || []).filter(save => save.user !== data.userId);
+                return {
+                  ...post,
+                  saves: newSaves,
+                  savesCount: data.savesCount || newSaves.length
+                };
+              }
+              return post;
+            })
+          }
+        };
+      });
+    };
+
+    const handleFeedReelShared = (data: any) => {
+      // Handle share updates if needed
+      refetch();
+    };
+
+    onFeedPostLiked(handleFeedPostLiked);
+    onFeedPostSaved(handleFeedPostSaved);
+    onFeedPostShared(handleFeedPostShared);
+    onFeedReelLiked(handleFeedReelLiked);
+    onFeedReelSaved(handleFeedReelSaved);
+    onFeedReelShared(handleFeedReelShared);
+
+    return () => {
+      offFeedPostLiked(handleFeedPostLiked);
+      offFeedPostSaved(handleFeedPostSaved);
+      offFeedPostShared(handleFeedPostShared);
+      offFeedReelLiked(handleFeedReelLiked);
+      offFeedReelSaved(handleFeedReelSaved);
+      offFeedReelShared(handleFeedReelShared);
+    };
+  }, [socket, onFeedPostLiked, offFeedPostLiked, onFeedPostSaved, offFeedPostSaved, onFeedPostShared, offFeedPostShared, onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved, onFeedReelShared, offFeedReelShared, queryClient, locationData?.city, refetch]);
+
   const handleSave = async (postId: string, isReel?: boolean) => {
+    queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+      if (!oldData?.data?.posts) return oldData;
+      return {
+        ...oldData,
+        data: {
+          ...oldData.data,
+          posts: oldData.data.posts.map((post: Post) => {
+            if (post._id === postId) {
+              const isSaved = post.saves?.some(save => save.user === user?._id) ?? false;
+              const newSaves = isSaved
+                ? post.saves.filter(save => save.user !== user?._id)
+                : [...(post.saves || []), { user: user?._id }];
+              return {
+                ...post,
+                saves: newSaves,
+                savesCount: newSaves.length
+              };
+            }
+            return post;
+          })
+        }
+      };
+    });
+
     try {
       if (isReel) {
         await reelsAPI.saveReel(postId);
-        toast.success('Reel saved!');
       } else {
         await postsAPI.savePost(postId);
-        toast.success('Post saved!');
       }
       refetch();
     } catch (error) {
+      queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
+        if (!oldData?.data?.posts) return oldData;
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            posts: oldData.data.posts.map((post: Post) => {
+              if (post._id === postId) {
+                const isSaved = post.saves?.some(save => save.user === user?._id) ?? false;
+                const newSaves = isSaved
+                  ? [...(post.saves || []), { user: user?._id }]
+                  : post.saves.filter(save => save.user !== user?._id);
+                return {
+                  ...post,
+                  saves: newSaves,
+                  savesCount: newSaves.length
+                };
+              }
+              return post;
+            })
+          }
+        };
+      });
       toast.error('Failed to save');
     }
   };

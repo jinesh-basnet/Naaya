@@ -92,9 +92,9 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
       posts = posts.map(post => ({
         ...post,
-        likesCount: post.likes ? post.likes.length : 0,
-        commentsCount: post.comments ? post.comments.length : 0,
-        savesCount: post.saves ? post.saves.length : 0
+        likesCount: post.likesCount,
+        commentsCount: post.commentsCount,
+        savesCount: post.savesCount
       }));
 
     } else if (feedType === 'fyp') {
@@ -115,9 +115,9 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
         posts = posts.map(post => ({
           ...post,
-          likesCount: post.likes ? post.likes.length : 0,
-          commentsCount: post.comments ? post.comments.length : 0,
-          savesCount: post.saves ? post.saves.length : 0
+          likesCount: post.likesCount,
+          commentsCount: post.commentsCount,
+          savesCount: post.savesCount
         }));
 
         console.log(`[DEBUG] FYP posts returned: ${posts.length}`);
@@ -144,9 +144,9 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
       posts = posts.map(post => ({
         ...post,
-        likesCount: post.likes ? post.likes.length : 0,
-        commentsCount: post.comments ? post.comments.length : 0,
-        savesCount: post.saves ? post.saves.length : 0
+        likesCount: post.likesCount,
+        commentsCount: post.commentsCount,
+        savesCount: post.savesCount
       }));
     }
     else if (feedType === 'explore') {
@@ -164,9 +164,9 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
       posts = posts.map(post => ({
         ...post,
-        likesCount: post.likes ? post.likes.length : 0,
-        commentsCount: post.comments ? post.comments.length : 0,
-        savesCount: post.saves ? post.saves.length : 0
+        likesCount: post.likesCount,
+        commentsCount: post.commentsCount,
+        savesCount: post.savesCount
       }));
     } else if (feedType === 'trending') {
       posts = await Post.find({
@@ -182,9 +182,9 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
       posts = posts.map(post => ({
         ...post,
-        likesCount: post.likes ? post.likes.length : 0,
-        commentsCount: post.comments ? post.comments.length : 0,
-        savesCount: post.saves ? post.saves.length : 0
+        likesCount: post.likesCount,
+        commentsCount: post.commentsCount,
+        savesCount: post.savesCount
       }));
     }
 

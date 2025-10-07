@@ -137,6 +137,26 @@ const postSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  likesCount: {
+    type: Number,
+    default: 0
+  },
+  commentsCount: {
+    type: Number,
+    default: 0
+  },
+  sharesCount: {
+    type: Number,
+    default: 0
+  },
+  savesCount: {
+    type: Number,
+    default: 0
+  },
+  viewsCount: {
+    type: Number,
+    default: 0
+  },
   isArchived: {
     type: Boolean,
     default: false
@@ -247,25 +267,7 @@ postSchema.index({ 'saves.user': 1 });
 postSchema.index({ 'views.user': 1 });
 postSchema.index({ 'comments.author': 1, createdAt: -1 });
 
-postSchema.virtual('likesCount').get(function() {
-  return this.likes.length;
-});
 
-postSchema.virtual('commentsCount').get(function() {
-  return this.comments.length;
-});
-
-postSchema.virtual('sharesCount').get(function() {
-  return this.shares.length;
-});
-
-postSchema.virtual('savesCount').get(function() {
-  return this.saves.length;
-});
-
-postSchema.virtual('viewsCount').get(function() {
-  return this.views.length;
-});
 
 postSchema.methods.calculateEngagementScore = function() {
   const likesWeight = 1;
@@ -324,14 +326,67 @@ postSchema.methods.calculateFinalScore = function(userLocation, userLanguagePref
   const localScore = this.calculateLocalScore(userLocation);
   const languageScore = this.calculateLanguageScore(userLanguagePref);
   const relationshipScore = this.calculateRelationshipScore(userId, userFollowing);
-  
-  const finalScore = (0.3 * engagementScore) + 
-                    (0.4 * localScore) + 
-                    (0.2 * languageScore) + 
+
+  const finalScore = (0.3 * engagementScore) +
+                    (0.4 * localScore) +
+                    (0.2 * languageScore) +
                     (0.1 * relationshipScore);
-  
+
   this.finalScore = finalScore;
   return finalScore;
+};
+
+postSchema.methods.addLike = function(userId) {
+  const existingLike = this.likes.find(like => like.user.toString() === userId.toString());
+
+  if (existingLike) {
+    this.likes.pull(existingLike._id);
+    this.likesCount = Math.max(0, this.likesCount - 1);
+    return false; 
+  } else {
+
+    this.likes.push({ user: userId });
+    this.likesCount += 1;
+    return true; 
+  }
+};
+
+postSchema.methods.addComment = function(userId, content) {
+  this.comments.push({
+    author: userId,
+    content
+  });
+  this.commentsCount += 1;
+  return this.comments[this.comments.length - 1];
+};
+
+postSchema.methods.addShare = function(userId) {
+  this.shares.push({ user: userId });
+  this.sharesCount += 1;
+  return true;
+};
+
+postSchema.methods.addSave = function(userId) {
+  const existingSave = this.saves.find(save => save.user.toString() === userId.toString());
+
+  if (existingSave) {
+    this.saves.pull(existingSave._id);
+    this.savesCount = Math.max(0, this.savesCount - 1);
+    return false; 
+  } else {
+    this.saves.push({ user: userId });
+    this.savesCount += 1;
+    return true; 
+  }
+};
+
+postSchema.methods.addView = function(userId) {
+  if (!this.views.some(view => view.user.toString() === userId.toString())) {
+    this.views.push({ user: userId });
+    this.viewsCount += 1;
+    return true;
+  }
+  return false;
 };
 
 postSchema.set('toJSON', { virtuals: true });
