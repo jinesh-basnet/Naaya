@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usersAPI, postsAPI } from '../services/api';
+import { usersAPI, postsAPI, reelsAPI } from '../services/api';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import './SearchPage.css';
@@ -19,49 +19,114 @@ type User = {
 
 type Post = {
   _id: string;
+  content: string;
+  author: User;
+  createdAt: string;
+  media: [{
+    type: string;
+    url: string;
+  }];
+};
+
+type Reel = {
+  _id: string;
   caption: string;
   author: User;
   createdAt: string;
+  video: {
+    url: string;
+  };
 };
 
 const SearchPage: React.FC = () => {
   const { isAuthenticated, user: currentUser } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'users' | 'posts'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingUserIds, setLoadingUserIds] = useState<string[]>([]);
+  const [playingReels, setPlayingReels] = useState<Set<string>>(new Set());
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
 
-  useEffect(() => {
-    if (query.trim().length < 2) {
+  const fetchResults = useCallback(async () => {
+    const normalized = query.trim().replace(/\s+/g, ' ');
+    if (normalized.length < 1) {
       setUsers([]);
       setPosts([]);
+      setReels([]);
       return;
     }
+    setLoading(true);
+    setError(null);
+    try {
+      console.debug('SearchPage: querying for', normalized);
+      const [usersRes, postsRes, reelsRes] = await Promise.all([
+        usersAPI.searchUsers(normalized),
+        postsAPI.searchPosts(normalized),
+        reelsAPI.searchReels(normalized)
+      ]);
 
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (activeTab === 'users') {
-          const res = await usersAPI.searchUsers(query);
-          setUsers(res.data.users);
-        } else if (activeTab === 'posts') {
-          const res = await postsAPI.searchPosts(query);
-          setPosts(res.data.posts);
+      console.debug('SearchPage: usersRes', usersRes?.data);
+      console.debug('SearchPage: postsRes', postsRes?.data);
+      console.debug('SearchPage: reelsRes', reelsRes?.data);
+
+      let foundUsers: User[] = usersRes.data.users || [];
+
+      if ((foundUsers.length === 0) && normalized && !normalized.includes(' ')) {
+        try {
+          const profileRes = await usersAPI.getProfile(normalized);
+          if (profileRes?.data?.user) {
+            foundUsers = [profileRes.data.user];
+          }
+        } catch (profileErr) {
+          console.debug('SearchPage: profile fallback not found for', normalized, (profileErr as any)?.response?.status);
         }
-      } catch (err: any) {
-        setError(err.message || 'Error fetching search results');
-      } finally {
-        setLoading(false);
+      }
+
+      setUsers(foundUsers);
+
+      if (foundUsers.length > 0) {
+        const userPromises = foundUsers.map(user =>
+          Promise.all([
+            postsAPI.getUserPosts(user.username, 1, 10),
+            reelsAPI.getUserReels(user._id, 1, 10)
+          ])
+        );
+        const results = await Promise.all(userPromises);
+        const allPosts = results.flatMap(([postsRes]) => postsRes.data.posts || []);
+        const allReels = results.flatMap(([, reelsRes]) => reelsRes.data.reels || []);
+        setPosts(allPosts);
+        setReels(allReels);
+      } else {
+        // General search results
+        setPosts(postsRes.data.posts || []);
+        setReels(reelsRes.data.reels || []);
+      }
+    } catch (err: any) {
+      console.error('SearchPage: fetchResults error', err);
+      setError(err.response?.data?.message || err.message || 'Error fetching search results');
+    } finally {
+      setLoading(false);
+    }
+  }, [query]);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      fetchResults();
+    }, 300);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
       }
     };
-
-    fetchResults();
-  }, [query, activeTab]);
+  }, [fetchResults]);
 
   const followMutation = useMutation({
     mutationFn: (userId: string) => usersAPI.followUser(userId),
@@ -150,73 +215,99 @@ const SearchPage: React.FC = () => {
     }
   };
 
+  const handlePlay = (playingId: string) => {
+    setPlayingReels(prev => new Set([...prev, playingId]));
+    Object.keys(videoRefs.current).forEach(id => {
+      if (id !== playingId) {
+        videoRefs.current[id]?.pause();
+      }
+    });
+  };
+
+  const handlePause = (pausedId: string) => {
+    setPlayingReels(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(pausedId);
+      return newSet;
+    });
+  };
+
   return (
     <div className="search-page">
       <h1>Search</h1>
       <input
         type="text"
-        placeholder="Search users or posts..."
+        placeholder="Search users, posts, or reels..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         aria-label="Search input"
       />
-      <div className="tabs">
-        <button
-          className={activeTab === 'users' ? 'active' : ''}
-          onClick={() => setActiveTab('users')}
-          aria-selected={activeTab === 'users'}
-          role="tab"
-        >
-          Users
-        </button>
-        <button
-          className={activeTab === 'posts' ? 'active' : ''}
-          onClick={() => setActiveTab('posts')}
-          aria-selected={activeTab === 'posts'}
-          role="tab"
-        >
-          Posts
-        </button>
-      </div>
       {loading && <p>Loading...</p>}
       {error && <p className="error">{error}</p>}
-      {!loading && !error && activeTab === 'users' && (
-        <ul className="search-results">
-          {users.length === 0 && <li>No users found.</li>}
-          {users.map((user) => (
-            <li key={user._id} className="user-result">
-              <img src={user.profilePicture || '/default-profile.png'} alt={`${user.username} profile`} />
-              <div>
-                <strong onClick={user._id !== currentUser?._id ? () => navigate(`/profile/${user.username}`) : undefined} style={user._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{user.fullName}</strong> @{user.username}
-                {user.isVerified && <span title="Verified">✔️</span>}
-                <p>{user.bio}</p>
-                <button
-                  className={`follow-button ${user.isFollowing ? 'following' : 'not-following'}`}
-                  onClick={() => handleFollowToggle(user)}
-                  disabled={loadingUserIds.includes(user._id)}
-                  aria-label={user.isFollowing ? 'Unfollow user' : 'Follow user'}
-                >
-                  {loadingUserIds.includes(user._id)
-                    ? '...'
-                    : user.isFollowing
-                    ? 'Following'
-                    : 'Follow'}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!loading && !error && activeTab === 'posts' && (
-        <ul className="search-results">
-          {posts.length === 0 && <li>No posts found.</li>}
-          {posts.map((post) => (
-            <li key={post._id} className="post-result">
-              <p>{post.caption}</p>
-              <small>By <span onClick={post.author._id !== currentUser?._id ? () => navigate(`/profile/${post.author.username}`) : undefined} style={post.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{post.author.fullName}</span> (@{post.author.username})</small>
-            </li>
-          ))}
-        </ul>
+      {!loading && !error && (
+        <>
+          <h2>Users</h2>
+          <ul className="search-results users-results">
+            {users.length === 0 && <li>No users found.</li>}
+            {users.map((user) => (
+              <li key={user._id} className="user-result">
+                <img src={user.profilePicture || '/default-profile.png'} alt={`${user.username} profile`} />
+                <div>
+                  <strong onClick={user._id !== currentUser?._id ? () => navigate(`/profile/${user.username}`) : undefined} style={user._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{user.fullName}</strong> @{user.username}
+                  {user.isVerified && <span title="Verified">✔️</span>}
+                  <p>{user.bio}</p>
+                  <button
+                    className={`follow-button ${user.isFollowing ? 'following' : 'not-following'}`}
+                    onClick={() => handleFollowToggle(user)}
+                    disabled={loadingUserIds.includes(user._id)}
+                    aria-label={user.isFollowing ? 'Unfollow user' : 'Follow user'}
+                  >
+                    {loadingUserIds.includes(user._id)
+                      ? '...'
+                      : user.isFollowing
+                      ? 'Following'
+                      : 'Follow'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <h2>Posts</h2>
+          <ul className="search-results posts-results">
+            {posts.length === 0 && <li>No posts found.</li>}
+            {posts.map((post) => (
+              <li key={post._id} className="post-result">
+                {post.media && post.media.length > 0 && post.media[0].type === 'image' && (
+                  <img src={post.media[0].url} alt="Post" style={{ width: '100%', height: 'auto', borderRadius: '8px', marginBottom: '10px' }} />
+                )}
+                {post.content && <p>{post.content}</p>}
+                <small>By <span onClick={post.author._id !== currentUser?._id ? () => navigate(`/profile/${post.author.username}`) : undefined} style={post.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{post.author.fullName}</span> (@{post.author.username})</small>
+              </li>
+            ))}
+          </ul>
+          <h2>Reels</h2>
+          <ul className="search-results reels-results">
+            {reels.length === 0 && <li>No reels found.</li>}
+            {reels.map((reel) => (
+              <li key={reel._id} className="reel-result">
+                <div className="reel-video-container">
+                  <video
+                    ref={(el) => { if (el) videoRefs.current[reel._id] = el; }}
+                    src={reel.video.url}
+                    controls
+                    style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                    onPlay={() => handlePlay(reel._id)}
+                    onPause={() => handlePause(reel._id)}
+                    onEnded={() => handlePause(reel._id)}
+                  />
+                  <div className="play-overlay">{playingReels.has(reel._id) ? '⏸' : '▶'}</div>
+                </div>
+                <p>{reel.caption}</p>
+                <small>By <span onClick={reel.author._id !== currentUser?._id ? () => navigate(`/profile/${reel.author.username}`) : undefined} style={reel.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{reel.author.fullName}</span> (@{reel.author.username})</small>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
