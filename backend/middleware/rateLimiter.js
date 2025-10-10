@@ -42,8 +42,8 @@ const registerRateLimiter = rateLimit({
 });
 
 const suggestionsRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per 15 minutes
+  windowMs: 15 * 60 * 1000, 
+  max: 10, 
   message: {
     message: 'Too many suggestion requests, please try again later.',
     code: 'SUGGESTIONS_RATE_LIMIT_EXCEEDED'
