@@ -25,9 +25,14 @@ class SecurityLogger {
 
     const logLine = JSON.stringify(logEntry) + '\n';
 
+    const formattedDetails = Object.entries(details).map(([key, value]) => {
+      const formattedValue = typeof value === 'string' ? `'${value}'` : value;
+      return `  ${key}: ${formattedValue}`;
+    }).join(',\n');
+
     try {
       await fs.appendFile(this.logFile, logLine);
-      console.log(`🔐 Security Event: ${event}`, details);
+      console.log(`🔐 Security Event: ${event} {\n${formattedDetails}\n}`);
     } catch (error) {
       console.error('Failed to write security log:', error);
     }
