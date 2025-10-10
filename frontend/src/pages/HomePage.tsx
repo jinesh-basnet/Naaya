@@ -12,6 +12,7 @@ import LocationBox from '../components/LocationBox';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import PostCard from '../components/PostCard';
 import NoPostsMessage from '../components/NoPostsMessage';
+import Suggestions from '../components/Suggestions';
 import { useLocation } from '../hooks/useLocation';
 import { useFeed } from '../hooks/useFeed';
 import { usePostInteractions } from '../hooks/usePostInteractions';
@@ -111,7 +112,6 @@ const HomePage: React.FC = () => {
           formData.append('contrast', post.contrast.toString());
         }
         await postsAPI.updatePost(post.editPost._id, formData);
-        // refetch handled by hook
         toast.success('Post updated!');
       } else {
         const formData = new FormData();
@@ -156,7 +156,6 @@ const HomePage: React.FC = () => {
           }
           await postsAPI.createPost(formData);
         }
-        // refetch handled by hook
         toast.success(`${post.postType === 'reel' ? 'Reel' : 'Post'} shared!`);
       }
     } catch (error: any) {
@@ -222,10 +221,13 @@ const HomePage: React.FC = () => {
                   filteredPosts={filteredPosts}
                 />
               ))}
+
+              <div className="suggestion-feed-item">
+                <Suggestions limit={6} />
+              </div>
             </div>
           )}
         </PullToRefresh>
-
         {filteredPosts.length === 0 && !isLoading && <NoPostsMessage />}
       </div>
 

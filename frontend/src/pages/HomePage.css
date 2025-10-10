@@ -390,3 +390,13 @@
 .likes-comments-section {
   margin-bottom: 8px;
 }
+
+.suggestion-feed-item {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: none;
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: #fff;
+}
