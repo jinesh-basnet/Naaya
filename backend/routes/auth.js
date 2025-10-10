@@ -13,7 +13,7 @@ const generateAccessToken = (userId) => {
   return jwt.sign(
     { userId },
     process.env.JWT_SECRET,
-    { expiresIn: '15m' } 
+    { expiresIn: '1h' }
   );
 };
 
@@ -80,13 +80,16 @@ router.post('/register', registerRateLimiter, [
 
     await user.save();
 
-    const token = generateAccessToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken();
+    await user.addRefreshToken(refreshToken, req.headers['user-agent'], req.ip);
 
     const userData = user.getPublicProfile();
 
     res.status(201).json({
       message: 'User registered successfully',
-      token,
+      accessToken,
+      refreshToken,
       user: userData
     });
 
@@ -165,13 +168,16 @@ router.post('/login', loginRateLimiter, [
     await user.resetLoginAttempts();
     await new SecurityLogger().logLoginAttempt(identifier, true, req.ip, req.headers['user-agent']);
 
-    const token = generateAccessToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken();
+    await user.addRefreshToken(refreshToken, req.headers['user-agent'], req.ip);
 
     const userData = user.getPublicProfile();
 
     res.json({
       message: 'Login successful',
-      token,
+      accessToken,
+      refreshToken,
       user: userData
     });
 
@@ -280,6 +286,66 @@ router.post('/verify-email', [
     res.status(500).json({
       message: 'Server error verifying email',
       code: 'VERIFY_EMAIL_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh access token using refresh token
+// @access  Public
+router.post('/refresh', loginRateLimiter, [
+  body('refreshToken')
+    .notEmpty()
+    .withMessage('Refresh token is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { refreshToken } = req.body;
+
+    const crypto = require('crypto');
+    const hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    const user = await User.findOne({
+      'refreshTokens.token': hashedToken,
+      'refreshTokens.expiresAt': { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: 'Invalid or expired refresh token',
+        code: 'INVALID_REFRESH_TOKEN'
+      });
+    }
+
+    await user.removeExpiredRefreshTokens();
+
+    await user.removeRefreshToken(refreshToken);
+
+    const newAccessToken = generateAccessToken(user._id);
+    const newRefreshToken = generateRefreshToken();
+    await user.addRefreshToken(newRefreshToken, req.headers['user-agent'], req.ip);
+
+    const userData = user.getPublicProfile();
+
+    res.json({
+      message: 'Tokens refreshed successfully',
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: userData
+    });
+
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({
+      message: 'Server error refreshing token',
+      code: 'REFRESH_ERROR'
     });
   }
 });
