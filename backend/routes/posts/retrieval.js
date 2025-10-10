@@ -89,6 +89,76 @@ router.get('/user/:username', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   GET /api/posts/search
+// @desc    Search posts by caption or content
+// @access  Private
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const { q: query, page = 1, limit = 20 } = req.query;
+    console.log('Search posts called by user:', req.user ? req.user._id : null, 'query:', query, 'page:', page, 'limit:', limit);
+
+    if (!query || query.trim().length < 1) {
+      return res.status(400).json({
+        message: 'Search query must be at least 1 character long',
+        code: 'INVALID_SEARCH_QUERY'
+      });
+    }
+
+    const escapeRegex = (string) => {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const searchRegex = new RegExp(escapeRegex(query.trim()), 'i');
+
+    const posts = await Post.find({
+      $or: [
+        { content: { $regex: searchRegex } },
+        { 'author.username': { $regex: searchRegex } },
+        { 'author.fullName': { $regex: searchRegex } },
+        { tags: { $in: [searchRegex] } },
+        { hashtags: { $in: [searchRegex] } }
+      ],
+      isDeleted: false,
+      isArchived: false
+    })
+    .populate('author', 'username fullName profilePicture isVerified')
+    .sort({ createdAt: -1 })
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+    const total = await Post.countDocuments({
+      $or: [
+        { content: { $regex: searchRegex } },
+        { 'author.username': { $regex: searchRegex } },
+        { 'author.fullName': { $regex: searchRegex } },
+        { tags: { $in: [searchRegex] } },
+        { hashtags: { $in: [searchRegex] } }
+      ],
+      isDeleted: false,
+      isArchived: false
+    });
+
+    res.json({
+      message: 'Posts searched successfully',
+      posts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Search posts error:', error);
+    res.status(500).json({
+      message: 'Server error searching posts',
+      code: 'SEARCH_POSTS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // @route   GET /api/posts/:postId
 // @desc    Get a specific post
 // @access  Public
@@ -132,66 +202,6 @@ router.get('/:postId', optionalAuth, async (req, res) => {
     res.status(500).json({
       message: 'Server error retrieving post',
       code: 'GET_POST_ERROR'
-    });
-  }
-});
-
-// @route   GET /api/posts/search
-// @desc    Search posts by caption or content
-// @access  Private
-router.get('/search', authenticateToken, async (req, res) => {
-  try {
-    const { q: query, page = 1, limit = 20 } = req.query;
-
-    if (!query || query.trim().length < 2) {
-      return res.status(400).json({
-        message: 'Search query must be at least 2 characters long',
-        code: 'INVALID_SEARCH_QUERY'
-      });
-    }
-
-    const escapeRegex = (string) => {
-      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    };
-
-    const searchRegex = new RegExp(escapeRegex(query.trim()), 'i');
-
-    const posts = await Post.find({
-      $or: [
-        { content: { $regex: searchRegex } }
-      ],
-      isDeleted: false,
-      isArchived: false
-    })
-    .populate('author', 'username fullName profilePicture isVerified')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
-
-    const total = await Post.countDocuments({
-      $or: [
-        { content: { $regex: searchRegex } }
-      ],
-      isDeleted: false,
-      isArchived: false
-    });
-
-    res.json({
-      message: 'Posts searched successfully',
-      posts,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-
-  } catch (error) {
-    console.error('Search posts error:', error);
-    res.status(500).json({
-      message: 'Server error searching posts',
-      code: 'SEARCH_POSTS_ERROR'
     });
   }
 });
