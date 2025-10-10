@@ -282,6 +282,82 @@ router.get('/feed', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const { q: query, page = 1, limit = 20 } = req.query;
+    console.log('Search reels called by user:', req.user ? req.user._id : null, 'query:', query, 'page:', page, 'limit:', limit);
+
+    if (!query || query.trim().length < 1) {
+      return res.status(400).json({
+        message: 'Search query must be at least 1 character long',
+        code: 'INVALID_SEARCH_QUERY'
+      });
+    }
+
+    const escapeRegex = (string) => {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const searchRegex = new RegExp(escapeRegex(query.trim()), 'i');
+
+    const reels = await Reel.find({
+      $or: [
+        { caption: { $regex: searchRegex } },
+        { hashtags: { $in: [searchRegex] } },
+        { 'author.username': { $regex: searchRegex } },
+        { 'author.fullName': { $regex: searchRegex } }
+      ],
+      isDeleted: false,
+      isArchived: false,
+      visibility: 'public'
+    })
+    .populate('author', 'username fullName profilePicture isVerified')
+    .sort({ createdAt: -1 })
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+    const total = await Reel.countDocuments({
+      $or: [
+        { caption: { $regex: searchRegex } },
+        { hashtags: { $in: [searchRegex] } },
+        { 'author.username': { $regex: searchRegex } },
+        { 'author.fullName': { $regex: searchRegex } }
+      ],
+      isDeleted: false,
+      isArchived: false,
+      visibility: 'public'
+    });
+
+    const finalReels = reels.map(reel => ({
+      ...reel.toObject(),
+      likesCount: reel.likesCount,
+      commentsCount: reel.commentsCount,
+      sharesCount: reel.sharesCount,
+      savesCount: reel.savesCount,
+      viewsCount: reel.viewsCount
+    }));
+
+    res.json({
+      message: 'Reels searched successfully',
+      reels: finalReels,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Search reels error:', error);
+    res.status(500).json({
+      message: 'Server error searching reels',
+      code: 'SEARCH_REELS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 router.get('/:reelId', optionalAuth, async (req, res) => {
   try {
     const { reelId } = req.params;
@@ -590,6 +666,78 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error saving reel',
       code: 'SAVE_REEL_ERROR'
+    });
+  }
+});
+
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const { q: query, page = 1, limit = 20 } = req.query;
+    console.log('Search reels called by user:', req.user ? req.user._id : null, 'query:', query, 'page:', page, 'limit:', limit);
+
+    if (!query || query.trim().length < 1) {
+      return res.status(400).json({
+        message: 'Search query must be at least 1 character long',
+        code: 'INVALID_SEARCH_QUERY'
+      });
+    }
+
+    const escapeRegex = (string) => {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    const searchRegex = new RegExp(escapeRegex(query.trim()), 'i');
+
+    const reels = await Reel.find({
+      $or: [
+        { caption: { $regex: searchRegex } },
+        { hashtags: { $in: [searchRegex] } }
+      ],
+      isDeleted: false,
+      isArchived: false,
+      visibility: 'public'
+    })
+    .populate('author', 'username fullName profilePicture isVerified')
+    .sort({ createdAt: -1 })
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+    const total = await Reel.countDocuments({
+      $or: [
+        { caption: { $regex: searchRegex } },
+        { hashtags: { $in: [searchRegex] } }
+      ],
+      isDeleted: false,
+      isArchived: false,
+      visibility: 'public'
+    });
+
+    const finalReels = reels.map(reel => ({
+      ...reel.toObject(),
+      likesCount: reel.likesCount,
+      commentsCount: reel.commentsCount,
+      sharesCount: reel.sharesCount,
+      savesCount: reel.savesCount,
+      viewsCount: reel.viewsCount
+    }));
+
+    res.json({
+      message: 'Reels searched successfully',
+      reels: finalReels,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Search reels error:', error);
+    res.status(500).json({
+      message: 'Server error searching reels',
+      code: 'SEARCH_REELS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
