@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaEdit, FaUserPlus, FaPlus } from 'react-icons/fa';
+import { MdChat } from 'react-icons/md';
 import { usersAPI, postsAPI, reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
 import { safeString, formatLocation } from '../utils/locationUtils';
 import ErrorBoundary from '../components/ErrorBoundary';
 import HighlightViewer from '../components/HighlightViewer';
@@ -41,6 +43,7 @@ interface Post {
 const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser } = useAuth();
+  const { onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed } = useSocket();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'bookmarks' | 'savedReels'>('posts');
@@ -108,6 +111,9 @@ const ProfilePage: React.FC = () => {
     mutationFn: (userId: string) => usersAPI.followUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', username] });
+      if (currentUser?.username) {
+        queryClient.invalidateQueries({ queryKey: ['followList', currentUser.username, 'following'] });
+      }
       toast.success('User followed successfully');
     },
     onError: (error: any) => {
@@ -119,6 +125,9 @@ const ProfilePage: React.FC = () => {
     mutationFn: (userId: string) => usersAPI.unfollowUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', username] });
+      if (currentUser?.username) {
+        queryClient.invalidateQueries({ queryKey: ['followList', currentUser.username, 'following'] });
+      }
       toast.success('User unfollowed successfully');
     },
     onError: (error: any) => {
@@ -127,54 +136,96 @@ const ProfilePage: React.FC = () => {
   });
 
   React.useEffect(() => {
+    if (profile) {
+      console.log(`Profile loaded for ${profile.username}: followersCount=${profile.followersCount}, followingCount=${profile.followingCount}`);
+    }
+  }, [profile]);
+
+  React.useEffect(() => {
     if (!profile) return;
 
     const handleUserFollowed = (data: any) => {
-      if (data.followed._id === profile._id) {
-        queryClient.setQueryData(['profile', username], (oldData: any) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              user: {
-                ...oldData.data.user,
-                followersCount: data.followed.followersCount,
-                isFollowing: data.follower._id === currentUser?._id ? true : oldData.data.user.isFollowing,
-              }
-            }
-          };
-        });
-      }
+      queryClient.setQueryData(['profile', username], (oldData: any) => {
+        if (!oldData) return oldData;
+        const updatedUser = { ...oldData.data.user };
+        let changed = false;
+
+        if (data.followed._id === profile._id) {
+          if (updatedUser.followersCount !== data.followed.followersCount) {
+            updatedUser.followersCount = data.followed.followersCount;
+            changed = true;
+          }
+        }
+
+        if (data.follower._id === currentUser?._id) {
+          const newFollowingCount = (updatedUser.followingCount || 0) + 1;
+          if (updatedUser.followingCount !== newFollowingCount) {
+            updatedUser.followingCount = newFollowingCount;
+            changed = true;
+          }
+          if (data.followed._id === profile._id && updatedUser.isFollowing !== true) {
+            updatedUser.isFollowing = true;
+            changed = true;
+          }
+        }
+
+        if (!changed) return oldData;
+
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            user: updatedUser
+          }
+        };
+      });
     };
 
     const handleUserUnfollowed = (data: any) => {
-      if (data.unfollowed._id === profile._id) {
-        queryClient.setQueryData(['profile', username], (oldData: any) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              user: {
-                ...oldData.data.user,
-                followersCount: data.unfollowed.followersCount,
-                isFollowing: data.unfollower._id === currentUser?._id ? false : oldData.data.user.isFollowing,
-              }
-            }
-          };
-        });
-      }
+      queryClient.setQueryData(['profile', username], (oldData: any) => {
+        if (!oldData) return oldData;
+        const updatedUser = { ...oldData.data.user };
+        let changed = false;
+
+        if (data.unfollowed._id === profile._id) {
+          if (updatedUser.followersCount !== data.unfollowed.followersCount) {
+            updatedUser.followersCount = data.unfollowed.followersCount;
+            changed = true;
+          }
+        }
+
+        if (data.unfollower._id === currentUser?._id) {
+          const newFollowingCount = Math.max((updatedUser.followingCount || 0) - 1, 0);
+          if (updatedUser.followingCount !== newFollowingCount) {
+            updatedUser.followingCount = newFollowingCount;
+            changed = true;
+          }
+          if (data.unfollowed._id === profile._id && updatedUser.isFollowing !== false) {
+            updatedUser.isFollowing = false;
+            changed = true;
+          }
+        }
+
+        if (!changed) return oldData;
+
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            user: updatedUser
+          }
+        };
+      });
     };
 
-    (global as any).socket?.on('user_followed', handleUserFollowed);
-    (global as any).socket?.on('user_unfollowed', handleUserUnfollowed);
+    onUserFollowed(handleUserFollowed);
+    onUserUnfollowed(handleUserUnfollowed);
 
     return () => {
-      (global as any).socket?.off('user_followed', handleUserFollowed);
-      (global as any).socket?.off('user_unfollowed', handleUserUnfollowed);
+      offUserFollowed(handleUserFollowed);
+      offUserUnfollowed(handleUserUnfollowed);
     };
-  }, [profile, username, currentUser, queryClient]);
+  }, [profile, username, currentUser, queryClient, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed]);
 
   if (profileLoading) {
     return (
@@ -250,13 +301,24 @@ const ProfilePage: React.FC = () => {
                 <FaEdit /> Edit Profile
               </button>
             ) : (
-              <button
-                className={`profile-button ${profile.isFollowing ? 'outlined' : 'contained'}`}
-                onClick={handleFollowToggle}
-                disabled={followMutation.isPending || unfollowMutation.isPending}
-              >
-                <FaUserPlus /> {profile.isFollowing ? 'Following' : 'Follow'}
-              </button>
+              <div className="profile-actions">
+                <button
+                  className={`profile-button ${profile.isFollowing ? 'outlined' : 'contained'}`}
+                  onClick={handleFollowToggle}
+                  disabled={followMutation.isPending || unfollowMutation.isPending}
+                >
+                  <FaUserPlus /> {profile.isFollowing ? 'Following' : 'Follow'}
+                </button>
+                {profile.isFollowing && (
+                  <button
+                    className="profile-button message-button"
+                    onClick={() => navigate(`/messages?user=${profile.username}`)}
+                    aria-label="Send message"
+                  >
+                    <MdChat />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

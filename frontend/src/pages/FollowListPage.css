@@ -93,6 +93,30 @@
   cursor: not-allowed;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.message-button {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #333;
+  font-size: 18px;
+}
+
+.message-button:hover {
+  background: #f0f0f0;
+}
+
 .no-users {
   text-align: center;
   color: #666;

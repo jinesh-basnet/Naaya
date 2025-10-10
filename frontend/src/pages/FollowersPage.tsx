@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaArrowLeft } from 'react-icons/fa';
+import { MdChat } from 'react-icons/md';
 import { usersAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -18,13 +19,14 @@ interface User {
   isFollowing?: boolean;
 }
 
-const FollowListPage: React.FC = () => {
-  const { username, type } = useParams<{ username: string; type: 'followers' | 'following' }>();
+const FollowersPage: React.FC = () => {
+  const { username } = useParams<{ username: string }>();
   const { user: currentUser } = useAuth();
   const { onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed } = useSocket();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [loadingUserIds, setLoadingUserIds] = useState<string[]>([]);
+  const type = 'followers';
 
   const {
     data: listData,
@@ -32,14 +34,8 @@ const FollowListPage: React.FC = () => {
     error,
   } = useQuery({
     queryKey: ['followList', username, type],
-    queryFn: () => {
-      if (type === 'followers') {
-        return usersAPI.getFollowers(username || '');
-      } else {
-        return usersAPI.getFollowing(username || '');
-      }
-    },
-    enabled: !!username && !!type,
+    queryFn: () => usersAPI.getFollowers(username || ''),
+    enabled: !!username,
   });
 
   const followMutation = useMutation({
@@ -97,10 +93,10 @@ const FollowListPage: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (!username || !type) return;
+    if (!username) return;
 
     const handleUserFollowed = (data: any) => {
-      if (type === 'followers' && data.followed._id === username) {
+      if (data.followed._id === username) {
         queryClient.setQueryData(['followList', username, type], (oldData: any) => {
           if (!oldData) return oldData;
           const existingUser = oldData.data.users.find((u: User) => u._id === data.follower._id);
@@ -134,30 +130,6 @@ const FollowListPage: React.FC = () => {
             };
           }
         });
-      } else if (type === 'following' && data.follower._id === username) {
-        queryClient.setQueryData(['followList', username, type], (oldData: any) => {
-          if (!oldData) return oldData;
-          const existingUser = oldData.data.users.find((u: User) => u._id === data.followed._id);
-          if (!existingUser) {
-            const newUser: User = {
-              _id: data.followed._id,
-              username: data.followed.username,
-              fullName: data.followed.fullName,
-              profilePicture: data.followed.profilePicture,
-              isVerified: false,
-              isFollowing: true,
-
-            };
-            return {
-              ...oldData,
-              data: {
-                ...oldData.data,
-                users: [newUser, ...oldData.data.users],
-              },
-            };
-          }
-          return oldData;
-        });
       } else {
         queryClient.setQueryData(['followList', username, type], (oldData: any) => {
           if (!oldData) return oldData;
@@ -177,7 +149,7 @@ const FollowListPage: React.FC = () => {
     };
 
     const handleUserUnfollowed = (data: any) => {
-      if (type === 'followers' && data.unfollowed._id === username) {
+      if (data.unfollowed._id === username) {
         queryClient.setQueryData(['followList', username, type], (oldData: any) => {
           if (!oldData) return oldData;
           return {
@@ -185,17 +157,6 @@ const FollowListPage: React.FC = () => {
             data: {
               ...oldData.data,
               users: oldData.data.users.filter((u: User) => u._id !== data.unfollower._id),
-            },
-          };
-        });
-      } else if (type === 'following' && data.unfollower._id === username) {
-        queryClient.setQueryData(['followList', username, type], (oldData: any) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              users: oldData.data.users.filter((u: User) => u._id !== data.unfollowed._id),
             },
           };
         });
@@ -224,7 +185,7 @@ const FollowListPage: React.FC = () => {
       offUserFollowed(handleUserFollowed);
       offUserUnfollowed(handleUserUnfollowed);
     };
-  }, [username, type, currentUser, queryClient, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed]);
+  }, [username, currentUser, queryClient, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed]);
 
   const handleFollowToggle = (user: User) => {
     if (user.isFollowing) {
@@ -236,6 +197,10 @@ const FollowListPage: React.FC = () => {
 
   const handleUserClick = (user: User) => {
     navigate(`/profile/${user.username}`);
+  };
+
+  const handleMessageClick = (user: User) => {
+    navigate(`/messages?user=${user.username}`);
   };
 
   if (isLoading) {
@@ -252,14 +217,14 @@ const FollowListPage: React.FC = () => {
     return (
       <div className="follow-list-page">
         <div className="error-alert" style={{ marginTop: '32px' }}>
-          Failed to load {type}.
+          Failed to load followers.
         </div>
       </div>
     );
   }
 
   const users: User[] = listData.data.users;
-  const title = type === 'followers' ? 'Followers' : 'Following';
+  const title = 'Followers';
 
   return (
     <div className="follow-list-page">
@@ -275,7 +240,7 @@ const FollowListPage: React.FC = () => {
       </div>
       <div className="follow-list-content">
         {users.length === 0 ? (
-          <p className="no-users">No {type} yet.</p>
+          <p className="no-users">No followers yet.</p>
         ) : (
           <ul className="follow-list">
             {users.map((user) => (
@@ -297,18 +262,29 @@ const FollowListPage: React.FC = () => {
                   </div>
                 </div>
                 {currentUser?.username !== user.username && (
-                  <button
-                    className={`follow-button ${user.isFollowing ? 'following' : 'not-following'}`}
-                    onClick={() => handleFollowToggle(user)}
-                    disabled={loadingUserIds.includes(user._id)}
-                    aria-label={user.isFollowing ? 'Unfollow user' : 'Follow user'}
-                  >
-                    {loadingUserIds.includes(user._id)
-                      ? '...'
-                      : user.isFollowing
-                      ? 'Following'
-                      : 'Follow'}
-                  </button>
+                  <div className="action-buttons">
+                    <button
+                      className={`follow-button ${user.isFollowing ? 'following' : 'not-following'}`}
+                      onClick={() => handleFollowToggle(user)}
+                      disabled={loadingUserIds.includes(user._id)}
+                      aria-label={user.isFollowing ? 'Unfollow user' : 'Follow user'}
+                    >
+                      {loadingUserIds.includes(user._id)
+                        ? '...'
+                        : user.isFollowing
+                        ? 'Following'
+                        : 'Follow'}
+                    </button>
+                    {user.isFollowing && (
+                      <button
+                        className="message-button"
+                        onClick={() => handleMessageClick(user)}
+                        aria-label="Send message"
+                      >
+                        <MdChat />
+                      </button>
+                    )}
+                  </div>
                 )}
               </li>
             ))}
@@ -319,4 +295,4 @@ const FollowListPage: React.FC = () => {
   );
 };
 
-export default FollowListPage;
+export default FollowersPage;

@@ -78,10 +78,20 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  followersCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
   following: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  followingCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
   closeFriends: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -210,7 +220,12 @@ userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ 'location.city': 1 });
 userSchema.index({ 'location.district': 1 });
+userSchema.index({ 'location.province': 1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ followers: -1 }); 
+userSchema.index({ interests: 1 }); 
+userSchema.index({ lastActive: -1 }); 
+userSchema.index({ following: 1 });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
@@ -265,13 +280,6 @@ userSchema.methods.getPublicProfile = function() {
   return userObj;
 };
 
-userSchema.virtual('followersCount').get(function() {
-  return this.followers.length;
-});
-
-userSchema.virtual('followingCount').get(function() {
-  return this.following.length;
-});
 
 userSchema.virtual('isLocked').get(function() {
   return !!(this.lockUntil && this.lockUntil > Date.now());
