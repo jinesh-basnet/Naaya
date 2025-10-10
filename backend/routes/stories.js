@@ -4,8 +4,8 @@ const { body, validationResult } = require('express-validator');
 const Story = require('../models/Story');
 const StoryHighlight = require('../models/StoryHighlight');
 const User = require('../models/User');
-const { authenticateToken } = require('../middleware/auth');
-
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const storyService = require('../services/storyService');
 
 const { uploadSingle } = require('../middleware/upload');
 
@@ -96,33 +96,18 @@ router.post('/', authenticateToken, [
 // @access  Private
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const now = new Date();
     const userId = req.user._id;
+    const { sort, include_view_status } = req.query;
 
-    const user = await User.findById(userId).populate('following', '_id').populate('closeFriends', '_id');
-    const userFollowing = user.following.map(f => f._id.toString());
-    const userCloseFriends = user.closeFriends.map(f => f._id.toString());
-
-    const allStories = await Story.find({
-      expiresAt: { $gt: now },
-      isDeleted: false
-    })
-    .populate('author', 'username fullName profilePicture closeFriends')
-    .populate('closeFriends', '_id')
-    .sort({ createdAt: -1 });
-
-    const visibleStories = allStories.filter(story =>
-      story.canView(userId.toString(), userFollowing, userCloseFriends)
-    );
-
-    const storiesWithViews = visibleStories.map(story => ({
-      ...story.toObject(),
-      viewsCount: story.viewsCount
-    }));
+    const result = await storyService.organizeStoriesForUser(userId, {
+      sort: sort || 'createdAt',
+      includeViewStatus: include_view_status === 'true'
+    });
 
     res.json({
       message: 'Stories retrieved successfully',
-      stories: storiesWithViews
+      stories: result.stories,
+      unseenCount: result.unseenCount
     });
 
   } catch (error) {
@@ -208,6 +193,72 @@ router.get('/user/:username', authenticateToken, async (req, res) => {
 });
 
 
+// @route   POST /api/stories/:storyId/view
+// @desc    Mark a story as viewed
+// @access  Private
+router.post('/:storyId/view', optionalAuth, async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({
+        message: 'Invalid story ID',
+        code: 'INVALID_STORY_ID'
+      });
+    }
+
+    if (!req.user) {
+      return res.json({ message: 'Story viewed anonymously' });
+    }
+
+    const userId = req.user._id;
+
+    const user = await User.findById(userId).populate('following', '_id').populate('closeFriends', '_id');
+    const userFollowing = user.following.map(f => f._id.toString());
+    const userCloseFriends = user.closeFriends.map(f => f._id.toString());
+
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({
+        message: 'Story not found',
+        code: 'STORY_NOT_FOUND'
+      });
+    }
+
+    if (!story.canView(userId.toString(), userFollowing, userCloseFriends)) {
+      return res.status(403).json({
+        message: 'You do not have permission to view this story',
+        code: 'STORY_ACCESS_DENIED'
+      });
+    }
+
+    story.addView(userId);
+    await story.save();
+
+    // Update cache
+    storyService.markStoryAsViewed(userId, storyId);
+
+    // Emit real-time update
+    if (global.io) {
+      global.io.to(`user:${story.author}`).emit('story_viewed', {
+        storyId,
+        viewerId: userId,
+        viewCount: story.viewsCount
+      });
+    }
+
+    res.json({
+      message: 'Story marked as viewed successfully'
+    });
+
+  } catch (error) {
+    console.error('Mark story viewed error:', error);
+    res.status(500).json({
+      message: 'Server error marking story as viewed',
+      code: 'MARK_VIEWED_ERROR'
+    });
+  }
+});
+
 // @route   GET /api/stories/:storyId
 // @desc    Get a specific story and mark as viewed
 // @access  Private
@@ -248,6 +299,8 @@ router.get('/:storyId', authenticateToken, async (req, res) => {
 
     story.addView(userId);
     await story.save();
+
+    storyService.markStoryAsViewed(userId, storyId);
 
     res.json({
       message: 'Story retrieved successfully',

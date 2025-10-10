@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaTimes } from 'react-icons/fa';
-import { MdAdd } from 'react-icons/md';
+import { MdAdd, MdSend } from 'react-icons/md';
+import { useStoryView } from '../contexts/StoryViewContext';
+import { useAuth } from '../contexts/AuthContext';
+import { storiesAPI } from '../services/api';
+import toast from 'react-hot-toast';
 import './StoryViewer.css';
 
 interface Story {
@@ -27,7 +31,15 @@ interface Story {
     district?: string;
     province?: string;
   };
-  viewsCount?: number; 
+  viewsCount?: number;
+  poll?: {
+    question: string;
+    options: string[];
+    votes: any[];
+    expiresAt: string;
+  };
+  reactions?: any[];
+  replies?: any[];
 }
 
 interface StoryViewerProps {
@@ -53,11 +65,17 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   const [announcement, setAnnouncement] = useState('');
   const [mediaErrors, setMediaErrors] = useState<{[key: number]: boolean}>({});
   const [retryAttempts, setRetryAttempts] = useState<{[key: number]: number}>({});
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [replyText, setReplyText] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const touchEndY = useRef<number>(0);
+
+  const { viewedStories, markStoryAsViewed } = useStoryView();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!isPlaying || stories.length === 0) return;
@@ -66,33 +84,45 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
       setProgress(prev => {
         if (prev >= 100) {
           setCurrentStoryIndex(current => {
-            if (current >= stories.length - 1) {
-              setIsPlaying(false);
-              return current;
+            for (let i = current + 1; i < stories.length; i++) {
+              if (!viewedStories.has(stories[i]._id)) {
+                return i;
+              }
             }
-            return current + 1;
+            setIsPlaying(false);
+            return current;
           });
           return 0;
         }
-        return prev + (100 / 50); 
+        return prev + (100 / 50);
       });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isPlaying, stories.length]);
+  }, [isPlaying, stories.length, stories, viewedStories]);
 
   useEffect(() => {
     setCurrentStoryIndex(currentIndex);
     setProgress(0);
     setIsPlaying(true);
-  }, [currentIndex, stories]);
 
-  useEffect(() => {
-    const story = stories[currentStoryIndex];
-    if (story) {
-      setAnnouncement(`Story ${currentStoryIndex + 1} of ${stories.length} by ${story.author.fullName}`);
+    const currentStory = stories[currentIndex];
+    if (currentStory) {
+      setAnnouncement(`Story ${currentIndex + 1} of ${stories.length} by ${currentStory.author.fullName}`);
+      if (!viewedStories.has(currentStory._id)) {
+        markStoryAsViewed(currentStory._id);
+      }
     }
-  }, [currentStoryIndex, stories]);
+
+    if (currentStory?.media?.type === 'video' && videoRef.current && !mediaErrors[currentIndex]) {
+      videoRef.current.play().then(() => {
+        setIsVideoPlaying(true);
+      }).catch(err => {
+        console.error('Video play failed:', err);
+        setIsVideoPlaying(false);
+      });
+    }
+  }, [currentIndex, stories, viewedStories, markStoryAsViewed, mediaErrors]);
 
   useEffect(() => {
     if (isOpen && containerRef.current) {
@@ -104,6 +134,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   }, [isOpen]);
 
   const handlePrevious = () => {
+    if (videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+
     if (currentStoryIndex > 0) {
       setCurrentStoryIndex(currentStoryIndex - 1);
       setProgress(0);
@@ -114,6 +148,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   };
 
   const handleNext = () => {
+    if (videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+
     if (currentStoryIndex < stories.length - 1) {
       setCurrentStoryIndex(currentStoryIndex + 1);
       setProgress(0);
@@ -122,6 +160,22 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
       }
     } else {
       setIsPlaying(false);
+    }
+  };
+
+  const toggleVideoPlay = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().then(() => {
+          setIsVideoPlaying(true);
+        }).catch((err: Error) => {
+          console.error('Video play failed:', err);
+          toast.error('Failed to play video');
+        });
+      } else {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      }
     }
   };
 
@@ -178,6 +232,32 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     }
   };
 
+  const handleReaction = (type: string) => {
+    storiesAPI.addReaction(currentStory._id, type).then(() => {
+      toast.success('Reaction added!');
+    }).catch((err: Error) => {
+      toast.error('Failed to add reaction');
+    });
+  };
+
+  const handleSendReply = () => {
+    if (!replyText.trim()) return;
+    storiesAPI.addReply(currentStory._id, replyText).then(() => {
+      toast.success('Reply sent!');
+      setReplyText('');
+    }).catch((err: Error) => {
+      toast.error('Failed to send reply');
+    });
+  };
+
+  const handleVote = (optionIndex: number) => {
+    storiesAPI.voteOnPoll(currentStory._id, optionIndex).then(() => {
+      toast.success('Vote submitted!');
+    }).catch((err: Error) => {
+      toast.error('Failed to vote');
+    });
+  };
+
   if (!isOpen || stories.length === 0) return null;
 
   const currentStory = stories[currentStoryIndex];
@@ -189,6 +269,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
           className="nav-button"
           onClick={handlePrevious}
           disabled={currentStoryIndex === 0}
+          aria-label="Previous story"
         >
           ‹
         </button>
@@ -197,6 +278,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
           className="nav-button"
           onClick={handleNext}
           disabled={currentStoryIndex >= stories.length - 1}
+          aria-label="Next story"
         >
           ›
         </button>
@@ -226,7 +308,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               </h3>
               <span className="story-username">@{currentStory.author.username}</span>
             </div>
-            {typeof currentStory.viewsCount === 'number' && (
+            {typeof currentStory.viewsCount === 'number' && user?._id === currentStory.author._id && (
               <span className="story-views-count" title="View count" style={{ marginLeft: '8px', fontSize: '12px', opacity: 0.8 }}>
                 👁️ {currentStory.viewsCount}
               </span>
@@ -235,37 +317,45 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
           <div className="story-actions">
             {onCreateStory && (
-              <button className="create-story-button" onClick={onCreateStory}>
+              <button className="create-story-button" onClick={onCreateStory} aria-label="Create new story">
                 <MdAdd />
               </button>
             )}
-            <button className="close-button" onClick={onClose}>
+            <button className="close-button" onClick={onClose} aria-label="Close story viewer">
               <FaTimes />
             </button>
           </div>
         </div>
 
         <div className="progress-container">
-          {stories.map((_: Story, index: number) => (
-            <div
-              key={index}
-              className={`progress-bar ${index < currentStoryIndex ? 'completed' : index === currentStoryIndex ? 'active' : ''}`}
-            >
+          {stories.map((_: Story, index: number) => {
+            const progressValue = index === currentStoryIndex ? progress : index < currentStoryIndex ? 100 : 0;
+            return (
               <div
-                className="progress-fill"
-                style={{
-                  width: index === currentStoryIndex ? `${progress}%` : index < currentStoryIndex ? '100%' : '0%'
-                }}
-              />
-            </div>
-          ))}
+                key={index}
+                className={`progress-bar ${index < currentStoryIndex ? 'completed' : index === currentStoryIndex ? 'active' : ''}`}
+                role="progressbar"
+                aria-valuenow={progressValue}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Story ${index + 1} of ${stories.length} progress`}
+              >
+                <div
+                  className="progress-fill"
+                  style={{
+                    width: `${progressValue}%`
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
 
         <div className="story-content" onClick={handleStoryClick} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
           {currentStory ? (
             <>
               {currentStory.media?.url && (
-                <div className="story-media">
+                <div className="story-media" role="img" aria-label={currentStory.media.type === 'image' ? 'Story image' : 'Story video'}>
                   {mediaErrors[currentStoryIndex] ? (
                     <div className="media-error">
                       <div className="error-message">
@@ -274,6 +364,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                           <button
                             className="retry-button"
                             onClick={() => handleRetry(currentStoryIndex)}
+                            aria-label="Retry loading media"
                           >
                             Retry ({3 - (retryAttempts[currentStoryIndex] || 0)} attempts left)
                           </button>
@@ -285,21 +376,37 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
                   ) : currentStory.media.type === 'image' ? (
                     <img
                       src={currentStory.media.url}
-                      alt="Story"
+                      alt="Story media"
                       className="story-image"
                       loading="lazy"
                       onError={() => handleMediaError(currentStoryIndex)}
                     />
                   ) : (
-                    <video
-                      src={currentStory.media.url}
-                      className="story-video"
-                      autoPlay
-                      muted
-                      loop
-                      preload="metadata"
-                      onError={() => handleMediaError(currentStoryIndex)}
-                    />
+                    <div className="video-wrapper">
+                      <video
+                        ref={videoRef}
+                        src={currentStory.media.url}
+                        className="story-video"
+                        muted
+                        loop
+                        preload="metadata"
+                        playsInline
+                        onError={() => handleMediaError(currentStoryIndex)}
+                        onLoadedMetadata={() => {
+                          if (videoRef.current && !mediaErrors[currentStoryIndex]) {
+                            videoRef.current.play().catch(err => console.error(err));
+                          }
+                        }}
+                        aria-label="Story video"
+                      />
+                      <button
+                        className="video-control-button"
+                        onClick={toggleVideoPlay}
+                        aria-label={isVideoPlaying ? 'Pause video' : 'Play video'}
+                      >
+                        {isVideoPlaying ? '⏸️' : '▶️'}
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -311,10 +418,53 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               )}
 
               {currentStory.location && (
-                <div className="story-location">
+                <div className="story-location" aria-label="Story location">
                   <p>{currentStory.location.name || `${currentStory.location.city}, ${currentStory.location.district}`}</p>
                 </div>
               )}
+
+              {currentStory.poll && (
+                <div className="story-poll" role="radiogroup" aria-labelledby="poll-question">
+                  <h4 id="poll-question">{currentStory.poll.question}</h4>
+                  {currentStory.poll.options.map((option, index) => (
+                    <button 
+                      key={index} 
+                      onClick={() => handleVote(index)} 
+                      className="poll-option"
+                      role="radio"
+                      aria-checked={false}
+                      aria-label={`Vote for ${option}`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="story-interactions">
+                <div className="story-reactions" role="group" aria-label="Story reactions">
+                  <button onClick={() => handleReaction('heart')} className="reaction-button" aria-label="React with heart">❤️</button>
+                  <button onClick={() => handleReaction('laugh')} className="reaction-button" aria-label="React with laugh">😂</button>
+                  <button onClick={() => handleReaction('sad')} className="reaction-button" aria-label="React with sad">😢</button>
+                  <button onClick={() => handleReaction('angry')} className="reaction-button" aria-label="React with angry">😡</button>
+                  <button onClick={() => handleReaction('like')} className="reaction-button" aria-label="React with like">👍</button>
+                </div>
+
+                <div className="story-reply" role="searchbox" aria-label="Reply to story">
+                  <label htmlFor="reply-input" className="sr-only">Reply to story</label>
+                  <input
+                    id="reply-input"
+                    type="text"
+                    placeholder="Reply to story..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                  />
+                  <button onClick={handleSendReply} disabled={!replyText.trim()} aria-label="Send reply">
+                    <MdSend />
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <div className="no-story">

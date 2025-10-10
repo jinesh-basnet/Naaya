@@ -1,41 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MdAdd, MdClose } from 'react-icons/md';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { storiesAPI, usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import StoryViewer from './StoryViewer';
+import { Story, DisplayStoryItem } from '../types/stories';
+import { organizeStories } from '../utils/storyOrganizer';
 import './StoriesBar.css';
-
-interface StoryItem {
-  _id: string;
-  author: {
-    _id: string;
-    username: string;
-    fullName: string;
-    profilePicture?: string;
-  };
-  content?: string;
-  media?: {
-    type: string;
-    url: string;
-  };
-  createdAt: string;
-}
-
-interface DisplayStoryItem {
-  id?: string;
-  author: {
-    _id?: string;
-    username: string;
-    fullName: string;
-    profilePicture?: string;
-  };
-  isOwn?: boolean;
-  stories?: StoryItem[];
-}
 
 interface StoriesBarProps {
   isCollapsed: boolean;
@@ -49,7 +23,7 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
-  const [currentViewingStories, setCurrentViewingStories] = useState<StoryItem[]>([]);
+  const [currentViewingStories, setCurrentViewingStories] = useState<Story[]>([]);
   const [newStoryContent, setNewStoryContent] = useState('');
   const [newStoryMedia, setNewStoryMedia] = useState<File | null>(null);
   const [storyVisibility, setStoryVisibility] = useState('public');
@@ -59,7 +33,7 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
 
   const { data: storiesData } = useQuery({
     queryKey: ['storiesFeed'],
-    queryFn: () => storiesAPI.getStoriesFeed(),
+    queryFn: () => storiesAPI.getStoriesFeed({ sort: 'unseen_first', includeViewStatus: true }),
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
     retry: (failureCount, error: any) => {
@@ -69,25 +43,18 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-  const stories: StoryItem[] = (storiesData?.data?.stories || []) as StoryItem[];
+  const queryClient = useQueryClient();
 
-  const userStories = stories.filter((story: StoryItem) => story.author._id === user?._id);
-  const otherStories = stories.filter((story: StoryItem) => story.author._id !== user?._id);
+  const stories: Story[] = useMemo(() => (storiesData?.data?.stories || []) as Story[], [storiesData?.data?.stories]);
 
-  const otherAuthors = new Map<string, { author: any, stories: StoryItem[] }>();
-  for (const story of otherStories) {
-    const key = story.author._id || '';
-    if (!otherAuthors.has(key)) {
-      otherAuthors.set(key, { author: story.author, stories: [] });
-    }
-    otherAuthors.get(key)!.stories.push(story);
-  }
+  const organizedStories = useMemo(() => organizeStories(stories, user?._id), [stories, user?._id]);
 
-  const displayStories: DisplayStoryItem[] = [
+  const displayStories: DisplayStoryItem[] = useMemo(() => [
     { id: 'add-story', author: { _id: user?._id, username: 'Add story', fullName: 'Add story', profilePicture: user?.profilePicture }, isOwn: true, stories: [] },
-    ...(userStories.length > 0 ? [{ author: userStories[0].author, isOwn: true, stories: userStories }] : []),
-    ...Array.from(otherAuthors.values()).map(a => ({ author: a.author, isOwn: false, stories: a.stories }))
-  ];
+    ...organizedStories
+  ], [organizedStories, user?._id, user?.profilePicture]);
+
+  const flatStories = useMemo(() => stories, [stories]);
 
   useEffect(() => {
     const fetchCloseFriends = async () => {
@@ -146,11 +113,14 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
 
   const handleViewStory = async (displayIndex: number) => {
     const displayStory = displayStories[displayIndex];
-    setCurrentViewingStories(displayStory.stories || []);
-    setCurrentStoryIndex(0);
-    setOpenViewModal(true);
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
+    const firstStoryIndex = flatStories.findIndex(story => story.author._id === displayStory.author._id);
+    if (firstStoryIndex !== -1) {
+      setCurrentViewingStories(flatStories);
+      setCurrentStoryIndex(firstStoryIndex);
+      setOpenViewModal(true);
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
     }
   };
 
@@ -172,9 +142,22 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
                 handleViewStory(index);
               }
             }}
+            role="button"
+            tabIndex={0}
+            aria-label={story.isOwn && story.id === 'add-story' ? 'Create new story' : `View stories by ${story.author?.fullName || story.author?.username}`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (story.isOwn && story.id === 'add-story') {
+                  setOpenCreateModal(true);
+                } else {
+                  handleViewStory(index);
+                }
+              }
+            }}
           >
             <motion.div
-              className={`story-avatar-container ${story.isOwn ? 'new-story' : 'viewed-story'}`}
+              className={`story-avatar-container ${story.isOwn ? 'new-story' : 'viewed-story'} ${story.hasUnseen ? 'has-unseen' : ''}`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -198,7 +181,11 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
             <p className="story-username">
               {story.isOwn && story.id === 'add-story' ? 'Add story' :
                story.isOwn && story.stories && story.stories.length > 0 ? `${story.author?.username} (${story.stories.length})` :
-               story.stories && story.stories.length > 0 ? `${story.author?.username} (${story.stories.length})` :
+               story.stories && story.stories.length > 0 ? (
+                 story.hasUnseen && story.unseenCount ?
+                   `${story.author?.username} (${story.unseenCount} new)` :
+                   `${story.author?.username} (${story.stories.length})`
+               ) :
                story.author?.username || 'User'}
             </p>
           </div>
@@ -299,7 +286,10 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
         stories={currentViewingStories}
         currentIndex={currentStoryIndex}
         isOpen={openViewModal}
-        onClose={() => setOpenViewModal(false)}
+        onClose={() => {
+          setOpenViewModal(false);
+          queryClient.invalidateQueries({ queryKey: ['storiesFeed'] });
+        }}
         onCreateStory={() => setOpenCreateModal(true)}
         onUserClick={handleUserClick}
       />

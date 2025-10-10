@@ -58,6 +58,18 @@
   z-index: -1;
 }
 
+.story-avatar-container.has-unseen::before {
+  content: '''';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #1e90ff, #00bfff);
+  z-index: -1;
+}
+
 .story-avatar {
   width: 56px;
   height: 56px;

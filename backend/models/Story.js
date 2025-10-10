@@ -168,6 +168,7 @@ const storySchema = new mongoose.Schema({
 });
 
 storySchema.index({ author: 1, createdAt: -1 });
+storySchema.index({ author: 1, createdAt: -1, 'views.user': 1 });
 storySchema.index({ expiresAt: 1 });
 storySchema.index({ isDeleted: 1, isArchived: 1 });
 storySchema.index({ 'location.city': 1 });
