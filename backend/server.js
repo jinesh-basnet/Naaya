@@ -8,6 +8,7 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const connectDB = require('./config/database');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 
@@ -33,8 +34,8 @@ app.use(helmet({
 app.use(compression());
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://192.168.101.2:3000'];
+  origin: process.env.NODE_ENV === 'development' ? true : function (origin, callback) {
+    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.101.2:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -68,7 +69,7 @@ app.use((req, res, next) => {
   const url = req.originalUrl;
   const ip = req.ip || req.connection.remoteAddress;
 
-  console.log(`[${timestamp}] ${method} ${url} - IP: ${ip}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}\n[${timestamp}] ${method} ${url} - IP: ${ip}`);
 
   if (['POST', 'PUT', 'PATCH'].includes(method) && req.body) {
     const logBody = { ...req.body };
@@ -195,6 +196,25 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+
+  const possibleStatic = path.join(__dirname, 'public', req.path === '/' ? 'index.html' : req.path);
+  try {
+    if (req.path !== '/' && fs.existsSync(possibleStatic)) {
+      return res.sendFile(possibleStatic);
+    }
+  } catch (err) {
+  }
+
+  const indexPath = path.join(__dirname, 'public', 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+
+  return next();
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -283,7 +303,7 @@ const startServer = async () => {
 
     const io = require('socket.io')(server, {
       cors: {
-        origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://192.168.101.2:3000'],
+        origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.101.2:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'],
         methods: ["GET", "POST"],
         credentials: true
       },
