@@ -7,6 +7,7 @@ import { SocketProvider } from './contexts/SocketContext';
 import { FestivalProvider } from './contexts/FestivalContext';
 import { CreatePostProvider } from './contexts/CreatePostContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { StoryViewProvider } from './contexts/StoryViewContext';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -26,7 +27,8 @@ import ReelsPage from './pages/ReelsPage';
 import ExplorePage from './pages/ExplorePage';
 import SearchPage from './pages/SearchPage';
 import ProfilePage from './pages/ProfilePage';
-import FollowListPage from './pages/FollowListPage';
+import FollowersPage from './pages/FollowersPage';
+import FollowingPage from './pages/FollowingPage';
 import SettingsPage from './pages/SettingsPage';
 
 // Components
@@ -218,7 +220,7 @@ function InnerApp() {
           path="/profile/:username/followers"
           element={
             <ProtectedRoute>
-              <FollowListPage />
+              <FollowersPage />
             </ProtectedRoute>
           }
         />
@@ -226,7 +228,7 @@ function InnerApp() {
           path="/profile/:username/following"
           element={
             <ProtectedRoute>
-              <FollowListPage />
+              <FollowingPage />
             </ProtectedRoute>
           }
         />
@@ -273,11 +275,13 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <SocketProvider>
-            <FestivalProvider>
-              <ThemeProvider>
-                <AppContent />
-              </ThemeProvider>
-            </FestivalProvider>
+            <StoryViewProvider>
+              <FestivalProvider>
+                <ThemeProvider>
+                  <AppContent />
+                </ThemeProvider>
+              </FestivalProvider>
+            </StoryViewProvider>
           </SocketProvider>
         </AuthProvider>
       </QueryClientProvider>
