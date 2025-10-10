@@ -49,7 +49,7 @@ class PushNotificationService {
       return null;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token || token === 'false') {
       console.warn('No valid auth token found, skipping push subscription');
       return null;
@@ -87,7 +87,6 @@ class PushNotificationService {
         applicationServerKey: this.urlBase64ToUint8Array(publicKey) as any
       });
 
-      // Send subscription to server
       const subResponse = await fetch(`${API_BASE_URL}/notifications/subscription`, {
         method: 'POST',
         headers: {
@@ -129,7 +128,6 @@ class PushNotificationService {
         requireInteraction: true
       });
     } else {
-      // Fallback to regular notification
       new Notification(data.title, {
         body: data.body,
         icon: data.icon || '/logo192.png'
