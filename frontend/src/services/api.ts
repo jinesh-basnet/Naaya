@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -155,8 +155,12 @@ export const storiesAPI = {
   createStory: (storyData: any) =>
     api.post('/stories', storyData),
 
-  getStoriesFeed: () =>
-    api.get('/stories'),
+  getStoriesFeed: (options: { sort?: string; includeViewStatus?: boolean } = {}) => {
+    const params = new URLSearchParams();
+    if (options.sort) params.append('sort', options.sort);
+    if (options.includeViewStatus) params.append('include_view_status', 'true');
+    return api.get(`/stories?${params.toString()}`);
+  },
   
   getStory: (storyId: string) =>
     api.get(`/stories/${storyId}`),
@@ -196,6 +200,9 @@ export const storiesAPI = {
   
   deleteHighlight: (highlightId: string) =>
     api.delete(`/stories/highlights/${highlightId}`),
+
+  markStoryAsViewed: (storyId: string) =>
+    api.post(`/stories/${storyId}/view`),
 };
 
 export const messagesAPI = {
@@ -251,6 +258,9 @@ export const reelsAPI = {
 
   getSavedReels: (page: number = 1, limit: number = 10) =>
     api.get(`/reels/saved?page=${page}&limit=${limit}`),
+
+  searchReels: (query: string, page: number = 1, limit: number = 20) =>
+    api.get(`/reels/search?q=${query}&page=${page}&limit=${limit}`),
 };
 
 export const bookmarkCollectionsAPI = {
