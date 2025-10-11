@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
       });
 
-      const { token: newToken, user: userData } = response.data;
+      const { accessToken: newToken, user: userData } = response.data;
 
       if (!newToken || newToken.length === 0) {
         console.error('Received empty or invalid token');
@@ -145,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await api.post('/auth/register', userData);
 
-      const { token: newToken, user: newUser } = response.data;
+      const { accessToken: newToken, user: newUser } = response.data;
 
       setStoredToken(newToken);
       setToken(newToken);
