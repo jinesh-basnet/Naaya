@@ -49,7 +49,7 @@ class PushNotificationService {
       return null;
     }
 
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (!token || token === 'false') {
       console.warn('No valid auth token found, skipping push subscription');
       return null;
