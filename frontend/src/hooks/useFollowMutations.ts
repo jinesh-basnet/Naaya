@@ -13,7 +13,7 @@ interface User {
   isFollowing?: boolean;
 }
 
-export const useFollowMutations = (username: string, type: string) => {
+export const useFollowMutations = (username: string | undefined, type: string | undefined) => {
   const queryClient = useQueryClient();
   const [loadingUserIds, setLoadingUserIds] = useState<string[]>([]);
 

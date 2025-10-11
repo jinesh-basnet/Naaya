@@ -13,7 +13,7 @@ interface User {
 
 export const useFollowSocketEvents = (
   username: string | undefined,
-  type: string,
+  type: 'followers' | 'following' | undefined,
   currentUser: any,
   onUserFollowed: (handler: (data: any) => void) => void,
   offUserFollowed: (handler: (data: any) => void) => void,
@@ -23,10 +23,10 @@ export const useFollowSocketEvents = (
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!username) return;
+    if (!username || !type) return;
 
     const handleUserFollowed = (data: any) => {
-      if (data.followed._id === username) {
+      if (type === 'followers' && data.followed._id === username) {
         queryClient.setQueryData(['followList', username, type], (oldData: any) => {
           if (!oldData) return oldData;
           const existingUser = oldData.data.users.find((u: User) => u._id === data.follower._id);
@@ -60,6 +60,29 @@ export const useFollowSocketEvents = (
             };
           }
         });
+      } else if (type === 'following' && data.follower._id === username) {
+        queryClient.setQueryData(['followList', username, type], (oldData: any) => {
+          if (!oldData) return oldData;
+          const existingUser = oldData.data.users.find((u: User) => u._id === data.followed._id);
+          if (!existingUser) {
+            const newUser: User = {
+              _id: data.followed._id,
+              username: data.followed.username,
+              fullName: data.followed.fullName,
+              profilePicture: data.followed.profilePicture,
+              isVerified: false,
+              isFollowing: true,
+            };
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                users: [newUser, ...oldData.data.users],
+              },
+            };
+          }
+          return oldData;
+        });
       } else {
         queryClient.setQueryData(['followList', username, type], (oldData: any) => {
           if (!oldData) return oldData;
@@ -79,7 +102,7 @@ export const useFollowSocketEvents = (
     };
 
     const handleUserUnfollowed = (data: any) => {
-      if (data.unfollowed._id === username) {
+      if (type === 'followers' && data.unfollowed._id === username) {
         queryClient.setQueryData(['followList', username, type], (oldData: any) => {
           if (!oldData) return oldData;
           return {
@@ -87,6 +110,17 @@ export const useFollowSocketEvents = (
             data: {
               ...oldData.data,
               users: oldData.data.users.filter((u: User) => u._id !== data.unfollower._id),
+            },
+          };
+        });
+      } else if (type === 'following' && data.unfollower._id === username) {
+        queryClient.setQueryData(['followList', username, type], (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              users: oldData.data.users.filter((u: User) => u._id !== data.unfollowed._id),
             },
           };
         });
@@ -115,5 +149,5 @@ export const useFollowSocketEvents = (
       offUserFollowed(handleUserFollowed);
       offUserUnfollowed(handleUserUnfollowed);
     };
-  }, [username, currentUser, queryClient, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed, type]);
+  }, [username, type, currentUser, queryClient, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed]);
 };
