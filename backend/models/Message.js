@@ -13,7 +13,7 @@ const messageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
+    required: function() { return this.messageType === 'text'; },
     maxlength: 1000
   },
   messageType: {
@@ -67,30 +67,7 @@ const messageSchema = new mongoose.Schema({
     default: false
   },
   deletedAt: Date,
-  replyTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Message'
-  },
-  reactions: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    emoji: String,
-    reactedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  forwarded: {
-    type: Boolean,
-    default: false
-  },
-  forwardedFrom: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  forwardedAt: Date
+
 }, {
   timestamps: true
 });
