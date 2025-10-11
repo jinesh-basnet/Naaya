@@ -56,7 +56,6 @@ class LocationService {
             accuracy: position.coords.accuracy
           };
 
-          // Try to get location details from reverse geocoding
           try {
             const addressDetails = await this.reverseGeocode(
               locationData.latitude,
@@ -92,7 +91,6 @@ class LocationService {
     province?: string;
   }> {
     try {
-      // Using OpenStreetMap Nominatim API for reverse geocoding
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
       );
@@ -140,11 +138,9 @@ class LocationService {
         const timestamp = parseInt(timestampStr);
         const age = Date.now() - timestamp;
 
-        // Location data expires after 1 hour
         if (age < 60 * 60 * 1000) {
           return JSON.parse(locationStr);
         } else {
-          // Clear expired data
           localStorage.removeItem('userLocation');
           localStorage.removeItem('locationTimestamp');
         }
@@ -182,7 +178,6 @@ class LocationService {
     return degrees * (Math.PI / 180);
   }
 
-  // Check if content is considered "local" (within 50km)
   isLocalContent(contentLat: number, contentLng: number, maxDistance: number = 50): boolean {
     const userLocation = this.getLocationData();
     if (!userLocation) return false;
