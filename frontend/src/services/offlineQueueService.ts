@@ -58,7 +58,6 @@ class OfflineQueueService {
     this.queue.push(queuedAction);
     this.saveQueueToStorage();
 
-    // If online, try to sync immediately
     if (this.isOnline && !this.syncInProgress) {
       this.syncQueue();
     }
@@ -81,12 +80,10 @@ class OfflineQueueService {
         console.error('Failed to sync action:', action, error);
         action.retryCount++;
 
-        // Remove action if it has been retried too many times
         if (action.retryCount >= 3) {
           this.removeFromQueue(action.id);
           console.warn('Removed action from queue after max retries:', action);
         } else {
-          // Update retry count in storage
           this.saveQueueToStorage();
         }
       }
@@ -96,7 +93,6 @@ class OfflineQueueService {
   }
 
   private async processAction(action: QueuedAction): Promise<void> {
-    // Import services dynamically to avoid circular dependencies
     const { postsAPI } = await import('../services/api');
 
     switch (action.type) {
@@ -110,11 +106,8 @@ class OfflineQueueService {
         await postsAPI.createPost(action.data.formData);
         break;
       case 'follow':
-        // Assuming there's a follow API
-        // await usersAPI.followUser(action.data.userId);
         break;
       case 'unfollow':
-        // await usersAPI.unfollowUser(action.data.userId);
         break;
       default:
         throw new Error(`Unknown action type: ${action.type}`);
@@ -138,14 +131,12 @@ class OfflineQueueService {
     return this.syncInProgress;
   }
 
-  // Force sync (useful for manual sync button)
   forceSync(): void {
     if (this.isOnline) {
       this.syncQueue();
     }
   }
 
-  // Clear queue (useful for debugging or manual cleanup)
   clearQueue(): void {
     this.queue = [];
     this.saveQueueToStorage();
