@@ -64,7 +64,7 @@ const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, isCollapsed = false, se
               >
                 <Icon className="navbar-icon" />
                 {!isCollapsed && <span className="navbar-label">{t(item.labelKey)}</span>}
-                {item.showBadge && <span className="badge-overlay">3</span>} {/* Placeholder for badge count */}
+                {item.showBadge && <span className="badge-overlay">3</span>} 
               </button>
             </li>
           );
