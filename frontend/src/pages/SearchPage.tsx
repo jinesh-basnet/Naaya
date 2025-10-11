@@ -102,7 +102,6 @@ const SearchPage: React.FC = () => {
         setPosts(allPosts);
         setReels(allReels);
       } else {
-        // General search results
         setPosts(postsRes.data.posts || []);
         setReels(reelsRes.data.reels || []);
       }

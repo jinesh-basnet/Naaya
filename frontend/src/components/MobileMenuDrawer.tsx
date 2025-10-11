@@ -118,7 +118,6 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
             </div>
 
             <div className="drawer-content">
-              {/* Search */}
               <form className="search-section" onSubmit={handleSearch}>
                 <FaSearch className="search-icon" />
                 <input

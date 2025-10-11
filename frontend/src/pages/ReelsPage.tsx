@@ -348,7 +348,6 @@ const ReelsPage: React.FC = () => {
     try {
       await reelsAPI.saveReel(reelId);
     } catch (error) {
-      // Revert optimistic update on error
       setSavedReels(prev => {
         const newSet = new Set(prev);
         if (isCurrentlySaved) {
