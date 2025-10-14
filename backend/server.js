@@ -159,20 +159,25 @@ process.on('unhandledRejection', (reason, promise) => {
 const gracefulShutdown = (signal) => {
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
 
-  server.close((err) => {
-    if (err) {
-      console.error('❌ Error during server shutdown:', err);
+  if (global.server) {
+    global.server.close((err) => {
+      if (err) {
+        console.error('❌ Error during server shutdown:', err);
+        process.exit(1);
+      }
+
+      console.log('✅ Server closed successfully');
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      console.error('💥 Could not close connections in time, forcefully shutting down');
       process.exit(1);
-    }
-
-    console.log('✅ Server closed successfully');
+    }, 10000);
+  } else {
+    console.log('✅ No server to close, exiting...');
     process.exit(0);
-  });
-
-  setTimeout(() => {
-    console.error('💥 Could not close connections in time, forcefully shutting down');
-    process.exit(1);
-  }, 10000);
+  }
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
@@ -300,6 +305,8 @@ const startServer = async () => {
       console.log(`📊 Health check available at: http://localhost:${PORT}/api/health`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
+
+    global.server = server;
 
     const io = require('socket.io')(server, {
       cors: {
