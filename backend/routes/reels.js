@@ -197,14 +197,29 @@ router.get('/saved', authenticateToken, async (req, res) => {
 
     console.log('Aggregation completed, found', savedReels.length, 'saved reels');
 
-    const finalReels = savedReels.map(reel => ({
-      ...reel,
-      likesCount: reel.likesCount,
-      commentsCount: reel.commentsCount,
-      sharesCount: reel.sharesCount,
-      savesCount: reel.savesCount,
-      viewsCount: reel.viewsCount
-    }));
+    const finalReels = savedReels.map(reel => {
+      const mediaItem = {
+        type: 'video',
+        url: reel.video.url,
+        width: reel.video.width,
+        height: reel.video.height,
+        duration: reel.video.duration,
+        size: reel.video.size,
+        format: reel.video.format
+      };
+      if (reel.video.thumbnail) {
+        mediaItem.thumbnail = reel.video.thumbnail;
+      }
+      return {
+        ...reel,
+        media: [mediaItem],
+        likesCount: reel.likesCount,
+        commentsCount: reel.commentsCount,
+        sharesCount: reel.sharesCount,
+        savesCount: reel.savesCount,
+        viewsCount: reel.viewsCount
+      };
+    });
 
     res.json({
       message: 'Saved reels retrieved successfully',
@@ -252,14 +267,29 @@ router.get('/feed', authenticateToken, async (req, res) => {
 
     console.log('Reels feed count:', allReels.length);
 
-    const finalReels = allReels.map(reel => ({
-      ...reel,
-      likesCount: reel.likesCount,
-      commentsCount: reel.commentsCount,
-      sharesCount: reel.sharesCount,
-      savesCount: reel.savesCount,
-      viewsCount: reel.viewsCount
-    }));
+    const finalReels = allReels.map(reel => {
+      const mediaItem = {
+        type: 'video',
+        url: reel.video.url,
+        width: reel.video.width,
+        height: reel.video.height,
+        duration: reel.video.duration,
+        size: reel.video.size,
+        format: reel.video.format
+      };
+      if (reel.video.thumbnail) {
+        mediaItem.thumbnail = reel.video.thumbnail;
+      }
+      return {
+        ...reel,
+        media: [mediaItem],
+        likesCount: reel.likesCount,
+        commentsCount: reel.commentsCount,
+        sharesCount: reel.sharesCount,
+        savesCount: reel.savesCount,
+        viewsCount: reel.viewsCount
+      };
+    });
 
     console.log('Final reels count:', finalReels.length);
 
@@ -328,14 +358,30 @@ router.get('/search', authenticateToken, async (req, res) => {
       visibility: 'public'
     });
 
-    const finalReels = reels.map(reel => ({
-      ...reel.toObject(),
-      likesCount: reel.likesCount,
-      commentsCount: reel.commentsCount,
-      sharesCount: reel.sharesCount,
-      savesCount: reel.savesCount,
-      viewsCount: reel.viewsCount
-    }));
+    const finalReels = reels.map(reel => {
+      const reelObj = reel.toObject();
+      const mediaItem = {
+        type: 'video',
+        url: reel.video.url,
+        width: reel.video.width,
+        height: reel.video.height,
+        duration: reel.video.duration,
+        size: reel.video.size,
+        format: reel.video.format
+      };
+      if (reel.video.thumbnail) {
+        mediaItem.thumbnail = reel.video.thumbnail;
+      }
+      return {
+        ...reelObj,
+        media: [mediaItem],
+        likesCount: reel.likesCount,
+        commentsCount: reel.commentsCount,
+        sharesCount: reel.sharesCount,
+        savesCount: reel.savesCount,
+        viewsCount: reel.viewsCount
+      };
+    });
 
     res.json({
       message: 'Reels searched successfully',
@@ -757,14 +803,30 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     .limit(limit * 1)
     .skip((page - 1) * limit);
 
-    const finalReels = reels.map(reel => ({
-      ...reel.toObject(),
-      likesCount: reel.likesCount,
-      commentsCount: reel.commentsCount,
-      sharesCount: reel.sharesCount,
-      savesCount: reel.savesCount,
-      viewsCount: reel.viewsCount
-    }));
+    const finalReels = reels.map(reel => {
+      const reelObj = reel.toObject();
+      const mediaItem = {
+        type: 'video',
+        url: reel.video.url,
+        width: reel.video.width,
+        height: reel.video.height,
+        duration: reel.video.duration,
+        size: reel.video.size,
+        format: reel.video.format
+      };
+      if (reel.video.thumbnail) {
+        mediaItem.thumbnail = reel.video.thumbnail;
+      }
+      return {
+        ...reelObj,
+        media: [mediaItem],
+        likesCount: reel.likesCount,
+        commentsCount: reel.commentsCount,
+        sharesCount: reel.sharesCount,
+        savesCount: reel.savesCount,
+        viewsCount: reel.viewsCount
+      };
+    });
 
     res.json({
       message: 'User reels retrieved successfully',

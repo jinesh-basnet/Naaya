@@ -169,9 +169,17 @@ const ExplorePage: React.FC = () => {
                       <>
                         {post.media[0].type === 'image' ? (
                           <img className="post-media" src={fullUrl} alt="Post" />
-                        ) : (
-                          <video className="post-media" src={fullUrl} />
-                        )}
+                  ) : (
+                    <video
+                      className="post-media"
+                      src={fullUrl}
+                      muted
+                      playsInline
+                      onError={(e) => {
+                        console.error('Video load error:', e);
+                      }}
+                    />
+                  )}
 
                         <div className="overlay">
                           <div className="overlay-stats">

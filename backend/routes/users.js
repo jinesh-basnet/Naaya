@@ -1,6 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const FriendSuggestionAlgorithm = require('../utils/friendSuggestionAlgorithm');
 
 const router = express.Router();
 
@@ -488,6 +489,27 @@ router.get('/following/:username', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error retrieving following',
       code: 'FOLLOWING_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/users/suggestions
+// @desc    Get user suggestions
+// @access  Private
+router.get('/suggestions', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const currentUserId = req.user._id;
+
+    const suggestionAlgorithm = new FriendSuggestionAlgorithm();
+    const suggestions = await suggestionAlgorithm.getSuggestions(currentUserId, parseInt(limit));
+
+    res.json(suggestions);
+  } catch (error) {
+    console.error('Get suggestions error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving suggestions',
+      code: 'SUGGESTIONS_ERROR'
     });
   }
 });

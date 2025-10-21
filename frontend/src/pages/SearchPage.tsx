@@ -294,10 +294,15 @@ const SearchPage: React.FC = () => {
                     ref={(el) => { if (el) videoRefs.current[reel._id] = el; }}
                     src={reel.video.url}
                     controls
+                    muted
+                    playsInline
                     style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px' }}
                     onPlay={() => handlePlay(reel._id)}
                     onPause={() => handlePause(reel._id)}
                     onEnded={() => handlePause(reel._id)}
+                    onError={(e) => {
+                      console.error('Video load error:', e);
+                    }}
                   />
                   <div className="play-overlay">{playingReels.has(reel._id) ? '⏸' : '▶'}</div>
                 </div>

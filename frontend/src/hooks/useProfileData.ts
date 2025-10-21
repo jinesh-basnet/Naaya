@@ -13,6 +13,12 @@ export const useProfileData = (username: string | undefined) => {
     queryKey: ['profile', username],
     queryFn: () => usersAPI.getProfile(username || ''),
     enabled: !!username,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) {
+        return false; 
+      }
+      return failureCount < 3;
+    },
   });
 
   const profile = profileData?.data?.user;

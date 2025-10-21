@@ -248,7 +248,12 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                                   <video
                                     src={fullUrl}
                                     controls
+                                    muted
+                                    playsInline
                                     className="media-video"
+                                    onError={(e) => {
+                                      console.error('Video load error:', e);
+                                    }}
                                   />
                                 )}
                               </div>

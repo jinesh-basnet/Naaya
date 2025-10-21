@@ -7,12 +7,12 @@ class SecurityLogger {
     this.ensureLogDirectory();
   }
 
-  async ensureLogDirectory() {
+  ensureLogDirectory() {
     const logDir = path.dirname(this.logFile);
     try {
-      await fs.access(logDir);
+      require('fs').accessSync(logDir);
     } catch {
-      await fs.mkdir(logDir, { recursive: true });
+      require('fs').mkdirSync(logDir, { recursive: true });
     }
   }
 

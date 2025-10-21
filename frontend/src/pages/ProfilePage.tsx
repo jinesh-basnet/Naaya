@@ -60,10 +60,21 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  if (profileError || !profile) {
+  if (profileError) {
+    const is404 = profileError?.response?.status === 404;
     return (
       <div className="profile-container error">
-        <div className="error-alert">Failed to load profile.</div>
+        <div className="error-alert">
+          {is404 ? 'User not found.' : 'Failed to load profile.'}
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="profile-container error">
+        <div className="error-alert">User not found.</div>
       </div>
     );
   }

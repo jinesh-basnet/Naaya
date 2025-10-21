@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import './PostCard.css';
 
 interface Post {
   _id: string;
@@ -159,11 +160,30 @@ const PostCard: React.FC<PostCardProps> = ({
           {post.media && post.media.length > 0 && (
             <div className="media-box">
               {post.isReel ? (
-                <video
-                  src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
-                  controls
-                  className="media-video"
-                />
+                <div className="reel-container">
+                  <video
+                    src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
+                    muted
+                    playsInline
+                    className="media-video reel-video"
+                    onError={(e) => {
+                      console.error('Video load error:', e);
+                    }}
+                  />
+                  <div className="reel-overlay">
+                    <div className="play-button">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                    <div className="reel-indicator">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                      <span>Reels</span>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 post.media.map((media, idx) => {
                   let fullUrl = media.url;

@@ -1,0 +1,297 @@
+.card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-content {
+  padding: 16px;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 12px;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 12px;
+  background-color: #f0f0f0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #666;
+}
+
+.author-box {
+  flex: 1;
+}
+
+.name-box {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.name-box span {
+  font-weight: 600;
+  cursor: pointer;
+  color: #333;
+}
+
+.name-box span:hover {
+  text-decoration: underline;
+}
+
+.verified-badge {
+  margin-left: 4px;
+  color: #3897f0;
+  font-size: 14px;
+}
+
+.time-box {
+  font-size: 12px;
+  color: #666;
+}
+
+.post-content {
+  margin: 12px 0;
+  line-height: 1.4;
+  color: #333;
+}
+
+.post-content-more {
+  color: #666;
+  cursor: pointer;
+}
+
+.post-content-more:hover {
+  color: #333;
+}
+
+.media-box {
+  margin: 12px 0;
+  position: relative;
+}
+
+.reel-container {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+
+.reel-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.reel-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 50%, rgba(0,0,0,0.3) 100%);
+}
+
+.play-button {
+  align-self: center;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  transition: transform 0.2s ease;
+}
+
+.play-button:hover {
+  transform: scale(1.1);
+}
+
+.reel-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  align-self: flex-start;
+}
+
+.media-item {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.media-img, .media-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.heart-burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+
+.actions-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.left-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background-color: #f0f0f0;
+}
+
+.icon {
+  font-size: 20px;
+  color: #333;
+}
+
+.liked-icon {
+  color: #e91e63;
+}
+
+.saved-icon {
+  color: #e91e63;
+}
+
+.save-container {
+  position: relative;
+}
+
+.save-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e91e63;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.likes-comments-section {
+  margin-top: 12px;
+}
+
+.likes-count {
+  font-weight: 600;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.likes-count:hover {
+  text-decoration: underline;
+}
+
+.comment-item {
+  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.comment-item strong {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comment-item strong:hover {
+  text-decoration: underline;
+}
+
+.view-all-comments {
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.view-all-comments:hover {
+  color: #333;
+}
+
+@media (max-width: 768px) {
+  .card-content {
+    padding: 12px;
+  }
+
+  .reel-container {
+    height: 250px;
+  }
+
+  .left-actions {
+    gap: 12px;
+  }
+
+  .icon {
+    font-size: 18px;
+  }
+}

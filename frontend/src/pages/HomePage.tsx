@@ -120,7 +120,7 @@ const HomePage: React.FC = () => {
 
         if (post.postType === 'reel') {
           formData.append('content', post.caption);
-          if (post.media) formData.append('media', post.media);
+          if (post.media) formData.append('video', post.media);
           formData.append('hashtags', JSON.stringify(post.tags));
           if (post.location.trim()) {
             formData.append('location', JSON.stringify({ name: post.location }));

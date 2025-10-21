@@ -190,6 +190,11 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                     ref={videoRef}
                     src={mediaPreview}
                     controls
+                    muted
+                    playsInline
+                    onError={(e) => {
+                      console.error('Video load error:', e);
+                    }}
                   />
                 ) : (
                   <img
