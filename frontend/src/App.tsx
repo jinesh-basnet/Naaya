@@ -10,6 +10,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { StoryViewProvider } from './contexts/StoryViewContext';
 import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
+import appLogo from './assets/logo.png';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -114,7 +115,7 @@ function InnerApp() {
       {showNav && isDesktop && sidebarOpen && <Navbar setSidebarOpen={setSidebarOpen} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />}
       {showNav && isDesktop && (
         <img
-          src="/logo.png"
+          src={appLogo}
           alt="Naaya Logo"
           style={{
             position: 'fixed',

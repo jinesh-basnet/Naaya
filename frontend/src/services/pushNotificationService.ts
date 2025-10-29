@@ -56,7 +56,7 @@ class PushNotificationService {
     }
 
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : '/api';
 
       const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
         method: 'POST',
@@ -122,15 +122,15 @@ class PushNotificationService {
     if (this.swRegistration) {
       await this.swRegistration.showNotification(data.title, {
         body: data.body,
-        icon: data.icon || '/logo192.png',
-        badge: data.badge || '/logo192.png',
+  icon: data.icon || '/logo192.svg',
+  badge: data.badge || '/logo192.svg',
         data: data.data,
         requireInteraction: true
       });
     } else {
       new Notification(data.title, {
         body: data.body,
-        icon: data.icon || '/logo192.png'
+        icon: data.icon || '/logo192.svg'
       });
     }
   }

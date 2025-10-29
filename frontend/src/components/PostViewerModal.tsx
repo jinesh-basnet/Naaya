@@ -3,6 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV, FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postsAPI } from '../services/api';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -24,6 +25,7 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
   initialPostId
 }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
   const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -194,7 +196,25 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                                 )}
                               </div>
                             </div>
-                            <button className="icon-button">
+                            <button
+                              className="icon-button"
+                              onClick={async () => {
+                                if (!currentPost) return;
+                                const ok = window.confirm('Are you sure you want to delete this post?');
+                                if (!ok) return;
+                                try {
+                                  await postsAPI.deletePost(currentPost._id);
+                                  queryClient.invalidateQueries({ queryKey: ['userPosts', username] });
+                                  queryClient.invalidateQueries({ queryKey: ['profile', username] });
+                                  queryClient.invalidateQueries({ queryKey: ['feed'] });
+                                  toast.success('Post deleted');
+                                  onClose();
+                                } catch (error) {
+                                  console.error('Failed to delete post', error);
+                                  toast.error('Failed to delete post');
+                                }
+                              }}
+                            >
                               <FaEllipsisV className="icon" />
                             </button>
                           </>

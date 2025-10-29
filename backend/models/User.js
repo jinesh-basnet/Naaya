@@ -74,28 +74,17 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  followers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   followersCount: {
     type: Number,
     default: 0,
     index: true
   },
-  following: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   followingCount: {
     type: Number,
     default: 0,
     index: true
   },
-  closeFriends: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
+
   interests: [{
     type: String,
     enum: [
@@ -198,6 +187,10 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  closeFriends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   notificationPreferences: {
     emailNotifications: {
       type: Boolean,
@@ -222,10 +215,8 @@ userSchema.index({ 'location.city': 1 });
 userSchema.index({ 'location.district': 1 });
 userSchema.index({ 'location.province': 1 });
 userSchema.index({ createdAt: -1 });
-userSchema.index({ followers: -1 }); 
-userSchema.index({ interests: 1 }); 
-userSchema.index({ lastActive: -1 }); 
-userSchema.index({ following: 1 });
+userSchema.index({ interests: 1 });
+userSchema.index({ lastActive: -1 });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

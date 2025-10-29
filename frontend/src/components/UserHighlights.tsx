@@ -60,7 +60,7 @@ const UserHighlights: React.FC<UserHighlightsProps> = ({ userId, onHighlightClic
           }}
         >
           <img
-            src={highlight.coverStory?.media?.url || '/default-highlight-cover.png'}
+            src={highlight.coverStory?.media?.url || '/default-highlight-cover.svg'}
             alt={highlight.title}
             className="highlight-cover"
           />

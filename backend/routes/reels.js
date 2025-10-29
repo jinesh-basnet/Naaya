@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const { uploadSingle } = require('../middleware/upload');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 
@@ -248,10 +249,18 @@ router.get('/feed', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const userId = req.user._id;
-    const user = await User.findById(userId).populate('following');
+    const user = await User.findById(userId);
 
-    const followingIds = user.following ? user.following.map(f => f._id) : [];
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const followingIds = following.map(f => f.following);
     const authorIds = [...followingIds, userId];
+
+    const total = await Reel.countDocuments({
+      author: { $in: authorIds },
+      isDeleted: false,
+      isArchived: false,
+      'video.url': { $exists: true, $ne: '' }
+    });
 
     const allReels = await Reel.find({
       author: { $in: authorIds },
@@ -265,7 +274,7 @@ router.get('/feed', authenticateToken, async (req, res) => {
     .limit(limit * 5)
     .skip((page - 1) * limit);
 
-    console.log('Reels feed count:', allReels.length);
+    console.log('Reels feed count:', allReels.length, 'total:', total);
 
     const finalReels = allReels.map(reel => {
       const mediaItem = {
@@ -299,15 +308,19 @@ router.get('/feed', authenticateToken, async (req, res) => {
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: finalReels.length
+        total,
+        totalPages: Math.ceil(total / limit)
       }
     });
 
   } catch (error) {
     console.error('Get reels feed error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       message: 'Server error retrieving reels feed',
-      code: 'REELS_FEED_ERROR'
+      code: 'REELS_FEED_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -716,77 +729,7 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/search', authenticateToken, async (req, res) => {
-  try {
-    const { q: query, page = 1, limit = 20 } = req.query;
-    console.log('Search reels called by user:', req.user ? req.user._id : null, 'query:', query, 'page:', page, 'limit:', limit);
 
-    if (!query || query.trim().length < 1) {
-      return res.status(400).json({
-        message: 'Search query must be at least 1 character long',
-        code: 'INVALID_SEARCH_QUERY'
-      });
-    }
-
-    const escapeRegex = (string) => {
-      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    };
-
-    const searchRegex = new RegExp(escapeRegex(query.trim()), 'i');
-
-    const reels = await Reel.find({
-      $or: [
-        { caption: { $regex: searchRegex } },
-        { hashtags: { $in: [searchRegex] } }
-      ],
-      isDeleted: false,
-      isArchived: false,
-      visibility: 'public'
-    })
-    .populate('author', 'username fullName profilePicture isVerified')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
-
-    const total = await Reel.countDocuments({
-      $or: [
-        { caption: { $regex: searchRegex } },
-        { hashtags: { $in: [searchRegex] } }
-      ],
-      isDeleted: false,
-      isArchived: false,
-      visibility: 'public'
-    });
-
-    const finalReels = reels.map(reel => ({
-      ...reel.toObject(),
-      likesCount: reel.likesCount,
-      commentsCount: reel.commentsCount,
-      sharesCount: reel.sharesCount,
-      savesCount: reel.savesCount,
-      viewsCount: reel.viewsCount
-    }));
-
-    res.json({
-      message: 'Reels searched successfully',
-      reels: finalReels,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
-
-  } catch (error) {
-    console.error('Search reels error:', error);
-    res.status(500).json({
-      message: 'Server error searching reels',
-      code: 'SEARCH_REELS_ERROR',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
 
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {

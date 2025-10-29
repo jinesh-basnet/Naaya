@@ -2,6 +2,7 @@ const express = require('express');
 const Post = require('../../models/Post');
 const Reel = require('../../models/Reel');
 const User = require('../../models/User');
+const Follow = require('../../models/Follow');
 const { authenticateToken } = require('../../middleware/auth');
 
 const { findCommentById, countTotalComments } = require('../../utils/postHelpers');
@@ -63,7 +64,7 @@ router.get('/feed', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20, feedType = 'fyp' } = req.query;
     const userId = req.user._id;
-    const user = await User.findById(userId).populate('following');
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -75,7 +76,8 @@ router.get('/feed', authenticateToken, async (req, res) => {
     let posts = [];
 
     if (feedType === 'following') {
-      const followingIds = user.following ? user.following.map(f => f._id || f) : [];
+      const following = await Follow.find({ follower: userId }).select('following').lean();
+      const followingIds = following.map(f => f.following);
       const authorIds = [...followingIds, userId];
 
       posts = await Post.find({

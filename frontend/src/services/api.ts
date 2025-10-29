@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : '/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -217,6 +217,8 @@ export const messagesAPI = {
   
   markAsRead: (messageId: string) =>
     api.put(`/messages/${messageId}/read`),
+  markAsSeen: (messageId: string) =>
+    api.put(`/messages/${messageId}/seen`),
   
   addReaction: (messageId: string, emoji: string) =>
     api.post(`/messages/${messageId}/reaction`, { emoji }),

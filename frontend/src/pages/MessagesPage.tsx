@@ -7,6 +7,7 @@ import { messagesAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import toast from 'react-hot-toast';
+import MessageOptions from '../components/MessageOptions';
 
 interface Conversation {
   partner: {
@@ -48,6 +49,7 @@ interface Message {
 const MessagesPage: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +58,7 @@ const MessagesPage: React.FC = () => {
   const { socket } = useSocket();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
   const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
     queryKey: ['conversations'],
@@ -73,6 +76,7 @@ const MessagesPage: React.FC = () => {
       messagesAPI.sendMessage(messageData),
     onSuccess: () => {
       setNewMessage('');
+      setReplyTo(null);
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?.partner._id] });
     },
@@ -81,11 +85,63 @@ const MessagesPage: React.FC = () => {
     },
   });
 
+  const handleEditRequest = (message: Message) => {
+    setNewMessage(message.content);
+    setReplyTo(null);
+    setEditingMessageId(message._id);
+  };
+
+  const handleDeleteRequest = async (messageId: string) => {
+    try {
+      await messagesAPI.deleteMessage(messageId);
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?.partner._id] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    } catch (err) {
+      toast.error('Failed to delete message');
+    }
+  };
+
+  const handleReactRequest = async (message: Message, emoji: string) => {
+    try {
+      const userReaction = (message.reactions || []).find((r: any) => r.user === currentUser?._id || (r.user && r.user._id === currentUser?._id));
+      if (userReaction && userReaction.emoji === emoji) {
+        await messagesAPI.removeReaction(message._id);
+      } else {
+        await messagesAPI.addReaction(message._id, emoji);
+      }
+      queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?.partner._id] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    } catch (err) {
+      toast.error('Failed to react');
+    }
+  };
+
   useEffect(() => {
     if (messagesData?.data?.messages) {
       setMessages(messagesData.data.messages);
+
+      (async () => {
+        if (!socket || !selectedConversation || !currentUser) return;
+
+        const msgs = messagesData.data.messages as Message[];
+        for (const m of msgs) {
+          const receiverId = (m as any).receiver?._id || (m as any).receiver;
+          const isRead = m.isRead;
+          if (receiverId && currentUser?._id && receiverId === currentUser._id && !isRead) {
+            try {
+              await messagesAPI.markAsSeen(m._id);
+              socket.emit('message_seen', {
+                messageId: m._id,
+                room: `conversation:${selectedConversation.partner._id}`,
+                userId: currentUser._id,
+              });
+            } catch (err) {
+            }
+          }
+        }
+      })();
     }
-  }, [messagesData]);
+  }, [messagesData, socket, selectedConversation, currentUser]);
 
   useEffect(() => {
     if (!socket || !selectedConversation) return;
@@ -109,14 +165,45 @@ const MessagesPage: React.FC = () => {
       }
     };
 
+    const handleMessageSeen = (data: { messageId: string; userId: string }) => {
+      setMessages(prev => prev.map(m => m._id === data.messageId ? ({ ...m, 
+        isRead: m.isRead || (data.userId === selectedConversation?.partner._id) }) : m));
+    };
+
+    const handleReactionAdded = (data: { messageId: string; reaction: any }) => {
+      setMessages(prev => prev.map(m => m._id === data.messageId ? ({ ...m, reactions: data.reaction }) : m));
+    };
+
+    const handleReactionRemoved = (data: { messageId: string; userId: string }) => {
+      setMessages(prev => prev.map(m => m._id === data.messageId ? ({ ...m, reactions: (m.reactions || []).filter(r => (r as any).user !== data.userId) }) : m));
+    };
+
+    const handleMessageEdited = (data: { messageId: string; messageData: any }) => {
+      setMessages(prev => prev.map(m => m._id === data.messageId ? ({ ...m, content: data.messageData.content, isEdited: data.messageData.isEdited }) : m));
+    };
+
+    const handleMessageDeleted = (data: { messageId: string }) => {
+      setMessages(prev => prev.map(m => m._id === data.messageId ? ({ ...m, isDeleted: true, content: 'This message was deleted' }) : m));
+    };
+
     socket.on('receive_message', handleNewMessage);
     socket.on('user_typing', handleTypingStart);
     socket.on('user_typing_stop', handleTypingStop);
+  socket.on('message_seen', handleMessageSeen);
+  socket.on('reaction_added', handleReactionAdded);
+  socket.on('reaction_removed', handleReactionRemoved);
+  socket.on('message_edited', handleMessageEdited);
+  socket.on('message_deleted', handleMessageDeleted);
 
     return () => {
       socket.off('receive_message', handleNewMessage);
       socket.off('user_typing', handleTypingStart);
       socket.off('user_typing_stop', handleTypingStop);
+      socket.off('message_seen', handleMessageSeen);
+      socket.off('reaction_added', handleReactionAdded);
+      socket.off('reaction_removed', handleReactionRemoved);
+      socket.off('message_edited', handleMessageEdited);
+      socket.off('message_deleted', handleMessageDeleted);
       socket.emit('leave_room', `conversation:${selectedConversation.partner._id}`);
     };
   }, [socket, selectedConversation, currentUser?._id, queryClient]);
@@ -128,10 +215,27 @@ const MessagesPage: React.FC = () => {
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation) return;
 
-    sendMessageMutation.mutate({
+    const payload: any = {
       receiver: selectedConversation.partner._id,
       content: newMessage.trim(),
-    });
+    };
+    if (replyTo) payload.replyTo = replyTo._id;
+
+    if (editingMessageId) {
+      messagesAPI.editMessage(editingMessageId, newMessage.trim())
+        .then(() => {
+          setNewMessage('');
+          setReplyTo(null);
+          setEditingMessageId(null);
+          queryClient.invalidateQueries({ queryKey: ['messages', selectedConversation?.partner._id] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        })
+        .catch(() => {
+          toast.error('Failed to edit message');
+        });
+    } else {
+      sendMessageMutation.mutate(payload);
+    }
 
     if (socket) {
       socket.emit('typing_stop', {
@@ -267,15 +371,25 @@ const MessagesPage: React.FC = () => {
                 messages.map((message) => (
                   <div
                     key={message._id}
-                  className={`message-item ${message.sender._id === currentUser?._id ? 'sent' : ''}`}
-                >
-                  <div
-                    className={`message-bubble ${message.sender._id === currentUser?._id ? 'sent' : 'received'}`}
+                    className={`message-item ${message.sender._id === currentUser?._id ? 'sent' : ''}`}
                   >
-                    <p className="message-text">{message.content}</p>
-                    <span className="message-time">{formatTime(message.createdAt)}</span>
+                    <div className={`message-bubble-wrapper`}>
+                      <div
+                        onDoubleClick={() => setReplyTo(message)}
+                        className={`message-bubble ${message.sender._id === currentUser?._id ? 'sent' : 'received'}`}
+                      >
+                        <p className="message-text">{message.content}</p>
+                        <span className="message-time">{formatTime(message.createdAt)}</span>
+                      </div>
+                      <MessageOptions
+                        message={message}
+                        currentUserId={currentUser?._id}
+                        onEdit={handleEditRequest}
+                        onDelete={handleDeleteRequest}
+                        onReact={handleReactRequest}
+                      />
+                    </div>
                   </div>
-                </div>
                 ))
               )}
               {isTyping && (
@@ -289,6 +403,15 @@ const MessagesPage: React.FC = () => {
             </div>
 
             <div className="input-area">
+              {replyTo && (
+                <div className="reply-preview">
+                  <div className="reply-meta">
+                    Replying to {replyTo.sender.fullName}
+                    <button className="cancel-reply" onClick={() => setReplyTo(null)}>×</button>
+                  </div>
+                  <div className="reply-content">{replyTo.content}</div>
+                </div>
+              )}
               <button className="icon-btn">
                 <MdAttachFile />
               </button>

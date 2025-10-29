@@ -2,6 +2,7 @@ const express = require('express');
 const Post = require('../models/Post');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -13,10 +14,12 @@ router.get('/simple', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const userId = req.user._id;
-    const user = await User.findById(userId).populate('following');
+
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const followingIds = following.map(f => f.following.toString());
 
     const posts = await Post.find({
-      author: { $in: [...user.following.map(f => f._id), userId] },
+      author: { $in: [...followingIds, userId] },
       isDeleted: false,
       isArchived: false
     })
@@ -24,7 +27,7 @@ router.get('/simple', authenticateToken, async (req, res) => {
     .lean();
 
     const reels = await Reel.find({
-      author: { $in: [...user.following.map(f => f._id), userId] },
+      author: { $in: [...followingIds, userId] },
       isDeleted: false,
       isArchived: false
     })

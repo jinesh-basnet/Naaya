@@ -113,6 +113,9 @@ const HomePage: React.FC = () => {
         }
         await postsAPI.updatePost(post.editPost._id, formData);
         toast.success('Post updated!');
+        if (user?.username) queryClient.invalidateQueries({ queryKey: ['userPosts', user.username] });
+        if (user?.username) queryClient.invalidateQueries({ queryKey: ['profile', user.username] });
+        queryClient.invalidateQueries({ queryKey: ['feed'] });
       } else {
         const formData = new FormData();
         const language = user?.languagePreference === 'both' ? 'mixed' : (user?.languagePreference || 'english');
@@ -137,6 +140,8 @@ const HomePage: React.FC = () => {
           formData.append('contrast', contrast.toString());
           await reelsAPI.createReel(formData);
           queryClient.invalidateQueries({ queryKey: ['reels'] });
+          queryClient.invalidateQueries({ queryKey: ['userReels'] });
+          if (user?.username) queryClient.invalidateQueries({ queryKey: ['profile', user.username] });
         } else {
           formData.append('postType', post.postType);
           formData.append('content', post.caption);
@@ -155,6 +160,8 @@ const HomePage: React.FC = () => {
             formData.append('contrast', post.contrast.toString());
           }
           await postsAPI.createPost(formData);
+          if (user?.username) queryClient.invalidateQueries({ queryKey: ['userPosts', user.username] });
+          if (user?.username) queryClient.invalidateQueries({ queryKey: ['profile', user.username] });
         }
         toast.success(`${post.postType === 'reel' ? 'Reel' : 'Post'} shared!`);
       }

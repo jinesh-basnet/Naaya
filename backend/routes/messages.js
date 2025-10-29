@@ -9,7 +9,7 @@ const router = express.Router();
 // @access  Private
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { receiver, content, messageType = 'text' } = req.body;
+    const { receiver, content, messageType = 'text', replyTo, mentions } = req.body;
     const senderId = req.user._id;
 
     const messageData = {
@@ -18,9 +18,22 @@ router.post('/', authenticateToken, async (req, res) => {
       content,
       messageType
     };
+    if (replyTo) messageData.replyTo = replyTo;
+    if (Array.isArray(mentions) && mentions.length > 0) messageData.mentions = mentions;
+
+    messageData.seenBy = [senderId];
 
     const message = new Message(messageData);
     await message.save();
+
+    try {
+      if (global.io) {
+        global.io.to(`conversation:${receiver}`).emit('receive_message', message);
+        global.io.to(`user:${receiver}`).emit('receive_message', message);
+      }
+    } catch (err) {
+      console.error('Socket emit error (send message):', err);
+    }
 
     await message.populate('sender', 'username fullName profilePicture isVerified');
 
@@ -279,7 +292,20 @@ router.put('/:messageId/read', authenticateToken, async (req, res) => {
 
     const wasUpdated = message.markAsRead();
     if (wasUpdated) {
+      const alreadySeen = message.seenBy && message.seenBy.find(id => id.toString() === userId.toString());
+      if (!alreadySeen) {
+        message.seenBy = message.seenBy || [];
+        message.seenBy.push(userId);
+      }
       await message.save();
+      try {
+        if (global.io) {
+          global.io.to(`conversation:${message.sender}`).emit('message_read', { messageId: message._id, userId });
+          global.io.to(`user:${message.sender}`).emit('message_read', { messageId: message._id, userId });
+        }
+      } catch (err) {
+        console.error('Socket emit error (mark read):', err);
+      }
     }
 
     res.json({
@@ -328,9 +354,23 @@ router.post('/:messageId/reaction', authenticateToken, async (req, res) => {
     }
 
     message.addReaction(userId, emoji);
+    message.seenBy = message.seenBy || [];
+    if (!message.seenBy.find(id => id.toString() === userId.toString())) {
+      message.seenBy.push(userId);
+    }
     await message.save();
 
     await message.populate('reactions.user', 'username fullName profilePicture');
+
+    try {
+      if (global.io) {
+        global.io.to(`conversation:${message.receiver}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
+        global.io.to(`conversation:${message.sender}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
+        global.io.to(`user:${message.receiver}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
+      }
+    } catch (err) {
+      console.error('Socket emit error (reaction added):', err);
+    }
 
     res.json({
       message: 'Reaction added successfully',
@@ -370,7 +410,21 @@ router.delete('/:messageId/reaction', authenticateToken, async (req, res) => {
     }
 
     message.removeReaction(userId);
+    message.seenBy = message.seenBy || [];
+    if (!message.seenBy.find(id => id.toString() === userId.toString())) {
+      message.seenBy.push(userId);
+    }
     await message.save();
+
+    try {
+      if (global.io) {
+        global.io.to(`conversation:${message.receiver}`).emit('reaction_removed', { messageId: message._id, userId });
+        global.io.to(`conversation:${message.sender}`).emit('reaction_removed', { messageId: message._id, userId });
+        global.io.to(`user:${message.receiver}`).emit('reaction_removed', { messageId: message._id, userId });
+      }
+    } catch (err) {
+      console.error('Socket emit error (reaction removed):', err);
+    }
 
     res.json({
       message: 'Reaction removed successfully',
@@ -426,7 +480,21 @@ router.put('/:messageId', authenticateToken, async (req, res) => {
     }
 
     message.editMessage(content);
+    message.seenBy = message.seenBy || [];
+    if (!message.seenBy.find(id => id.toString() === userId.toString())) {
+      message.seenBy.push(userId);
+    }
     await message.save();
+
+    try {
+      if (global.io) {
+        global.io.to(`conversation:${message.receiver}`).emit('message_edited', { messageId: message._id, messageData: message });
+        global.io.to(`conversation:${message.sender}`).emit('message_edited', { messageId: message._id, messageData: message });
+        global.io.to(`user:${message.receiver}`).emit('message_edited', { messageId: message._id, messageData: message });
+      }
+    } catch (err) {
+      console.error('Socket emit error (message edited):', err);
+    }
 
     res.json({
       message: 'Message edited successfully',
@@ -466,7 +534,21 @@ router.delete('/:messageId', authenticateToken, async (req, res) => {
     }
 
     message.deleteMessage();
+    message.seenBy = message.seenBy || [];
+    if (!message.seenBy.find(id => id.toString() === userId.toString())) {
+      message.seenBy.push(userId);
+    }
     await message.save();
+
+    try {
+      if (global.io) {
+        global.io.to(`conversation:${message.receiver}`).emit('message_deleted', { messageId: message._id });
+        global.io.to(`conversation:${message.sender}`).emit('message_deleted', { messageId: message._id });
+        global.io.to(`user:${message.receiver}`).emit('message_deleted', { messageId: message._id });
+      }
+    } catch (err) {
+      console.error('Socket emit error (message deleted):', err);
+    }
 
     res.json({
       message: 'Message deleted successfully'
@@ -518,6 +600,15 @@ router.post('/:messageId/forward', authenticateToken, async (req, res) => {
     await forwardedMessage.populate('sender', 'username fullName profilePicture isVerified');
     await forwardedMessage.populate('receiver', 'username fullName profilePicture isVerified');
 
+    try {
+      if (global.io) {
+        global.io.to(`conversation:${receiverId}`).emit('receive_message', forwardedMessage);
+        global.io.to(`user:${receiverId}`).emit('receive_message', forwardedMessage);
+      }
+    } catch (err) {
+      console.error('Socket emit error (forward message):', err);
+    }
+
     res.status(201).json({
       message: 'Message forwarded successfully',
       messageData: forwardedMessage
@@ -533,3 +624,43 @@ router.post('/:messageId/forward', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+
+// @route   PUT /api/messages/:messageId/seen
+// @desc    Add current user to seenBy for the message (idempotent)
+// @access  Private
+router.put('/:messageId/seen', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        message: 'Message not found',
+        code: 'MESSAGE_NOT_FOUND'
+      });
+    }
+
+    message.seenBy = message.seenBy || [];
+    if (!message.seenBy.find(id => id.toString() === userId.toString())) {
+      message.seenBy.push(userId);
+      if (message.receiver && message.receiver.toString() === userId.toString() && !message.isRead) {
+        message.isRead = true;
+        message.readAt = new Date();
+      }
+      await message.save();
+    }
+
+    res.json({
+      message: 'Marked as seen',
+      messageData: message
+    });
+
+  } catch (error) {
+    console.error('Mark seen error:', error);
+    res.status(500).json({
+      message: 'Server error marking message as seen',
+      code: 'MARK_SEEN_ERROR'
+    });
+  }
+});

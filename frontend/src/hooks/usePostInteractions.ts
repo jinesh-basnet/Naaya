@@ -121,6 +121,8 @@ export const usePostInteractions = (locationData: any, refetch: () => void) => {
         await postsAPI.savePost(postId);
       }
       refetch();
+      queryClient.invalidateQueries({ queryKey: ['userBookmarks'] });
+      queryClient.invalidateQueries({ queryKey: ['userSavedReels'] });
     } catch (error) {
       queryClient.setQueryData(['feed', 'posts', locationData?.city], (oldData: any) => {
         if (!oldData?.data?.posts) return oldData;

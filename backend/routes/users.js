@@ -1,5 +1,7 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const FriendSuggestionAlgorithm = require('../utils/friendSuggestionAlgorithm');
 
@@ -23,7 +25,11 @@ router.get('/profile/:username', optionalAuth, async (req, res) => {
     const profile = user.toObject();
 
     if (req.user) {
-      profile.isFollowing = user.followers.some(id => id.equals(req.user._id));
+      const followExists = await Follow.findOne({
+        follower: req.user._id,
+        following: user._id
+      });
+      profile.isFollowing = !!followExists;
     }
 
     res.json({
@@ -173,39 +179,49 @@ router.put('/profile', authenticateToken, async (req, res) => {
 // @desc    Follow a user
 // @access  Private
 router.post('/:userId/follow', authenticateToken, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userIdToFollow = req.params.userId;
     const currentUserId = req.user._id;
 
     if (userIdToFollow === currentUserId.toString()) {
+      await session.abortTransaction();
       return res.status(400).json({
         message: 'You cannot follow yourself',
         code: 'FOLLOW_SELF_ERROR'
       });
     }
 
-    const userToFollow = await User.findById(userIdToFollow);
-    const currentUser = await User.findById(currentUserId);
+    const existingFollow = await Follow.findOne({
+      follower: currentUserId,
+      following: userIdToFollow
+    }).session(session);
 
-    if (!userToFollow) {
-      return res.status(404).json({
-        message: 'User to follow not found',
-        code: 'USER_NOT_FOUND'
-      });
-    }
-
-    if (userToFollow.followers.some(id => id.equals(currentUserId))) {
+    if (existingFollow) {
+      await session.abortTransaction();
       return res.status(400).json({
         message: 'You are already following this user',
         code: 'ALREADY_FOLLOWING'
       });
     }
 
-    userToFollow.followers.push(currentUserId);
-    currentUser.following.push(userIdToFollow);
+    const follow = new Follow({
+      follower: currentUserId,
+      following: userIdToFollow
+    });
+    await follow.save({ session });
 
-    await userToFollow.save();
-    await currentUser.save();
+    await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: 1 } }, { session });
+    await User.findByIdAndUpdate(userIdToFollow, { $inc: { followersCount: 1 } }, { session });
+
+    await session.commitTransaction();
+
+    const [currentUser, userToFollow] = await Promise.all([
+      User.findById(currentUserId).select('username fullName profilePicture'),
+      User.findById(userIdToFollow).select('followersCount')
+    ]);
 
     global.io.to(`user:${userIdToFollow}`).emit('user_followed', {
       follower: {
@@ -216,7 +232,7 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       },
       followed: {
         _id: userIdToFollow,
-        followersCount: userToFollow.followers.length
+        followersCount: userToFollow.followersCount
       }
     });
 
@@ -229,7 +245,7 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       },
       followed: {
         _id: userIdToFollow,
-        followersCount: userToFollow.followers.length
+        followersCount: userToFollow.followersCount
       }
     });
 
@@ -244,11 +260,14 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
+    await session.abortTransaction();
     console.error('Follow user error:', error);
     res.status(500).json({
       message: 'Server error following user',
       code: 'FOLLOW_ERROR'
     });
+  } finally {
+    session.endSession();
   }
 });
 
@@ -256,39 +275,45 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
 // @desc    Unfollow a user
 // @access  Private
 router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userIdToUnfollow = req.params.userId;
     const currentUserId = req.user._id;
 
     if (userIdToUnfollow === currentUserId.toString()) {
+      await session.abortTransaction();
       return res.status(400).json({
         message: 'You cannot unfollow yourself',
         code: 'UNFOLLOW_SELF_ERROR'
       });
     }
 
-    const userToUnfollow = await User.findById(userIdToUnfollow);
-    const currentUser = await User.findById(currentUserId);
+    const existingFollow = await Follow.findOne({
+      follower: currentUserId,
+      following: userIdToUnfollow
+    }).session(session);
 
-    if (!userToUnfollow) {
-      return res.status(404).json({
-        message: 'User to unfollow not found',
-        code: 'USER_NOT_FOUND'
-      });
-    }
-
-    if (!userToUnfollow.followers.some(id => id.equals(currentUserId))) {
+    if (!existingFollow) {
+      await session.abortTransaction();
       return res.status(400).json({
         message: 'You are not following this user',
         code: 'NOT_FOLLOWING'
       });
     }
 
-    userToUnfollow.followers.pull(currentUserId);
-    currentUser.following.pull(userIdToUnfollow);
+    await Follow.findByIdAndDelete(existingFollow._id, { session });
 
-    await userToUnfollow.save();
-    await currentUser.save();
+    await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: -1 } }, { session });
+    await User.findByIdAndUpdate(userIdToUnfollow, { $inc: { followersCount: -1 } }, { session });
+
+    await session.commitTransaction();
+
+    const [currentUser, userToUnfollow] = await Promise.all([
+      User.findById(currentUserId).select('username fullName profilePicture'),
+      User.findById(userIdToUnfollow).select('followersCount')
+    ]);
 
     global.io.to(`user:${userIdToUnfollow}`).emit('user_unfollowed', {
       unfollower: {
@@ -299,7 +324,7 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       },
       unfollowed: {
         _id: userIdToUnfollow,
-        followersCount: userToUnfollow.followers.length
+        followersCount: userToUnfollow.followersCount
       }
     });
 
@@ -312,7 +337,7 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       },
       unfollowed: {
         _id: userIdToUnfollow,
-        followersCount: userToUnfollow.followers.length
+        followersCount: userToUnfollow.followersCount
       }
     });
 
@@ -321,11 +346,14 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
+    await session.abortTransaction();
     console.error('Unfollow user error:', error);
     res.status(500).json({
       message: 'Server error unfollowing user',
       code: 'UNFOLLOW_ERROR'
     });
+  } finally {
+    session.endSession();
   }
 });
 
@@ -355,7 +383,7 @@ router.get('/search', authenticateToken, async (req, res) => {
     .select('username fullName profilePicture isVerified bio location followers')
     .limit(limit * 1)
     .skip((page - 1) * limit)
-    .sort({ followers: -1, createdAt: -1 }); 
+    .sort({ followersCount: -1, createdAt: -1 });
 
     const total = await User.countDocuments({
       $or: [
@@ -365,13 +393,17 @@ router.get('/search', authenticateToken, async (req, res) => {
       isDeleted: false
     });
 
-    const usersWithFollowStatus = users.map(user => {
+    const usersWithFollowStatus = await Promise.all(users.map(async user => {
       const userObj = user.toObject();
       if (req.user) {
-        userObj.isFollowing = user.followers.includes(req.user._id);
+        const followExists = await Follow.findOne({
+          follower: req.user._id,
+          following: user._id
+        });
+        userObj.isFollowing = !!followExists;
       }
       return userObj;
-    });
+    }));
 
     res.json({
       message: 'Users searched successfully',
@@ -395,13 +427,20 @@ router.get('/search', authenticateToken, async (req, res) => {
 
 // @route   GET /api/users/followers/:username
 // @desc    Get followers of a user
-// @access  Private
-router.get('/followers/:username', authenticateToken, async (req, res) => {
+// @access  Public
+router.get('/followers/:username', optionalAuth, async (req, res) => {
   try {
     const { username } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
-    const user = await User.findOne({ username }).select('followers');
+    let user = await User.findOne({ username: new RegExp('^' + username + '$', 'i'), isDeleted: false })
+      .select('_id followersCount')
+      .lean();
+
+    if (!user && /^[0-9a-fA-F]{24}$/.test(username)) {
+      user = await User.findById(username).select('_id followersCount').lean();
+    }
+
     if (!user) {
       return res.status(404).json({
         message: 'User not found',
@@ -409,49 +448,102 @@ router.get('/followers/:username', authenticateToken, async (req, res) => {
       });
     }
 
-    const followers = await User.find({ _id: { $in: user.followers } })
-      .select('username fullName profilePicture isVerified bio')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+    if (user.followersCount === 0) {
+      return res.json({
+        message: 'Followers retrieved successfully',
+        users: [],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0,
+          pages: 0
+        }
+      });
+    }
 
-    const followersWithFollowStatus = await Promise.all(
-      followers.map(async (follower) => {
-        const followerObj = follower.toObject();
-        followerObj.isFollowing = follower.followers.includes(req.user._id);
-        return followerObj;
-      })
-    );
+    const sanitizedPage = Math.max(1, parseInt(page) || 1);
+    const sanitizedLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));
+    const skip = (sanitizedPage - 1) * sanitizedLimit;
+
+    const follows = await Follow.find({ following: user._id })
+      .populate('follower', 'username fullName profilePicture isVerified bio')
+      .limit(sanitizedLimit)
+      .skip(skip)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const followersWithFollowStatus = follows.map(follow => {
+      const followerObj = { ...follow.follower };
+      if (req.user) {
+        followerObj.isFollowing = false; 
+      }
+      return followerObj;
+    });
+
+    if (req.user) {
+      const followerIds = follows.map(f => f.follower._id);
+      const currentUserFollows = await Follow.find({
+        follower: req.user._id,
+        following: { $in: followerIds }
+      }).select('following').lean();
+
+      const followingSet = new Set(currentUserFollows.map(f => f.following.toString()));
+
+      followersWithFollowStatus.forEach(follower => {
+        follower.isFollowing = followingSet.has(follower._id.toString());
+      });
+    }
 
     res.json({
       message: 'Followers retrieved successfully',
       users: followersWithFollowStatus,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: user.followers.length,
-        pages: Math.ceil(user.followers.length / limit)
+        page: sanitizedPage,
+        limit: sanitizedLimit,
+        total: user.followersCount,
+        pages: Math.ceil(user.followersCount / sanitizedLimit)
       }
     });
 
   } catch (error) {
     console.error('Get followers error:', error);
+    console.error('Error stack:', error && error.stack ? error.stack : error);
+    const safeContext = {
+      username: typeof username !== 'undefined' ? username : null,
+      page: typeof page !== 'undefined' ? page : null,
+      limit: typeof limit !== 'undefined' ? limit : null,
+      requestUser: req.user ? req.user._id : null,
+      followersCount: user ? user.followersCount : null,
+      fetchedFollowersCount: (typeof follows !== 'undefined' && Array.isArray(follows)) ? follows.length : null
+    };
+    console.error('Error context:', safeContext);
+
     res.status(500).json({
       message: 'Server error retrieving followers',
-      code: 'FOLLOWERS_ERROR'
+      code: 'FOLLOWERS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? {
+        error: error.message,
+        type: error.name,
+        path: error.path
+      } : undefined
     });
   }
 });
 
 // @route   GET /api/users/following/:username
 // @desc    Get users followed by a user
-// @access  Private
-router.get('/following/:username', authenticateToken, async (req, res) => {
+// @access  Public
+router.get('/following/:username', optionalAuth, async (req, res) => {
   try {
     const { username } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
-    const user = await User.findOne({ username }).select('following');
+    let user = await User.findOne({ username: new RegExp('^' + username + '$', 'i'), isDeleted: false })
+      .select('_id followingCount')
+      .lean();
+    if (!user && /^[0-9a-fA-F]{24}$/.test(username)) {
+      user = await User.findById(username).select('_id followingCount').lean();
+    }
     if (!user) {
       return res.status(404).json({
         message: 'User not found',
@@ -459,36 +551,80 @@ router.get('/following/:username', authenticateToken, async (req, res) => {
       });
     }
 
-    const following = await User.find({ _id: { $in: user.following } })
-      .select('username fullName profilePicture isVerified bio')
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+    if (user.followingCount === 0) {
+      return res.json({
+        message: 'Following retrieved successfully',
+        users: [],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0,
+          pages: 0
+        }
+      });
+    }
 
-    const followingWithFollowStatus = await Promise.all(
-      following.map(async (followedUser) => {
-        const followedObj = followedUser.toObject();
-        followedObj.isFollowing = followedUser.followers.includes(req.user._id);
-        return followedObj;
-      })
-    );
+    const sanitizedPage = Math.max(1, parseInt(page) || 1);
+    const sanitizedLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));
+    const skip = (sanitizedPage - 1) * sanitizedLimit;
+
+    const follows = await Follow.find({ follower: user._id })
+      .populate('following', 'username fullName profilePicture isVerified bio')
+      .limit(sanitizedLimit)
+      .skip(skip)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const followingWithFollowStatus = follows.map(follow => {
+      const followingObj = { ...follow.following };
+      if (req.user) {
+        followingObj.isFollowing = false; 
+      }
+      return followingObj;
+    });
+
+    if (req.user) {
+      const followingIds = follows.map(f => f.following._id);
+      const currentUserFollows = await Follow.find({
+        follower: req.user._id,
+        following: { $in: followingIds }
+      }).select('following').lean();
+
+      const followingSet = new Set(currentUserFollows.map(f => f.following.toString()));
+
+      followingWithFollowStatus.forEach(followed => {
+        followed.isFollowing = followingSet.has(followed._id.toString());
+      });
+    }
 
     res.json({
       message: 'Following retrieved successfully',
       users: followingWithFollowStatus,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: user.following.length,
-        pages: Math.ceil(user.following.length / limit)
+        page: sanitizedPage,
+        limit: sanitizedLimit,
+        total: user.followingCount,
+        pages: Math.ceil(user.followingCount / sanitizedLimit)
       }
     });
 
   } catch (error) {
     console.error('Get following error:', error);
+    console.error('Error stack:', error && error.stack ? error.stack : error);
+    const safeContext = {
+      username: typeof username !== 'undefined' ? username : null,
+      page: typeof page !== 'undefined' ? page : null,
+      limit: typeof limit !== 'undefined' ? limit : null,
+      userId: user ? user._id : null,
+      followingCount: user ? user.followingCount : null,
+      fetchedFollowing: (typeof follows !== 'undefined' && Array.isArray(follows)) ? follows.length : null
+    };
+    console.error('Error context:', safeContext);
+
     res.status(500).json({
       message: 'Server error retrieving following',
-      code: 'FOLLOWING_ERROR'
+      code: 'FOLLOWING_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

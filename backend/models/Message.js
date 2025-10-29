@@ -47,6 +47,35 @@ const messageSchema = new mongoose.Schema({
     phone: String,
     email: String
   },
+  reactions: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    emoji: String,
+    reactedAt: Date
+  }],
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message'
+  },
+  forwarded: {
+    type: Boolean,
+    default: false
+  },
+  forwardedFrom: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  forwardedAt: Date,
+  seenBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  mentions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   isRead: {
     type: Boolean,
     default: false

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 const UserInteraction = require('../models/UserInteraction');
 
 const USER_SELECT = 'username fullName profilePicture isVerified bio lastActive interests location followersCount';
@@ -28,9 +29,13 @@ class FriendSuggestionAlgorithm {
 
   async getCurrentUser(userId) {
     const user = await User.findById(userId)
-      .select('following followersCount lastActive interests location.city location.district isActive');
+      .select('followersCount lastActive interests location.city location.district isActive');
 
     if (!user) throw new Error('User not found');
+
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    user.following = following.map(f => f.following);
+
     return user;
   }
 
@@ -87,7 +92,8 @@ class FriendSuggestionAlgorithm {
 
     const queries = [];
     if (weights.mutual > 0) {
-      queries.push({ query: { ...baseQuery, followers: { $in: followingIds } }, limit: Math.ceil(limit * weights.mutual), reason: 'mutual_connections' });
+      const mutualUserIds = await Follow.find({ follower: { $in: followingIds } }).distinct('following');
+      queries.push({ query: { ...baseQuery, _id: { $in: mutualUserIds } }, limit: Math.ceil(limit * weights.mutual), reason: 'mutual_connections' });
     }
     if (weights.interests > 0 && currentUser.interests?.length) {
       queries.push({ query: { ...baseQuery, interests: { $in: currentUser.interests } }, limit: Math.ceil(limit * weights.interests), reason: 'shared_interests' });
@@ -107,7 +113,7 @@ class FriendSuggestionAlgorithm {
 
   const remaining = limit - suggestions.length;
     if (remaining > 0 && weights.popular > 0) {
-      const popular = await this.fetchUsers({ ...baseQuery }, remaining, 'popular_user', { followers: -1 });
+      const popular = await this.fetchUsers({ ...baseQuery }, remaining, 'popular_user', { followersCount: -1 });
       suggestions.push(...popular);
     }
 

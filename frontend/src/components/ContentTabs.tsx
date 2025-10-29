@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PostCard from './PostCard';
 import { usePostInteractions } from '../hooks/usePostInteractions';
 import { formatTimeAgo } from '../utils';
@@ -50,9 +50,15 @@ interface ContentTabsProps {
   postsData: any;
   postsLoading: boolean;
   postsError: any;
+  fetchNextPosts?: () => void;
+  hasNextPosts?: boolean;
+  isFetchingNextPosts?: boolean;
   reelsData: any;
   reelsLoading: boolean;
   reelsError: any;
+  fetchNextReels?: () => void;
+  hasNextReels?: boolean;
+  isFetchingNextReels?: boolean;
   bookmarksData: any;
   bookmarksLoading: boolean;
   bookmarksError: any;
@@ -69,9 +75,15 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
   postsData,
   postsLoading,
   postsError,
+  fetchNextPosts,
+  hasNextPosts,
+  isFetchingNextPosts,
   reelsData,
   reelsLoading,
   reelsError,
+  fetchNextReels,
+  hasNextReels,
+  isFetchingNextReels,
   bookmarksData,
   bookmarksLoading,
   bookmarksError,
@@ -85,6 +97,34 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
   const { handleLike, handleSave, handleDoubleTap } = usePostInteractions(null, () => {});
   const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
   const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+
+          if (activeTab === 'posts') {
+            if (hasNextPosts && !isFetchingNextPosts) {
+              fetchNextPosts && fetchNextPosts();
+            }
+          } else if (activeTab === 'reels') {
+            if (hasNextReels && !isFetchingNextReels) {
+              fetchNextReels && fetchNextReels();
+            }
+          }
+        });
+      },
+      { root: null, rootMargin: '1000px', threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [activeTab, hasNextPosts, isFetchingNextPosts, hasNextReels, isFetchingNextReels, fetchNextPosts, fetchNextReels]);
 
   const renderContent = (data: Post[], loading: boolean, error: any, isReel: boolean = false) => {
     if (loading) {
@@ -123,9 +163,21 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
 
   switch (activeTab) {
     case 'posts':
-      return renderContent(postsData?.data?.posts || [], postsLoading, postsError, false);
+      const postsArr = postsData?.pages ? postsData.pages.flatMap((p: any) => p.data?.posts || []) : (postsData?.data?.posts || []);
+      return (
+        <>
+          {renderContent(postsArr, postsLoading, postsError, false)}
+              {hasNextPosts && <div ref={loadMoreRef} style={{ height: 1, width: '100%' }} aria-hidden />}
+        </>
+      );
     case 'reels':
-      return renderContent(reelsData?.data?.reels || [], reelsLoading, reelsError, true);
+      const reelsArr = reelsData?.pages ? reelsData.pages.flatMap((p: any) => p.data?.reels || []) : (reelsData?.data?.reels || []);
+      return (
+        <>
+          {renderContent(reelsArr, reelsLoading, reelsError, true)}
+          {hasNextReels && <div ref={loadMoreRef} style={{ height: 1, width: '100%' }} aria-hidden />}
+        </>
+      );
     case 'bookmarks':
       return renderContent(bookmarksData?.data?.bookmarks || [], bookmarksLoading, bookmarksError, false);
     case 'savedReels':

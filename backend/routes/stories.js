@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const Story = require('../models/Story');
 const StoryHighlight = require('../models/StoryHighlight');
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const storyService = require('../services/storyService');
 
@@ -192,6 +193,13 @@ router.get('/user/:username', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   GET /api/stories/welcome
+// @desc    Welcome message
+// @access  Public
+router.get('/welcome', (req, res) => {
+  console.log(`Request received: ${req.method} ${req.path}`);
+  res.json({ message: 'Welcome to the Stories API Service!' });
+});
 
 // @route   POST /api/stories/:storyId/view
 // @desc    Mark a story as viewed
@@ -212,8 +220,10 @@ router.post('/:storyId/view', optionalAuth, async (req, res) => {
 
     const userId = req.user._id;
 
-    const user = await User.findById(userId).populate('following', '_id').populate('closeFriends', '_id');
-    const userFollowing = user.following.map(f => f._id.toString());
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const userFollowing = following.map(f => f.following.toString());
+
+    const user = await User.findById(userId).populate('closeFriends', '_id');
     const userCloseFriends = user.closeFriends.map(f => f._id.toString());
 
     const story = await Story.findById(storyId);
@@ -234,10 +244,8 @@ router.post('/:storyId/view', optionalAuth, async (req, res) => {
     story.addView(userId);
     await story.save();
 
-    // Update cache
     storyService.markStoryAsViewed(userId, storyId);
 
-    // Emit real-time update
     if (global.io) {
       global.io.to(`user:${story.author}`).emit('story_viewed', {
         storyId,
@@ -273,8 +281,10 @@ router.get('/:storyId', authenticateToken, async (req, res) => {
     }
     const userId = req.user._id;
 
-    const user = await User.findById(userId).populate('following', '_id').populate('closeFriends', '_id');
-    const userFollowing = user.following.map(f => f._id.toString());
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const userFollowing = following.map(f => f.following.toString());
+
+    const user = await User.findById(userId).populate('closeFriends', '_id');
     const userCloseFriends = user.closeFriends.map(f => f._id.toString());
 
     const story = await Story.findById(storyId)
@@ -341,9 +351,9 @@ router.post('/:storyId/reaction', authenticateToken, [
     const { type } = req.body;
     const userId = req.user._id;
 
-    const user = await User.findById(userId).populate('following', '_id');
-    const userFollowing = user.following.map(f => f._id.toString());
-    const userCloseFriends = []; 
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const userFollowing = following.map(f => f.following.toString());
+    const userCloseFriends = [];
 
     const story = await Story.findById(storyId);
     if (!story) {
@@ -441,9 +451,9 @@ router.post('/:storyId/reply', authenticateToken, [
     const { content } = req.body;
     const userId = req.user._id;
 
-    const user = await User.findById(userId).populate('following', '_id');
-    const userFollowing = user.following.map(f => f._id.toString());
-    const userCloseFriends = []; 
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const userFollowing = following.map(f => f.following.toString());
+    const userCloseFriends = [];
 
     const story = await Story.findById(storyId);
     if (!story) {

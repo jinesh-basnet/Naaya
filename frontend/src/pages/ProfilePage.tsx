@@ -37,9 +37,15 @@ const ProfilePage: React.FC = () => {
     postsData,
     postsLoading,
     postsError,
+    fetchNextPostsPage,
+    hasNextPostsPage,
+    isFetchingNextPostsPage,
     reelsData,
     reelsLoading,
     reelsError,
+    fetchNextReelsPage,
+    hasNextReelsPage,
+    isFetchingNextReelsPage,
     bookmarksData,
     bookmarksLoading,
     bookmarksError,
@@ -160,9 +166,15 @@ const ProfilePage: React.FC = () => {
             postsData={postsData}
             postsLoading={postsLoading}
             postsError={postsError}
+            fetchNextPosts={fetchNextPostsPage}
+            hasNextPosts={hasNextPostsPage}
+            isFetchingNextPosts={isFetchingNextPostsPage}
             reelsData={reelsData}
             reelsLoading={reelsLoading}
             reelsError={reelsError}
+            fetchNextReels={fetchNextReelsPage}
+            hasNextReels={hasNextReelsPage}
+            isFetchingNextReels={isFetchingNextReelsPage}
             bookmarksData={bookmarksData}
             bookmarksLoading={bookmarksLoading}
             bookmarksError={bookmarksError}
