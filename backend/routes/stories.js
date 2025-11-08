@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const Story = require('../models/Story');
-const StoryHighlight = require('../models/StoryHighlight');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
@@ -141,7 +140,12 @@ router.get('/highlights', authenticateToken, async (req, res) => {
       });
     }
 
-    const highlights = await StoryHighlight.getUserHighlights(userId);
+    const user = await User.findById(userId).select('highlights').populate({
+      path: 'highlights.coverStory',
+      select: 'media'
+    }).lean();
+
+    const highlights = user.highlights.filter(h => !h.isArchived).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     console.log('Get highlights - highlights count:', highlights.length);
 
     res.json({
@@ -564,11 +568,22 @@ router.post('/:storyId/vote', authenticateToken, [
     const { option } = req.body;
     const userId = req.user._id;
 
+    const following = await Follow.find({ follower: userId }).select('following').lean();
+    const userFollowing = following.map(f => f.following.toString());
+    const userCloseFriends = [];
+
     const story = await Story.findById(storyId);
     if (!story) {
       return res.status(404).json({
         message: 'Story not found',
         code: 'STORY_NOT_FOUND'
+      });
+    }
+
+    if (!story.canView(userId.toString(), userFollowing, userCloseFriends)) {
+      return res.status(403).json({
+        message: 'You do not have permission to vote on this story',
+        code: 'STORY_ACCESS_DENIED'
       });
     }
 
@@ -679,6 +694,20 @@ router.post('/highlights', authenticateToken, [
     const { title, coverStory, stories, isPublic } = req.body;
     const userId = req.user._id;
 
+    if (stories.length === 0) {
+      return res.status(400).json({
+        message: 'Stories array cannot be empty',
+        code: 'EMPTY_STORIES'
+      });
+    }
+
+    if (!stories.includes(coverStory)) {
+      return res.status(400).json({
+        message: 'Cover story must be included in the stories array',
+        code: 'COVER_STORY_NOT_IN_STORIES'
+      });
+    }
+
     const userStories = await Story.find({
       _id: { $in: stories },
       author: userId,
@@ -706,21 +735,23 @@ router.post('/highlights', authenticateToken, [
     }
 
     const highlightData = {
-      author: userId,
       title,
       coverStory,
       stories,
-      isPublic: isPublic !== undefined ? isPublic : true
+      isPublic: isPublic !== undefined ? isPublic : true,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    const highlight = await StoryHighlight.createHighlight(highlightData);
+    const user = await User.findById(userId);
+    user.highlights.push(highlightData);
+    await user.save();
 
-    await highlight.populate('coverStory', 'media');
-    await highlight.populate('stories', '_id');
+    const newHighlight = user.highlights[user.highlights.length - 1];
 
     res.status(201).json({
       message: 'Highlight created successfully',
-      highlight
+      highlight: newHighlight
     });
 
   } catch (error) {
@@ -740,29 +771,21 @@ router.get('/highlights/:highlightId', authenticateToken, async (req, res) => {
     const { highlightId } = req.params;
     const userId = req.user._id;
 
-    const highlight = await StoryHighlight.findById(highlightId)
-      .populate('author', 'username fullName profilePicture')
-      .populate({
-        path: 'stories',
-        match: { isDeleted: false },
-        populate: {
-          path: 'author',
-          select: 'username fullName profilePicture'
-        }
-      })
-      .populate('coverStory', 'media');
+    const user = await User.findById(userId).populate({
+      path: 'highlights.stories',
+      match: { isDeleted: false },
+      populate: {
+        path: 'author',
+        select: 'username fullName profilePicture'
+      }
+    }).populate('highlights.coverStory', 'media');
+
+    const highlight = user.highlights.id(highlightId);
 
     if (!highlight) {
       return res.status(404).json({
         message: 'Highlight not found',
         code: 'HIGHLIGHT_NOT_FOUND'
-      });
-    }
-
-    if (highlight.author._id.toString() !== userId.toString() && !highlight.isPublic) {
-      return res.status(403).json({
-        message: 'You do not have permission to view this highlight',
-        code: 'HIGHLIGHT_ACCESS_DENIED'
       });
     }
 
@@ -803,18 +826,13 @@ router.put('/highlights/:highlightId', authenticateToken, [
     const userId = req.user._id;
     const updateData = req.body;
 
-    const highlight = await StoryHighlight.findById(highlightId);
+    const user = await User.findById(userId);
+    const highlight = user.highlights.id(highlightId);
+
     if (!highlight) {
       return res.status(404).json({
         message: 'Highlight not found',
         code: 'HIGHLIGHT_NOT_FOUND'
-      });
-    }
-
-    if (highlight.author.toString() !== userId.toString()) {
-      return res.status(403).json({
-        message: 'You can only update your own highlights',
-        code: 'UPDATE_PERMISSION_DENIED'
       });
     }
 
@@ -849,10 +867,8 @@ router.put('/highlights/:highlightId', authenticateToken, [
     }
 
     Object.assign(highlight, updateData);
-    await highlight.save();
-
-    await highlight.populate('coverStory', 'media');
-    await highlight.populate('stories', '_id');
+    highlight.updatedAt = new Date();
+    await user.save();
 
     res.json({
       message: 'Highlight updated successfully',
@@ -876,7 +892,9 @@ router.delete('/highlights/:highlightId', authenticateToken, async (req, res) =>
     const { highlightId } = req.params;
     const userId = req.user._id;
 
-    const highlight = await StoryHighlight.findById(highlightId);
+    const user = await User.findById(userId);
+    const highlight = user.highlights.id(highlightId);
+
     if (!highlight) {
       return res.status(404).json({
         message: 'Highlight not found',
@@ -884,15 +902,9 @@ router.delete('/highlights/:highlightId', authenticateToken, async (req, res) =>
       });
     }
 
-    if (highlight.author.toString() !== userId.toString()) {
-      return res.status(403).json({
-        message: 'You can only delete your own highlights',
-        code: 'DELETE_PERMISSION_DENIED'
-      });
-    }
-
     highlight.isArchived = true;
-    await highlight.save();
+    highlight.updatedAt = new Date();
+    await user.save();
 
     res.json({
       message: 'Highlight deleted successfully'

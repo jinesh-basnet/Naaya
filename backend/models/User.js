@@ -191,6 +191,39 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  highlights: [{
+    title: {
+      type: String,
+      required: true,
+      maxlength: 30
+    },
+    coverStory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Story',
+      required: true
+    },
+    stories: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Story',
+      required: true
+    }],
+    isPublic: {
+      type: Boolean,
+      default: true
+    },
+    isArchived: {
+      type: Boolean,
+      default: false
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   notificationPreferences: {
     emailNotifications: {
       type: Boolean,
@@ -204,6 +237,14 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     }
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
@@ -217,6 +258,7 @@ userSchema.index({ 'location.province': 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ interests: 1 });
 userSchema.index({ lastActive: -1 });
+userSchema.index({ isDeleted: 1 });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

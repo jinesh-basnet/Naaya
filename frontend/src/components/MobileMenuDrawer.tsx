@@ -6,7 +6,6 @@ import { FaSearch, FaSignOutAlt, FaPlus } from 'react-icons/fa';
 import { MdClose } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useFestival } from '../contexts/FestivalContext';
 import { getNavItems, userNavItems } from '../utils/navItems';
 import api from '../services/api';
 import './MobileMenuDrawer.css';
@@ -21,7 +20,7 @@ interface MobileMenuDrawerProps {
 const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMobile, openCreatePostModal }) => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
-  const { festivalMode, setFestivalMode } = useFestival();
+
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -78,10 +77,7 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
     localStorage.setItem('lang', next);
   };
 
-  const handleFestivalToggle = () => {
-    setFestivalMode(!festivalMode);
-    document.body.classList.toggle('festival-mode', !festivalMode);
-  };
+
 
   const handleLogout = () => {
     logout();
@@ -133,12 +129,7 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
                 <button className="toggle-btn" onClick={handleLanguageToggle}>
                   {language === 'ne' ? t('nav.english') : t('nav.nepali')}
                 </button>
-                <button
-                  className={`toggle-btn festival-btn ${festivalMode ? 'active' : ''}`}
-                  onClick={handleFestivalToggle}
-                >
-                  {festivalMode ? (language === 'ne' ? 'सामान्य मोड' : 'Normal Mode') : (language === 'ne' ? 'दशैं/तिहार मोड' : 'Dashain/Tihar Mode')}
-                </button>
+
               </div>
 
               <hr className="divider" />

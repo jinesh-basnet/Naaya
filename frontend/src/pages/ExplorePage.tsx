@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaSearch, FaTimes, FaHeart, FaComment, FaCompass, FaChartLine, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaHeart, FaComment, FaCompass, FaChartLine, FaUsers } from 'react-icons/fa';
 import { useQuery } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
+import Suggestions from '../components/Suggestions';
 
 import './ExplorePage.css';
 
@@ -62,7 +63,7 @@ const ExplorePage: React.FC = () => {
         case 1:
           return postsAPI.getFeed('trending');
         case 2:
-          return postsAPI.getFeed('nearby');
+          return postsAPI.getFeed('friends');
         default:
           return postsAPI.getFeed('explore');
       }
@@ -96,7 +97,7 @@ const ExplorePage: React.FC = () => {
     setSelectedPost(null);
   };
 
-  const tabLabels = ['For You', 'Trending', 'Nearby'];
+  const tabLabels = ['For You', 'Trending', 'Friends'];
 
   return (
     <div className="explore-container">
@@ -130,7 +131,7 @@ const ExplorePage: React.FC = () => {
                 >
                   {index === 0 && <FaCompass />}
                   {index === 1 && <FaChartLine />}
-                  {index === 2 && <FaMapMarkerAlt />}
+                  {index === 2 && <FaUsers />}
                   {label}
                 </button>
               ))}
@@ -221,6 +222,12 @@ const ExplorePage: React.FC = () => {
             <p className="empty-subtitle">
               {searchQuery ? 'Try adjusting your search terms' : 'Discover amazing content from your community'}
             </p>
+          </div>
+        )}
+
+        {activeTab === 2 && !searchQuery && (
+          <div className="suggestions-section">
+            <Suggestions />
           </div>
         )}
       </div>

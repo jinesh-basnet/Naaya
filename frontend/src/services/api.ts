@@ -98,7 +98,16 @@ export const postsAPI = {
   
   addComment: (postId: string, content: string) =>
     api.post(`/posts/${postId}/comment`, { content }),
-  
+
+  replyToComment: (postId: string, commentId: string, content: string) =>
+    api.post(`/posts/${postId}/comments/${commentId}/reply`, { content }),
+
+  replyToReply: (postId: string, replyId: string, content: string) =>
+    api.post(`/posts/${postId}/replies/${replyId}/reply`, { content }),
+
+  likeReply: (postId: string, replyId: string) =>
+    api.post(`/posts/${postId}/replies/${replyId}/like`),
+
   updatePost: (postId: string, postData: any) => {
     if (postData instanceof FormData) {
       return api.put(`/posts/${postId}`, postData);
@@ -263,6 +272,18 @@ export const reelsAPI = {
 
   searchReels: (query: string, page: number = 1, limit: number = 20) =>
     api.get(`/reels/search?q=${query}&page=${page}&limit=${limit}`),
+
+  getReelComments: (reelId: string, page: number = 1, limit: number = 20) =>
+    api.get(`/reels/${reelId}/comments?page=${page}&limit=${limit}`),
+
+  replyToComment: (reelId: string, commentId: string, content: string) =>
+    api.post(`/reels/${reelId}/comments/${commentId}/reply`, { content }),
+
+  likeReply: (reelId: string, replyId: string) =>
+    api.post(`/reels/${reelId}/replies/${replyId}/like`),
+
+  replyToReply: (reelId: string, replyId: string, content: string) =>
+    api.post(`/reels/${reelId}/replies/${replyId}/reply`, { content }),
 };
 
 export const bookmarkCollectionsAPI = {

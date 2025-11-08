@@ -2,8 +2,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
+const Following = require('../models/Following');
+const Followers = require('../models/Followers');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
-const FriendSuggestionAlgorithm = require('../utils/friendSuggestionAlgorithm');
+const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm');
 
 const router = express.Router();
 
@@ -25,11 +27,8 @@ router.get('/profile/:username', optionalAuth, async (req, res) => {
     const profile = user.toObject();
 
     if (req.user) {
-      const followExists = await Follow.findOne({
-        follower: req.user._id,
-        following: user._id
-      });
-      profile.isFollowing = !!followExists;
+      const followingDoc = await Following.findOne({ user: req.user._id }).select('following').lean();
+      profile.isFollowing = followingDoc ? followingDoc.following.includes(user._id) : false;
     }
 
     res.json({
@@ -194,12 +193,11 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       });
     }
 
-    const existingFollow = await Follow.findOne({
-      follower: currentUserId,
-      following: userIdToFollow
-    }).session(session);
+    // Check if already following using Following model
+    const followingDoc = await Following.findOne({ user: currentUserId }).select('following').session(session);
+    const isAlreadyFollowing = followingDoc && followingDoc.following.includes(userIdToFollow);
 
-    if (existingFollow) {
+    if (isAlreadyFollowing) {
       await session.abortTransaction();
       return res.status(400).json({
         message: 'You are already following this user',
@@ -207,12 +205,21 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       });
     }
 
-    const follow = new Follow({
-      follower: currentUserId,
-      following: userIdToFollow
-    });
-    await follow.save({ session });
+    // Update Following model
+    await Following.findOneAndUpdate(
+      { user: currentUserId },
+      { $addToSet: { following: userIdToFollow } },
+      { upsert: true, session }
+    );
 
+    // Update Followers model
+    await Followers.findOneAndUpdate(
+      { user: userIdToFollow },
+      { $addToSet: { followers: currentUserId } },
+      { upsert: true, session }
+    );
+
+    // Update user counts
     await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: 1 } }, { session });
     await User.findByIdAndUpdate(userIdToFollow, { $inc: { followersCount: 1 } }, { session });
 
@@ -290,12 +297,11 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       });
     }
 
-    const existingFollow = await Follow.findOne({
-      follower: currentUserId,
-      following: userIdToUnfollow
-    }).session(session);
+    // Check if following using Following model
+    const followingDoc = await Following.findOne({ user: currentUserId }).select('following').session(session);
+    const isFollowing = followingDoc && followingDoc.following.includes(userIdToUnfollow);
 
-    if (!existingFollow) {
+    if (!isFollowing) {
       await session.abortTransaction();
       return res.status(400).json({
         message: 'You are not following this user',
@@ -303,8 +309,21 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       });
     }
 
-    await Follow.findByIdAndDelete(existingFollow._id, { session });
+    // Update Following model
+    await Following.findOneAndUpdate(
+      { user: currentUserId },
+      { $pull: { following: userIdToUnfollow } },
+      { session }
+    );
 
+    // Update Followers model
+    await Followers.findOneAndUpdate(
+      { user: userIdToUnfollow },
+      { $pull: { followers: currentUserId } },
+      { session }
+    );
+
+    // Update user counts
     await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: -1 } }, { session });
     await User.findByIdAndUpdate(userIdToUnfollow, { $inc: { followersCount: -1 } }, { session });
 
@@ -396,11 +415,8 @@ router.get('/search', authenticateToken, async (req, res) => {
     const usersWithFollowStatus = await Promise.all(users.map(async user => {
       const userObj = user.toObject();
       if (req.user) {
-        const followExists = await Follow.findOne({
-          follower: req.user._id,
-          following: user._id
-        });
-        userObj.isFollowing = !!followExists;
+        const followingDoc = await Following.findOne({ user: req.user._id }).select('following').lean();
+        userObj.isFollowing = followingDoc ? followingDoc.following.includes(user._id) : false;
       }
       return userObj;
     }));
@@ -465,29 +481,23 @@ router.get('/followers/:username', optionalAuth, async (req, res) => {
     const sanitizedLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));
     const skip = (sanitizedPage - 1) * sanitizedLimit;
 
-    const follows = await Follow.find({ following: user._id })
-      .populate('follower', 'username fullName profilePicture isVerified bio')
-      .limit(sanitizedLimit)
-      .skip(skip)
-      .sort({ createdAt: -1 })
-      .lean();
+    const followersDoc = await Followers.findOne({ user: user._id }).select('followers').populate({
+      path: 'followers',
+      select: 'username fullName profilePicture isVerified bio',
+      options: { limit: sanitizedLimit, skip: skip, sort: { createdAt: -1 } }
+    }).lean();
 
-    const followersWithFollowStatus = follows.map(follow => {
-      const followerObj = { ...follow.follower };
+    const followersWithFollowStatus = (followersDoc?.followers || []).map(follower => {
+      const followerObj = { ...follower };
       if (req.user) {
-        followerObj.isFollowing = false; 
+        followerObj.isFollowing = false;
       }
       return followerObj;
     });
 
     if (req.user) {
-      const followerIds = follows.map(f => f.follower._id);
-      const currentUserFollows = await Follow.find({
-        follower: req.user._id,
-        following: { $in: followerIds }
-      }).select('following').lean();
-
-      const followingSet = new Set(currentUserFollows.map(f => f.following.toString()));
+      const followingDoc = await Following.findOne({ user: req.user._id }).select('following').lean();
+      const followingSet = new Set(followingDoc ? followingDoc.following.map(id => id.toString()) : []);
 
       followersWithFollowStatus.forEach(follower => {
         follower.isFollowing = followingSet.has(follower._id.toString());
@@ -568,29 +578,23 @@ router.get('/following/:username', optionalAuth, async (req, res) => {
     const sanitizedLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));
     const skip = (sanitizedPage - 1) * sanitizedLimit;
 
-    const follows = await Follow.find({ follower: user._id })
-      .populate('following', 'username fullName profilePicture isVerified bio')
-      .limit(sanitizedLimit)
-      .skip(skip)
-      .sort({ createdAt: -1 })
-      .lean();
+    const followingDoc = await Following.findOne({ user: user._id }).select('following').populate({
+      path: 'following',
+      select: 'username fullName profilePicture isVerified bio',
+      options: { limit: sanitizedLimit, skip: skip, sort: { createdAt: -1 } }
+    }).lean();
 
-    const followingWithFollowStatus = follows.map(follow => {
-      const followingObj = { ...follow.following };
+    const followingWithFollowStatus = (followingDoc?.following || []).map(followed => {
+      const followingObj = { ...followed };
       if (req.user) {
-        followingObj.isFollowing = false; 
+        followingObj.isFollowing = false;
       }
       return followingObj;
     });
 
     if (req.user) {
-      const followingIds = follows.map(f => f.following._id);
-      const currentUserFollows = await Follow.find({
-        follower: req.user._id,
-        following: { $in: followingIds }
-      }).select('following').lean();
-
-      const followingSet = new Set(currentUserFollows.map(f => f.following.toString()));
+      const followingDoc = await Following.findOne({ user: req.user._id }).select('following').lean();
+      const followingSet = new Set(followingDoc ? followingDoc.following.map(id => id.toString()) : []);
 
       followingWithFollowStatus.forEach(followed => {
         followed.isFollowing = followingSet.has(followed._id.toString());
@@ -637,7 +641,7 @@ router.get('/suggestions', authenticateToken, async (req, res) => {
     const { limit = 10 } = req.query;
     const currentUserId = req.user._id;
 
-    const suggestionAlgorithm = new FriendSuggestionAlgorithm();
+    const suggestionAlgorithm = new RichGetRicherAlgorithm();
     const suggestions = await suggestionAlgorithm.getSuggestions(currentUserId, parseInt(limit));
 
     res.json(suggestions);

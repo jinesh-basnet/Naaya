@@ -6,6 +6,7 @@ import { postsAPI } from '../services/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import PostCommentsModal from './PostCommentsModal';
 
 
 
@@ -29,6 +30,8 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
   const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
   const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<{ id: string; authorId: string; commentsCount: number } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const postsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -314,7 +317,17 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                               <FaRegHeart className="icon" />
                             )}
                           </button>
-                          <button className="icon-button">
+                          <button
+                            className="icon-button"
+                            onClick={() => {
+                              setSelectedPostForComments({
+                                id: currentPost._id,
+                                authorId: currentPost.author._id,
+                                commentsCount: currentPost.commentsCount || 0
+                              });
+                              setCommentsModalOpen(true);
+                            }}
+                          >
                             <FaComment className="icon" />
                           </button>
                           <button className="icon-button">
@@ -354,9 +367,22 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                         </div>
                         {(currentPost.comments || []).length > 2 && (
                           <p
-                            style={{ fontSize: '0.875rem', color: '#666', cursor: 'pointer' }}
+                            style={{
+                              fontSize: '0.875rem',
+                              color: '#666',
+                              cursor: 'pointer',
+                              margin: 0
+                            }}
                             onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
                             onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+                            onClick={() => {
+                              setSelectedPostForComments({
+                                id: currentPost._id,
+                                authorId: currentPost.author._id,
+                                commentsCount: currentPost.commentsCount || 0
+                              });
+                              setCommentsModalOpen(true);
+                            }}
                           >
                             View all {(currentPost.comments || []).length} comments
                           </p>
@@ -369,6 +395,19 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {commentsModalOpen && selectedPostForComments && (
+        <PostCommentsModal
+          isOpen={commentsModalOpen}
+          onClose={() => {
+            setCommentsModalOpen(false);
+            setSelectedPostForComments(null);
+          }}
+          postId={selectedPostForComments.id}
+          postAuthorId={selectedPostForComments.authorId}
+          initialCommentsCount={selectedPostForComments.commentsCount}
+        />
       )}
     </AnimatePresence>
   );

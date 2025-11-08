@@ -1,6 +1,6 @@
 const Story = require('../models/Story');
 const User = require('../models/User');
-const Follow = require('../models/Follow');
+const Following = require('../models/Following');
 
 /**
  *
@@ -15,8 +15,8 @@ async function organizeStoriesForUser(userId, options = {}, viewedStoriesSet) {
   try {
     const { sort = 'createdAt', includeViewStatus = false } = options;
 
-    const following = await Follow.find({ follower: userId }).select('following').lean();
-    const userFollowing = following.map(f => f.following.toString());
+    const followingDoc = await Following.findOne({ user: userId }).select('following').lean();
+    const userFollowing = followingDoc ? followingDoc.following.map(f => f.toString()) : [];
 
     const user = await User.findById(userId).populate('closeFriends', '_id');
     const userCloseFriends = user.closeFriends.map(f => f._id.toString());

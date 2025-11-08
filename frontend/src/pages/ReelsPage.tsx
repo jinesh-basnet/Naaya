@@ -1,25 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  MdFavorite,
-  MdFavoriteBorder,
-  MdChat,
-  MdShare,
-  MdBookmarkBorder,
-  MdMoreVert,
-  MdVolumeUp,
-  MdVolumeOff,
-  MdPlayArrow,
-  MdVisibility,
-} from 'react-icons/md';
 import './ReelsPage.css';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
-import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { safeRender } from '../utils/safeRender';
+import ReelCommentsModal from '../components/ReelCommentsModal';
+import ReelItem from '../components/ReelItem';
 
 interface Reel {
   _id: string;
@@ -41,7 +28,7 @@ interface Reel {
     duration: number;
     isOriginal: boolean;
   };
-  author?: {  
+  author?: {
     _id: string;
     username: string;
     fullName: string;
@@ -70,11 +57,12 @@ interface Reel {
   viewsCount: number;
 }
 
+
+
 const ReelsPage: React.FC = () => {
-  const navigate = useNavigate();
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [pendingAdvance, setPendingAdvance] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -84,6 +72,12 @@ const ReelsPage: React.FC = () => {
   const { onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved } = useSocket();
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
   const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+  const [selectedReelId, setSelectedReelId] = useState<string>('');
+  const [selectedReelAuthorId, setSelectedReelAuthorId] = useState<string>('');
+  const [selectedReelCommentsCount, setSelectedReelCommentsCount] = useState(0);
+
+
 
 
 
@@ -118,11 +112,11 @@ const ReelsPage: React.FC = () => {
             ...page,
             data: {
               ...page.data,
-              reels: page.data.reels.map((reel: Reel) => {
+              reels: page.data.reels.map((reel: any) => {
                 if (reel._id === data.reelId) {
                   const newLikes = data.isLiked
                     ? [...(reel.likes || []), { user: data.userId }]
-                    : (reel.likes || []).filter(like => like.user !== data.userId);
+                    : (reel.likes || []).filter((like: { user: string }) => like.user !== data.userId);
                   return {
                     ...reel,
                     likes: newLikes,
@@ -185,6 +179,7 @@ const ReelsPage: React.FC = () => {
   };
 
   const handleTouchEnd = () => {
+    if (commentsModalOpen) return;
     if (!touchStartY.current || !touchEndY.current) return;
 
     const touchDistance = touchStartY.current - touchEndY.current;
@@ -209,6 +204,7 @@ const ReelsPage: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = (e: WheelEvent) => {
+      if (commentsModalOpen) return;
       e.preventDefault();
       if (e.deltaY > 0) {
         if (currentReelIndex < reels.length - 1) {
@@ -223,6 +219,7 @@ const ReelsPage: React.FC = () => {
     };
 
     const handleKeyPress = (e: KeyboardEvent) => {
+      if (commentsModalOpen) return;
       if (e.key === 'ArrowDown') {
         if (currentReelIndex < reels.length - 1) {
           setCurrentReelIndex(prev => prev + 1);
@@ -242,14 +239,29 @@ const ReelsPage: React.FC = () => {
       window.removeEventListener('wheel', handleScroll);
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [currentReelIndex, reels.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [currentReelIndex, reels.length, hasNextPage, isFetchingNextPage, fetchNextPage, commentsModalOpen]);
 
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
       if (video) {
         if (index === currentReelIndex) {
           if (isPlaying) {
-            video.play();
+            // Ensure video is ready before playing to prevent unhandled promise rejections
+            if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+              video.play().catch(error => {
+                // Handle autoplay interruption (e.g., browser power saving)
+                console.warn('Video play interrupted:', error.message);
+              });
+            } else {
+              // Wait for video to be ready
+              const handleCanPlay = () => {
+                video.play().catch(error => {
+                  console.warn('Video play interrupted:', error.message);
+                });
+                video.removeEventListener('canplay', handleCanPlay);
+              };
+              video.addEventListener('canplay', handleCanPlay);
+            }
           } else {
             video.pause();
           }
@@ -276,11 +288,11 @@ const ReelsPage: React.FC = () => {
           ...page,
           data: {
             ...page.data,
-            reels: page.data.reels.map((reel: Reel) => {
+            reels: page.data.reels.map((reel: any) => {
               if (reel._id === reelId) {
-                const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
+                const isLiked = reel.likes?.some((like: { user: string }) => like.user === user?._id) ?? false;
                 const newLikes = isLiked
-                  ? reel.likes.filter(like => like.user !== user?._id)
+                  ? reel.likes.filter((like: { user: string }) => like.user !== user?._id)
                   : [...(reel.likes || []), { user: user?._id }];
                 return {
                   ...reel,
@@ -306,12 +318,12 @@ const ReelsPage: React.FC = () => {
             ...page,
             data: {
               ...page.data,
-              reels: page.data.reels.map((reel: Reel) => {
+              reels: page.data.reels.map((reel: any) => {
                 if (reel._id === reelId) {
-                  const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
+                  const isLiked = reel.likes?.some((like: { user: string }) => like.user === user?._id) ?? false;
                   const newLikes = isLiked
                     ? [...(reel.likes || []), { user: user?._id }]
-                    : reel.likes.filter(like => like.user !== user?._id);
+                    : reel.likes.filter((like: { user: string }) => like.user !== user?._id);
                   return {
                     ...reel,
                     likes: newLikes,
@@ -401,236 +413,55 @@ const ReelsPage: React.FC = () => {
   }
 
   return (
-    <div 
+    <div
       className="reels-container"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {reels.map((reel: Reel, index: number) => {
-        const isActive = index === currentReelIndex;
-        const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
-        const isSaved = savedReels.has(reel._id);
-        const videoUrl = reel.video?.url ? (reel.video.url.startsWith('http') ? reel.video.url : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${reel.video.url}`) : '';
-
-        return (
-          <motion.div
-            key={`${reel._id}-${index}`}
-            className={`reel-item ${isActive ? 'active' : 'inactive'}`}
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: isActive ? 1 : 0,
-              scale: isActive ? 1 : 0.8,
-            }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="video-container">
-              {videoUrl && !videoErrors[reel._id] ? (
-                <video
-                  ref={(el) => {
-                    if (el) {
-                      videoRefs.current[index] = el;
-                    }
-                  }}
-                  src={videoUrl}
-                  autoPlay
-                  muted={isMuted}
-                  playsInline
-                  onTimeUpdate={handleVideoProgress}
-                  onClick={handleVideoClick}
-                  onEnded={handleVideoEnd}
-                  onError={(e) => {
-                    console.error(`[ReelsPage] Video load error for reel ${reel._id}:`, {
-                      videoUrl,
-                      error: e,
-                      reelData: reel.video
-                    });
-                    setVideoErrors(prev => ({ ...prev, [reel._id]: true }));
-                    toast.error(`Failed to load video for reel: ${reel.caption?.slice(0, 50) || 'Unknown'}`);
-                  }}
-                  className="reel-video"
-                />
-              ) : (
-                <div className="video-placeholder">
-                  {videoErrors[reel._id] ? 'Video unavailable' : 'No video available'}
-                </div>
-              )}
-
-              {!isPlaying && videoUrl && !videoErrors[reel._id] && (
-                <div className="play-overlay">
-                  <MdPlayArrow className="play-icon" />
-                </div>
-              )}
-
-              {videoUrl && !videoErrors[reel._id] && (
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${isActive ? progress : 0}%` }}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="top-left-overlay">
-              <div className="user-info">
-                {reel.author && reel.author.profilePicture ? (
-                  <img
-                    src={reel.author.profilePicture}
-                    alt={reel.author.fullName}
-                    className="user-avatar"
-                  />
-                ) : (
-                  <div className="user-avatar-placeholder">
-                    {reel.author ? safeRender(reel.author.fullName).charAt(0) : '?'}
-                  </div>
-                )}
-                <div className="user-details">
-                  <div className="user-name" onClick={() => navigate(`/profile/${reel.author?.username}`)}>
-                    {reel.author ? safeRender(reel.author.fullName) : 'Unknown User'}
-                    {reel.author?.isVerified && (
-                      <div className="verified-badge">
-                        ✓
-                      </div>
-                    )}
-                  </div>
-                  <span className="user-meta">
-                    {formatTimeAgo(reel.createdAt)}
-                    {reel.location?.city && ` · 📍 ${reel.location.city}`}
-                  </span>
-                </div>
-                <button className="more-btn">
-                  <MdMoreVert />
-                </button>
-              </div>
-            </div>
-
-            <div className="bottom-left-overlay">
-              <div className="content-info">
-                <p className="reel-caption">
-                  {safeRender(reel.caption)}
-                </p>
-                {reel.audio && (
-                  <div className="music-info">
-                    <span>♪ {reel.audio.title} - {reel.audio.artist}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="side-actions">
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="side-action-item"
-              >
-                <div
-                  className="side-action-btn"
-                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-                    e.stopPropagation();
-                    handleLike(reel._id);
-                  }}
-                >
-                  {isLiked ? (
-                    <MdFavorite style={{ color: '#e91e63', fontSize: 28 }} />
-                  ) : (
-                    <MdFavoriteBorder style={{ color: 'white', fontSize: 28 }} />
-                  )}
-                </div>
-                <span className="side-action-count">{reel.likesCount}</span>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="side-action-item"
-              >
-                <div className="side-action-btn">
-                  <MdChat style={{ color: 'white', fontSize: 28 }} />
-                </div>
-                <span className="side-action-count">{reel.commentsCount}</span>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="side-action-item"
-              >
-                <div className="side-action-btn">
-                  <MdVisibility style={{ color: 'white', fontSize: 28 }} />
-                </div>
-                <span className="side-action-count">{reel.viewsCount}</span>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="side-action-item"
-              >
-                <div className="side-action-btn">
-                  <MdShare style={{ color: 'white', fontSize: 28 }} />
-                </div>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="side-action-item"
-              >
-                <div
-                  className="side-action-btn"
-                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-                    e.stopPropagation();
-                    if (user) {
-                      handleSave(reel._id);
-                    } else {
-                      toast.error('Please login to save reels');
-                    }
-                  }}
-                  title={isSaved ? 'Unsave Reel' : 'Save Reel'}
-                >
-                  {isSaved ? (
-                    <MdBookmarkBorder style={{ color: '#e91e63', fontSize: 28 }} />
-                  ) : (
-                    <MdBookmarkBorder style={{ color: 'white', fontSize: 28 }} />
-                  )}
-                </div>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="side-action-item"
-              >
-                <div
-                  className="side-action-btn"
-                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-                    e.stopPropagation();
-                    setIsMuted(!isMuted);
-                  }}
-                >
-                  {isMuted ? (
-                    <MdVolumeOff style={{ color: 'white', fontSize: 28 }} />
-                  ) : (
-                    <MdVolumeUp style={{ color: 'white', fontSize: 28 }} />
-                  )}
-                </div>
-              </motion.div>
-            </div>
-
-            {isActive && index === reels.length - 1 && isFetchingNextPage && (
-              <div className="loading-overlay">
-                <div>Loading more reels...</div>
-              </div>
-            )}
-          </motion.div>
-        );
-      })}
+      {reels.map((reel: Reel, index: number) => (
+        <ReelItem
+          key={`${reel._id}-${index}`}
+          reel={reel}
+          index={index}
+          isActive={index === currentReelIndex}
+          isPlaying={isPlaying}
+          isMuted={isMuted}
+          progress={progress}
+          user={user}
+          savedReels={savedReels}
+          videoRefs={videoRefs}
+          videoErrors={videoErrors}
+          setVideoErrors={setVideoErrors}
+          handleLike={handleLike}
+          handleSave={handleSave}
+          handleVideoProgress={handleVideoProgress}
+          handleVideoClick={handleVideoClick}
+          handleVideoEnd={handleVideoEnd}
+          setCommentsModalOpen={setCommentsModalOpen}
+          setSelectedReelId={setSelectedReelId}
+          setSelectedReelAuthorId={setSelectedReelAuthorId}
+          setSelectedReelCommentsCount={setSelectedReelCommentsCount}
+          formatTimeAgo={formatTimeAgo}
+          isFetchingNextPage={isFetchingNextPage}
+          isLast={index === reels.length - 1}
+        />
+      ))}
 
       {reels.length === 0 && (
         <div className="no-reels">
           <h6>No reels available</h6>
         </div>
+      )}
+
+      {commentsModalOpen && (
+        <ReelCommentsModal
+          isOpen={commentsModalOpen}
+          onClose={() => setCommentsModalOpen(false)}
+          reelId={selectedReelId}
+          reelAuthorId={selectedReelAuthorId}
+          initialCommentsCount={selectedReelCommentsCount}
+        />
       )}
     </div>
   );

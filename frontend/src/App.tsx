@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
-import { FestivalProvider } from './contexts/FestivalContext';
+
 import { CreatePostProvider } from './contexts/CreatePostContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { StoryViewProvider } from './contexts/StoryViewContext';
@@ -86,10 +86,11 @@ function InnerApp() {
   const isPublicPath = ['/', '/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname);
 
   const showNav = isAuthenticated && !isPublicPath;
+  const hideTopHeaderOnReels = isMobile && location.pathname === '/reels';
 
   const mainStyle = {
     flexGrow: 1,
-    padding: '76px 16px 80px',
+    padding: hideTopHeaderOnReels ? '0 0 80px' : '76px 16px 80px',
     marginLeft: showNav && isDesktop && sidebarOpen ? (isCollapsed ? 70 : 280) : 0,
   };
 
@@ -111,7 +112,7 @@ function InnerApp() {
 
   return (
     <div className="App" style={{ display: 'flex', minHeight: '100vh' }}>
-      {showNav && <TopHeader isMobile={isMobile} drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
+      {showNav && !hideTopHeaderOnReels && <TopHeader isMobile={isMobile} drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />}
       {showNav && isDesktop && sidebarOpen && <Navbar setSidebarOpen={setSidebarOpen} isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />}
       {showNav && isDesktop && (
         <img
@@ -277,11 +278,9 @@ function App() {
         <AuthProvider>
           <SocketProvider>
             <StoryViewProvider>
-              <FestivalProvider>
-                <ThemeProvider>
-                  <AppContent />
-                </ThemeProvider>
-              </FestivalProvider>
+              <ThemeProvider>
+                <AppContent />
+              </ThemeProvider>
             </StoryViewProvider>
           </SocketProvider>
         </AuthProvider>

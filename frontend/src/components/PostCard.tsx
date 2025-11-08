@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import PostCommentsModal from './PostCommentsModal';
 import './PostCard.css';
 
 interface Post {
@@ -76,6 +77,9 @@ const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [videoErrors, setVideoErrors] = React.useState<Record<string, boolean>>({});
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<{ id: string; authorId: string; commentsCount: number } | null>(null);
 
   const isLiked = (post.likes || []).some(like => like.user === user?._id) ?? false;
   const isSaved = (post.saves || []).some(save => save.user === user?._id) ?? false;
@@ -161,15 +165,26 @@ const PostCard: React.FC<PostCardProps> = ({
             <div className="media-box">
               {post.isReel ? (
                 <div className="reel-container">
-                  <video
-                    src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
-                    muted
-                    playsInline
-                    className="media-video reel-video"
-                    onError={(e) => {
-                      console.error('Video load error:', e);
-                    }}
-                  />
+                  {videoErrors[post._id] ? (
+                    <div className="video-placeholder">
+                      Video unavailable
+                    </div>
+                  ) : (
+                    <video
+                      src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
+                      muted
+                      playsInline
+                      className="media-video reel-video"
+                      onError={(e) => {
+                        console.error(`[PostCard] Video load error for post ${post._id}:`, {
+                          videoUrl: post.media[0].url,
+                          error: e,
+                          postData: post.media[0]
+                        });
+                        setVideoErrors(prev => ({ ...prev, [post._id]: true }));
+                      }}
+                    />
+                  )}
                   <div className="reel-overlay">
                     <div className="play-button">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
@@ -248,7 +263,17 @@ const PostCard: React.FC<PostCardProps> = ({
                   <FaRegHeart className="icon" />
                 )}
               </button>
-              <button className="icon-button">
+              <button
+                className="icon-button"
+                onClick={() => {
+                  setSelectedPostForComments({
+                    id: post._id,
+                    authorId: post.author._id,
+                    commentsCount: post.commentsCount || 0
+                  });
+                  setCommentsModalOpen(true);
+                }}
+              >
                 <FaComment className="icon" />
               </button>
               <button className="icon-button">
@@ -290,6 +315,14 @@ const PostCard: React.FC<PostCardProps> = ({
                 className="view-all-comments"
                 onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
                 onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+                onClick={() => {
+                  setSelectedPostForComments({
+                    id: post._id,
+                    authorId: post.author._id,
+                    commentsCount: post.commentsCount || 0
+                  });
+                  setCommentsModalOpen(true);
+                }}
               >
                 View all {(post.comments || []).length} comments
               </p>
@@ -297,6 +330,19 @@ const PostCard: React.FC<PostCardProps> = ({
           </div>
         </div>
       </div>
+
+      {commentsModalOpen && selectedPostForComments && (
+        <PostCommentsModal
+          isOpen={commentsModalOpen}
+          onClose={() => {
+            setCommentsModalOpen(false);
+            setSelectedPostForComments(null);
+          }}
+          postId={selectedPostForComments.id}
+          postAuthorId={selectedPostForComments.authorId}
+          initialCommentsCount={selectedPostForComments.commentsCount}
+        />
+      )}
     </motion.div>
   );
 };

@@ -1,5 +1,5 @@
 .reels-container {
-  height: 100vh;
+  height: calc(100vh - 80px);
   background: black;
   position: relative;
   overflow: hidden;
@@ -152,7 +152,6 @@
   font-size: 0.875rem;
 }
 
-/* Bottom Left Overlay */
 .bottom-left-overlay {
   position: absolute;
   bottom: 2rem;
@@ -340,7 +339,7 @@
 
 @media (max-width: 768px) {
   .reels-container {
-    height: 100vh;
+    height: calc(100vh - 80px);
     max-width: none;
     max-height: none;
     margin: 0;

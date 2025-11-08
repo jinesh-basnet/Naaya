@@ -163,7 +163,7 @@ const ChangePasswordPage: React.FC = () => {
                   </button>
                 </span>
               </div>
-              {errors.newPassword && (
+              {errors.newPassword && ( 
                 <div className="helper-text error">{errors.newPassword.message}</div>
               )}
             </div>

@@ -1,12 +1,12 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { uploadSingle } = require('../middleware/upload');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const { findCommentById } = require('../utils/reelHelpers');
 
 
 const router = express.Router();
@@ -458,7 +458,11 @@ router.post('/:reelId/like', authenticateToken, async (req, res) => {
     const { reelId } = req.params;
     const userId = req.user._id;
 
-    const reel = await Reel.findById(reelId);
+    const reel = await Reel.findOne({
+      _id: reelId,
+      isDeleted: false,
+      isArchived: false
+    });
     if (!reel) {
       return res.status(404).json({
         message: 'Reel not found',
@@ -820,6 +824,320 @@ router.delete('/:reelId', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error deleting reel',
       code: 'DELETE_REEL_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/reels/:reelId/comments
+// @desc    Get comments for a reel
+// @access  Public (optional auth)
+router.get('/:reelId/comments', optionalAuth, async (req, res) => {
+  try {
+    const { reelId } = req.params;
+    const { page = 1, limit = 20, sort = 'recent' } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+    const sortMode = sort === 'liked' ? 'liked' : 'recent';
+
+    const reel = await Reel.findOne({
+      _id: reelId,
+      isDeleted: false,
+      isArchived: false
+    });
+    if (!reel) {
+      return res.status(404).json({
+        message: 'Reel not found',
+        code: 'REEL_NOT_FOUND'
+      });
+    }
+
+    await reel.populate('comments.author', 'username fullName profilePicture isVerified');
+
+    let comments = reel.comments ? reel.comments.slice() : [];
+
+    if (sortMode === 'liked') {
+      comments.sort((a, b) => (b.likes ? b.likes.length : 0) - (a.likes ? a.likes.length : 0));
+    } else {
+      comments.sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0).getTime();
+        const bTime = new Date(b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+    }
+
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    const paginatedComments = comments.slice(startIndex, endIndex);
+
+    res.json({
+      message: 'Comments retrieved successfully',
+      comments: paginatedComments,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: comments.length,
+        totalPages: Math.ceil(comments.length / limitNum)
+      }
+    });
+
+  } catch (error) {
+      console.error('Get comments error:', error && error.message);
+      console.error(error && error.stack);
+      res.status(500).json({
+        message: 'Server error retrieving comments',
+        code: 'GET_COMMENTS_ERROR',
+        details: process.env.NODE_ENV === 'development' ? (error && error.message) : undefined
+      });
+  }
+});
+
+// @route   POST /api/reels/:reelId/comments/:commentId/reply
+// @desc    Reply to a comment on a reel (flat structure)
+// @access  Private
+router.post('/:reelId/comments/:commentId/reply', authenticateToken, [
+  body('content').isString().isLength({ min: 1, max: 500 }).withMessage('Reply must be between 1 and 500 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { reelId, commentId } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id;
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) {
+      return res.status(404).json({
+        message: 'Reel not found',
+        code: 'REEL_NOT_FOUND'
+      });
+    }
+
+    const comment = reel.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({
+        message: 'Comment not found',
+        code: 'COMMENT_NOT_FOUND'
+      });
+    }
+
+    const reply = {
+      author: userId,
+      content: content,
+      replyTo: commentId
+    };
+
+    reel.comments.push(reply);
+    reel.commentsCount += 1;
+    await reel.save();
+
+    await reel.populate('comments.author', 'username fullName profilePicture isVerified');
+
+    const newReply = reel.comments[reel.comments.length - 1];
+
+    if (global.io) {
+      try {
+        global.io.to(`user:${reel.author._id}`).emit('reel_comment_reply_added', {
+          reelId: reelId,
+          commentId: commentId,
+          reply: newReply,
+          commentCount: reel.commentsCount
+        });
+
+        global.io.emit('feed_reel_comment_reply_added', {
+          reelId: reelId,
+          commentId: commentId,
+          reply: newReply,
+          commentCount: reel.commentsCount
+        });
+      } catch (socketError) {
+        console.error('Error sending reply notification:', socketError);
+      }
+    }
+
+    if (userId.toString() !== comment.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createCommentNotification) {
+          await global.notificationService.createCommentNotification(
+            reel._id,
+            userId,
+            comment.author._id,
+            newReply._id
+          );
+        }
+      } catch (error) {
+        console.error('Error creating reply notification:', error);
+      }
+    }
+
+    res.status(201).json({
+      message: 'Reply added successfully',
+      reply: newReply
+    });
+
+  } catch (error) {
+    console.error('Add reply error:', error);
+    res.status(500).json({
+      message: 'Server error adding reply',
+      code: 'ADD_REPLY_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/reels/:reelId/replies/:replyId/like
+// @desc    Like/unlike a reply on a reel
+// @access  Private
+router.post('/:reelId/replies/:replyId/like', authenticateToken, async (req, res) => {
+  try {
+    const { reelId, replyId } = req.params;
+    const userId = req.user._id;
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) {
+      return res.status(404).json({
+        message: 'Reel not found',
+        code: 'REEL_NOT_FOUND'
+      });
+    }
+
+    const reply = findCommentById(reel.comments, replyId);
+    if (!reply) {
+      return res.status(404).json({
+        message: 'Reply not found',
+        code: 'REPLY_NOT_FOUND'
+      });
+    }
+
+    const existingLike = reply.likes.find(like => like.user.toString() === userId.toString());
+
+    if (existingLike) {
+      reply.likes.pull(existingLike._id);
+      await reel.save();
+
+      res.json({
+        message: 'Reply unliked successfully',
+        isLiked: false,
+        likesCount: reply.likes.length
+      });
+    } else {
+      reply.likes.push({ user: userId });
+      await reel.save();
+
+      res.json({
+        message: 'Reply liked successfully',
+        isLiked: true,
+        likesCount: reply.likes.length
+      });
+    }
+
+  } catch (error) {
+    console.error('Like reply error:', error);
+    res.status(500).json({
+      message: 'Server error liking reply',
+      code: 'LIKE_REPLY_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/reels/:reelId/replies/:replyId/reply
+// @desc    Reply to a reply on a reel (flat structure)
+// @access  Private
+router.post('/:reelId/replies/:replyId/reply', authenticateToken, [
+  body('content').isString().isLength({ min: 1, max: 500 }).withMessage('Reply must be between 1 and 500 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { reelId, replyId } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id;
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) {
+      return res.status(404).json({
+        message: 'Reel not found',
+        code: 'REEL_NOT_FOUND'
+      });
+    }
+
+    const parentReply = findCommentById(reel.comments, replyId);
+    if (!parentReply) {
+      return res.status(404).json({
+        message: 'Reply not found',
+        code: 'REPLY_NOT_FOUND'
+      });
+    }
+
+    const reply = {
+      author: userId,
+      content: content,
+      replyTo: replyId
+    };
+
+    reel.comments.push(reply);
+    reel.commentsCount += 1;
+    await reel.save();
+
+    await reel.populate('comments.author', 'username fullName profilePicture isVerified');
+
+    const newReply = reel.comments[reel.comments.length - 1];
+
+    if (global.io) {
+      try {
+        global.io.to(`user:${reel.author._id}`).emit('reel_comment_reply_added', {
+          reelId: reelId,
+          commentId: replyId,
+          reply: newReply,
+          commentCount: reel.commentsCount
+        });
+
+        global.io.emit('feed_reel_comment_reply_added', {
+          reelId: reelId,
+          commentId: replyId,
+          reply: newReply,
+          commentCount: reel.commentsCount
+        });
+      } catch (socketError) {
+        console.error('Error sending reply to reply notification:', socketError);
+      }
+    }
+
+    if (userId.toString() !== parentReply.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createCommentNotification) {
+          await global.notificationService.createCommentNotification(
+            reel._id,
+            userId,
+            parentReply.author._id,
+            newReply._id
+          );
+        }
+      } catch (error) {
+        console.error('Error creating reply to reply notification:', error);
+      }
+    }
+
+    res.status(201).json({
+      message: 'Reply added successfully',
+      reply: newReply
+    });
+
+  } catch (error) {
+    console.error('Add reply to reply error:', error);
+    res.status(500).json({
+      message: 'Server error adding reply',
+      code: 'ADD_REPLY_ERROR'
     });
   }
 });
