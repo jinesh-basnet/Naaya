@@ -147,6 +147,7 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
             index={index}
             handleLike={handleLike}
             handleSave={handleSave}
+            handleShare={() => {}}
             handleDoubleTap={(postId, filteredPosts, isReelFlag) => {
               handleDoubleTap(postId, filteredPosts, isReelFlag);
               setHeartBurst(prev => ({ ...prev, [postId]: true }));

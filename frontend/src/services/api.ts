@@ -214,36 +214,7 @@ export const storiesAPI = {
     api.post(`/stories/${storyId}/view`),
 };
 
-export const messagesAPI = {
-  sendMessage: (messageData: any) =>
-    api.post('/messages', messageData),
-  
-  getConversations: (page: number = 1, limit: number = 20) =>
-    api.get(`/messages/conversations?page=${page}&limit=${limit}`),
-  
-  getMessages: (userId: string, page: number = 1, limit: number = 50) =>
-    api.get(`/messages/${userId}?page=${page}&limit=${limit}`),
-  
-  markAsRead: (messageId: string) =>
-    api.put(`/messages/${messageId}/read`),
-  markAsSeen: (messageId: string) =>
-    api.put(`/messages/${messageId}/seen`),
-  
-  addReaction: (messageId: string, emoji: string) =>
-    api.post(`/messages/${messageId}/reaction`, { emoji }),
-  
-  removeReaction: (messageId: string) =>
-    api.delete(`/messages/${messageId}/reaction`),
-  
-  editMessage: (messageId: string, content: string) =>
-    api.put(`/messages/${messageId}`, { content }),
-  
-  deleteMessage: (messageId: string) =>
-    api.delete(`/messages/${messageId}`),
-  
-  forwardMessage: (messageId: string, receiver: string) =>
-    api.post(`/messages/${messageId}/forward`, { receiver }),
-};
+
 
 export const reelsAPI = {
   createReel: (formData: FormData) =>

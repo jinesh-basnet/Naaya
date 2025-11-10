@@ -9,7 +9,7 @@ const router = express.Router();
 // @access  Private
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { receiver, content, messageType = 'text', replyTo, mentions } = req.body;
+    const { receiver, content, messageType = 'text', replyTo, mentions, sharedContent, storyReply } = req.body;
     const senderId = req.user._id;
 
     const messageData = {
@@ -18,8 +18,11 @@ router.post('/', authenticateToken, async (req, res) => {
       content,
       messageType
     };
+
     if (replyTo) messageData.replyTo = replyTo;
     if (Array.isArray(mentions) && mentions.length > 0) messageData.mentions = mentions;
+    if (sharedContent) messageData.sharedContent = sharedContent;
+    if (storyReply) messageData.storyReply = storyReply;
 
     messageData.seenBy = [senderId];
 

@@ -18,7 +18,7 @@ const messageSchema = new mongoose.Schema({
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'file', 'location', 'contact'],
+    enum: ['text', 'image', 'video', 'audio', 'file', 'location', 'contact', 'shared_post', 'shared_reel', 'story_reply'],
     default: 'text'
   },
   media: {
@@ -46,6 +46,39 @@ const messageSchema = new mongoose.Schema({
     name: String,
     phone: String,
     email: String
+  },
+  sharedContent: {
+    contentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: 'sharedContent.contentType'
+    },
+    contentType: {
+      type: String,
+      enum: ['Post', 'Reel']
+    },
+    content: String,
+    media: [{
+      type: String,
+      url: String,
+      thumbnail: String
+    }],
+    author: {
+      _id: mongoose.Schema.Types.ObjectId,
+      username: String,
+      fullName: String
+    }
+  },
+  storyReply: {
+    storyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Story'
+    },
+    storyContent: String,
+    storyAuthor: {
+      _id: mongoose.Schema.Types.ObjectId,
+      username: String,
+      fullName: String
+    }
   },
   reactions: [{
     user: {

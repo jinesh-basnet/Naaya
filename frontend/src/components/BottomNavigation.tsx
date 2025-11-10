@@ -28,6 +28,8 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
   const handleNavigation = (path: string) => {
     if (path === '/profile' && user) {
       navigate(`/profile/${user.username}`);
+    } else if (path === '/messages') {
+      alert('Messages feature coming soon!');
     } else {
       navigate(path);
     }

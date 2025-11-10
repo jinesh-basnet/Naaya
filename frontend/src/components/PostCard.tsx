@@ -56,6 +56,7 @@ interface PostCardProps {
   handleLike: (postId: string, isReel?: boolean) => void;
   handleSave: (postId: string, isReel?: boolean) => void;
   handleDoubleTap: (postId: string, filteredPosts: Post[], isReel?: boolean) => void;
+  handleShare: (userId: string, message: string) => void;
   heartBurst: { [key: string]: boolean };
   expandedCaptions: { [key: string]: boolean };
   setExpandedCaptions: React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>;
@@ -69,6 +70,7 @@ const PostCard: React.FC<PostCardProps> = ({
   handleLike,
   handleSave,
   handleDoubleTap,
+  handleShare,
   heartBurst,
   expandedCaptions,
   setExpandedCaptions,
@@ -80,6 +82,7 @@ const PostCard: React.FC<PostCardProps> = ({
   const [videoErrors, setVideoErrors] = React.useState<Record<string, boolean>>({});
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
   const [selectedPostForComments, setSelectedPostForComments] = useState<{ id: string; authorId: string; commentsCount: number } | null>(null);
+
 
   const isLiked = (post.likes || []).some(like => like.user === user?._id) ?? false;
   const isSaved = (post.saves || []).some(save => save.user === user?._id) ?? false;
@@ -343,6 +346,9 @@ const PostCard: React.FC<PostCardProps> = ({
           initialCommentsCount={selectedPostForComments.commentsCount}
         />
       )}
+
+
+
     </motion.div>
   );
 };

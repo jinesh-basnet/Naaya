@@ -242,10 +242,38 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
   const handleSendReply = () => {
     if (!replyText.trim()) return;
-    storiesAPI.addReply(currentStory._id, replyText).then(() => {
-      toast.success('Reply sent!');
-      setReplyText('');
+    const messageData = {
+      receiver: currentStory.author._id,
+      content: replyText.trim(),
+      messageType: 'story_reply',
+      storyReply: {
+        storyId: currentStory._id,
+        storyContent: currentStory.content || '',
+        storyMedia: currentStory.media || null,
+        storyAuthor: {
+          _id: currentStory.author._id,
+          username: currentStory.author.username,
+          fullName: currentStory.author.fullName
+        }
+      }
+    };
+
+    fetch('/api/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(messageData)
+    }).then(response => {
+      if (response.ok) {
+        toast.success('Reply sent!');
+        setReplyText('');
+      } else {
+        throw new Error('Failed to send reply');
+      }
     }).catch((err: Error) => {
+      console.error('Error sending reply:', err);
       toast.error('Failed to send reply');
     });
   };

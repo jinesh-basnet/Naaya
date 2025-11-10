@@ -220,6 +220,7 @@ const HomePage: React.FC = () => {
                   index={index}
                   handleLike={handleLike}
                   handleSave={handleSave}
+                  handleShare={() => {}}
                   handleDoubleTap={handleDoubleTap}
                   heartBurst={heartBurst}
                   expandedCaptions={expandedCaptions}

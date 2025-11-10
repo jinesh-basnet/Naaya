@@ -1,11 +1,11 @@
 import { IconType } from 'react-icons';
-import { FaHome, FaVideo, FaCompass, FaUser, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { FaHome, FaVideo, FaCompass, FaUser, FaCog, FaSignOutAlt} from 'react-icons/fa';
 
 export interface NavItem {
   icon: IconType;
-  labelKey: string; 
+  labelKey: string;
   path: string;
-  showBadge?: boolean; 
+  showBadge?: boolean;
 }
 
 export const getNavItems = (t: (key: string) => string): NavItem[] => [

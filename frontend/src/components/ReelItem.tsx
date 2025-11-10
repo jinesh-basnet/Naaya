@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MdFavorite,
@@ -281,6 +281,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
           <div className="side-action-btn">
             <MdShare style={{ color: 'white', fontSize: 28 }} />
           </div>
+          <span className="side-action-count"></span>
         </motion.div>
 
         <motion.div

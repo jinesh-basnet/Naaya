@@ -21,7 +21,7 @@ import ChangePasswordPage from './pages/ChangePasswordPage';
 import HomePage from './pages/HomePage';
 import NotificationsPage from './pages/NotificationsPage';
 
-import MessagesPage from './pages/MessagesPage';
+
 import StoriesPage from './pages/StoriesPage';
 import ReelsPage from './pages/ReelsPage';
 
@@ -162,14 +162,7 @@ function InnerApp() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         { /* Protected Routes */ }
-        <Route
-          path="/messages"
-          element={
-            <ProtectedRoute>
-              <MessagesPage />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/notifications"
           element={

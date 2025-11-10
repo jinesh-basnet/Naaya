@@ -27,6 +27,8 @@ const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, isCollapsed = false, se
       navigate('/login');
     } else if (path === '/profile') {
       navigate(`/profile/${user?.username}`);
+    } else if (path === '/messages') {
+      alert('Messages feature coming soon!');
     } else {
       navigate(path);
     }

@@ -137,9 +137,14 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
               <div className="links-section">
                 {getNavItems(t).map((item) => (
                   <button key={item.path} className="link-btn" onClick={() => {
-                    const path = item.labelKey === 'nav.profile' ? `/profile/${user?.username}` : item.path;
-                    navigate(path);
-                    onClose();
+                    if (item.path === '/messages') {
+                      alert('Messages feature coming soon!');
+                      onClose();
+                    } else {
+                      const path = item.labelKey === 'nav.profile' ? `/profile/${user?.username}` : item.path;
+                      navigate(path);
+                      onClose();
+                    }
                   }}>
                     <div style={{ position: 'relative' }}>
                       <item.icon />

@@ -2,7 +2,6 @@ const UserInteraction = require('../models/UserInteraction');
 
 const updateInteractionHistory = async (userId, targetUserId, interactionType, contentType, language, tags) => {
   try {
-    // Find existing interaction or create new one
     let interaction = await UserInteraction.findOne({
       viewer: userId,
       author: targetUserId
@@ -35,7 +34,6 @@ const updateInteractionHistory = async (userId, targetUserId, interactionType, c
       });
     }
 
-    // Update interaction counts
     const now = new Date();
 
     if (interaction.interactions[interactionType]) {
