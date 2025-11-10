@@ -53,12 +53,10 @@ const ReelCommentsModal: React.FC<ReelCommentsModalProps> = ({
     const commentMap = new Map<string, Comment>();
     const rootComments: Comment[] = [];
 
-    // First pass: create map of all comments
     flatComments.forEach(comment => {
       commentMap.set(comment._id, { ...comment, replies: [] });
     });
 
-    // Second pass: build tree structure
     flatComments.forEach(comment => {
       const commentWithReplies = commentMap.get(comment._id)!;
       if (comment.replyTo) {

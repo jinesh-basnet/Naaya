@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import PostCard from './PostCard';
 import { usePostInteractions } from '../hooks/usePostInteractions';
 import { formatTimeAgo } from '../utils';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Post {
   _id: string;
@@ -94,6 +95,7 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
   setVideoErrors,
   isCurrentUser,
 }) => {
+  const { user } = useAuth();
   const { handleLike, handleSave, handleDoubleTap } = usePostInteractions(null, () => {});
   const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
   const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
@@ -179,7 +181,18 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
         </>
       );
     case 'bookmarks':
-      return renderContent(bookmarksData?.data?.bookmarks || [], bookmarksLoading, bookmarksError, false);
+      const savedPosts = (bookmarksData?.data?.bookmarks || []).map((post: any) => ({ ...post, isReel: false }));
+      const savedReels = (savedReelsData?.data?.savedReels || []).map((reel: any) => ({ ...reel, isReel: true }));
+
+      const combinedSaved = [...savedPosts, ...savedReels].sort((a, b) => {
+        const aSave = a.saves?.find((save: any) => save.user === user?._id);
+        const bSave = b.saves?.find((save: any) => save.user === user?._id);
+        const aDate = aSave ? new Date(aSave.savedAt).getTime() : 0;
+        const bDate = bSave ? new Date(bSave.savedAt).getTime() : 0;
+        return bDate - aDate; 
+      });
+
+      return renderContent(combinedSaved, bookmarksLoading || savedReelsLoading, bookmarksError || savedReelsError, false);
     case 'savedReels':
       return renderContent(savedReelsData?.data?.savedReels || [], savedReelsLoading, savedReelsError, true);
     default:

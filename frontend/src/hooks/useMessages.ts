@@ -61,7 +61,6 @@ export const useMessages = (selectedConversation: Conversation | null) => {
                 userId: currentUser._id,
               });
             } catch (err) {
-              // Handle error silently
             }
           }
         }

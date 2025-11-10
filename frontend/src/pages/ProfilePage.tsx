@@ -54,7 +54,7 @@ const ProfilePage: React.FC = () => {
     savedReelsError,
   } = useProfileData(username);
 
-  const { followMutation, unfollowMutation, isPending } = useProfileFollow(username);
+  const { followMutation, unfollowMutation, isPending } = useProfileFollow(username, profile);
 
   useProfileFollowSocketEvents(profile, username, currentUser, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed);
 

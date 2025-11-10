@@ -289,9 +289,9 @@ const PostCard: React.FC<PostCardProps> = ({
                   className={isSaved ? "saved-icon" : "icon"}
                 />
               </button>
-              {(post.saves || []).length > 0 && (
+              {(post.savesCount || 0) > 0 && (
                 <span className="save-count">
-                  {(post.saves || []).length.toLocaleString()}
+                  {(post.savesCount || 0).toLocaleString()}
                 </span>
               )}
             </div>

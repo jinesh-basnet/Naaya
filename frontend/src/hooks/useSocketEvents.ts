@@ -68,7 +68,7 @@ export const useSocketEvents = (
 
     const handleReactionRemoved = (data: { messageId: string; userId: string }) => {
       updateMessage(data.messageId, {
-        reactions: [] // Placeholder, will be handled in useMessages
+        reactions: [] 
       });
     };
 

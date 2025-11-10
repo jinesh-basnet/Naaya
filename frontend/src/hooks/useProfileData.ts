@@ -15,10 +15,12 @@ export const useProfileData = (username: string | undefined) => {
     enabled: !!username,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) {
-        return false; 
+        return false;
       }
       return failureCount < 3;
     },
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const profile = profileData?.data?.user;
@@ -99,18 +101,18 @@ export const useProfileData = (username: string | undefined) => {
     isCurrentUser,
     profileLoading,
     profileError,
-  postsData,
+    postsData,
     postsLoading,
     postsError,
-  fetchNextPostsPage,
-  hasNextPostsPage,
-  isFetchingNextPostsPage,
+    fetchNextPostsPage,
+    hasNextPostsPage,
+    isFetchingNextPostsPage,
     reelsData,
     reelsLoading,
     reelsError,
-  fetchNextReelsPage,
-  hasNextReelsPage,
-  isFetchingNextReelsPage,
+    fetchNextReelsPage,
+    hasNextReelsPage,
+    isFetchingNextReelsPage,
     bookmarksData,
     bookmarksLoading,
     bookmarksError,

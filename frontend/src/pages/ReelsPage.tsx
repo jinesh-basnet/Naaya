@@ -246,14 +246,11 @@ const ReelsPage: React.FC = () => {
       if (video) {
         if (index === currentReelIndex) {
           if (isPlaying) {
-            // Ensure video is ready before playing to prevent unhandled promise rejections
-            if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+            if (video.readyState >= 2) {
               video.play().catch(error => {
-                // Handle autoplay interruption (e.g., browser power saving)
                 console.warn('Video play interrupted:', error.message);
               });
             } else {
-              // Wait for video to be ready
               const handleCanPlay = () => {
                 video.play().catch(error => {
                   console.warn('Video play interrupted:', error.message);

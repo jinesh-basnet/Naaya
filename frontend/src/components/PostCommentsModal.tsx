@@ -46,19 +46,19 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [totalComments, setTotalComments] = useState(initialCommentsCount);
+  const [loadedPostId, setLoadedPostId] = useState<string | null>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const loadingRef = useRef(false);
 
   const buildCommentTree = (flatComments: Comment[]): Comment[] => {
     const commentMap = new Map<string, Comment>();
     const rootComments: Comment[] = [];
 
-    // First pass: create map of all comments
     flatComments.forEach(comment => {
       commentMap.set(comment._id, { ...comment, replies: [] });
     });
 
-    // Second pass: build tree structure
     flatComments.forEach(comment => {
       const commentWithReplies = commentMap.get(comment._id)!;
       if (comment.replyTo) {
@@ -75,14 +75,24 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   };
 
   const loadComments = useCallback(async (pageNum = 1, append = false) => {
-    if (!postId) return;
+    if (!postId || loadingRef.current) return;
 
+    if (loadedPostId !== postId) {
+      setComments([]);
+      setPage(1);
+      setHasNextPage(false);
+      setTotalComments(initialCommentsCount);
+      setLoadedPostId(postId);
+      append = false; 
+    }
+
+    loadingRef.current = true;
     setIsLoading(true);
     try {
       console.log('Loading comments for postId:', postId);
       const response = await postsAPI.getPost(postId);
-      console.log('Comments response:', response.data.comments);
-      const flatComments = response.data.comments || [];
+      console.log('Comments response:', response.data.post.comments);
+      const flatComments = response.data.post.comments || [];
       const commentTree = buildCommentTree(flatComments);
       console.log('Built comment tree:', commentTree);
 
@@ -98,8 +108,9 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
       console.error('Failed to load comments:', error);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
-  }, [postId]);
+  }, [postId, loadedPostId, initialCommentsCount]);
 
   useEffect(() => {
     if (isOpen && postId) {
@@ -122,7 +133,6 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
       const response = await postsAPI.addComment(postId, newComment.trim());
       console.log('Comment response:', response);
       setNewComment('');
-      // Reload comments to get the new one
       await loadComments(1, false);
     } catch (error) {
       console.error('Failed to add comment:', error);
@@ -137,7 +147,6 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Check if replying to a reply (nested reply)
       const isReplyToReply = replyTo.replyTo !== undefined;
       if (isReplyToReply) {
         await postsAPI.replyToReply(postId, replyTo._id, replyContent.trim());
@@ -146,7 +155,6 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
       }
       setReplyContent('');
       setReplyTo(null);
-      // Reload comments to get the new reply
       await loadComments(1, false);
     } catch (error) {
       console.error('Failed to add reply:', error);
@@ -174,7 +182,6 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   const handleLikeReply = async (replyId: string) => {
     try {
       await postsAPI.likeReply(postId, replyId);
-      // Update local state optimistically
       setComments(prev => updateCommentLikes(prev, replyId, user!._id));
     } catch (error) {
       console.error('Failed to like reply:', error);

@@ -171,7 +171,10 @@ router.get('/:postId', optionalAuth, async (req, res) => {
       _id: postId,
       isDeleted: false,
       isArchived: false
-    }).populate('author', 'username fullName profilePicture isVerified');
+    })
+    .populate('author', 'username fullName profilePicture isVerified')
+    .populate('comments.author', 'username fullName profilePicture isVerified')
+    .populate('comments.replies.author', 'username fullName profilePicture isVerified');
 
     console.log('Post found:', !!post);
     if (post) {

@@ -53,15 +53,18 @@ router.post('/register', registerRateLimiter, [
 
     const { username, email, password, fullName, phone, location, languagePreference } = req.body;
 
+    // Trim and validate phone: set to undefined if empty or whitespace
+    const trimmedPhone = phone && phone.trim() ? phone.trim() : undefined;
+
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }, ...(phone ? [{ phone }] : [])]
+      $or: [{ email }, { username }, ...(trimmedPhone ? [{ phone: trimmedPhone }] : [])]
     });
 
     if (existingUser) {
       let field = 'email';
       if (existingUser.username === username) field = 'username';
-      if (existingUser.phone === phone) field = 'phone';
-      
+      if (existingUser.phone === trimmedPhone) field = 'phone';
+
       return res.status(400).json({
         message: `User with this ${field} already exists`,
         code: 'USER_EXISTS'
@@ -73,7 +76,7 @@ router.post('/register', registerRateLimiter, [
       email,
       password,
       fullName,
-      phone,
+      phone: trimmedPhone,
       location: location || {},
       languagePreference: languagePreference || 'both'
     });

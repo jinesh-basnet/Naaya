@@ -178,15 +178,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
 // @desc    Follow a user
 // @access  Private
 router.post('/:userId/follow', authenticateToken, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const userIdToFollow = req.params.userId;
     const currentUserId = req.user._id;
 
     if (userIdToFollow === currentUserId.toString()) {
-      await session.abortTransaction();
       return res.status(400).json({
         message: 'You cannot follow yourself',
         code: 'FOLLOW_SELF_ERROR'
@@ -194,11 +190,10 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
     }
 
     // Check if already following using Following model
-    const followingDoc = await Following.findOne({ user: currentUserId }).select('following').session(session);
+    const followingDoc = await Following.findOne({ user: currentUserId }).select('following');
     const isAlreadyFollowing = followingDoc && followingDoc.following.includes(userIdToFollow);
 
     if (isAlreadyFollowing) {
-      await session.abortTransaction();
       return res.status(400).json({
         message: 'You are already following this user',
         code: 'ALREADY_FOLLOWING'
@@ -209,21 +204,19 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
     await Following.findOneAndUpdate(
       { user: currentUserId },
       { $addToSet: { following: userIdToFollow } },
-      { upsert: true, session }
+      { upsert: true }
     );
 
     // Update Followers model
     await Followers.findOneAndUpdate(
       { user: userIdToFollow },
       { $addToSet: { followers: currentUserId } },
-      { upsert: true, session }
+      { upsert: true }
     );
 
     // Update user counts
-    await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: 1 } }, { session });
-    await User.findByIdAndUpdate(userIdToFollow, { $inc: { followersCount: 1 } }, { session });
-
-    await session.commitTransaction();
+    await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: 1 } });
+    await User.findByIdAndUpdate(userIdToFollow, { $inc: { followersCount: 1 } });
 
     const [currentUser, userToFollow] = await Promise.all([
       User.findById(currentUserId).select('username fullName profilePicture'),
@@ -267,14 +260,11 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    await session.abortTransaction();
     console.error('Follow user error:', error);
     res.status(500).json({
       message: 'Server error following user',
       code: 'FOLLOW_ERROR'
     });
-  } finally {
-    session.endSession();
   }
 });
 
@@ -282,15 +272,11 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
 // @desc    Unfollow a user
 // @access  Private
 router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const userIdToUnfollow = req.params.userId;
     const currentUserId = req.user._id;
 
     if (userIdToUnfollow === currentUserId.toString()) {
-      await session.abortTransaction();
       return res.status(400).json({
         message: 'You cannot unfollow yourself',
         code: 'UNFOLLOW_SELF_ERROR'
@@ -298,11 +284,10 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
     }
 
     // Check if following using Following model
-    const followingDoc = await Following.findOne({ user: currentUserId }).select('following').session(session);
+    const followingDoc = await Following.findOne({ user: currentUserId }).select('following');
     const isFollowing = followingDoc && followingDoc.following.includes(userIdToUnfollow);
 
     if (!isFollowing) {
-      await session.abortTransaction();
       return res.status(400).json({
         message: 'You are not following this user',
         code: 'NOT_FOLLOWING'
@@ -312,22 +297,18 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
     // Update Following model
     await Following.findOneAndUpdate(
       { user: currentUserId },
-      { $pull: { following: userIdToUnfollow } },
-      { session }
+      { $pull: { following: userIdToUnfollow } }
     );
 
     // Update Followers model
     await Followers.findOneAndUpdate(
       { user: userIdToUnfollow },
-      { $pull: { followers: currentUserId } },
-      { session }
+      { $pull: { followers: currentUserId } }
     );
 
     // Update user counts
-    await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: -1 } }, { session });
-    await User.findByIdAndUpdate(userIdToUnfollow, { $inc: { followersCount: -1 } }, { session });
-
-    await session.commitTransaction();
+    await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: -1 } });
+    await User.findByIdAndUpdate(userIdToUnfollow, { $inc: { followersCount: -1 } });
 
     const [currentUser, userToUnfollow] = await Promise.all([
       User.findById(currentUserId).select('username fullName profilePicture'),
@@ -365,14 +346,11 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    await session.abortTransaction();
     console.error('Unfollow user error:', error);
     res.status(500).json({
       message: 'Server error unfollowing user',
       code: 'UNFOLLOW_ERROR'
     });
-  } finally {
-    session.endSession();
   }
 });
 

@@ -317,8 +317,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
             className="side-action-btn"
             onClick={(e: React.MouseEvent<HTMLDivElement>) => {
               e.stopPropagation();
-              // Note: setIsMuted is not passed, assuming it's handled at page level
-              // This might need adjustment if mute is per reel
             }}
           >
             {isMuted ? (
