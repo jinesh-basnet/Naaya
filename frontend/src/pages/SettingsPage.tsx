@@ -149,7 +149,7 @@ const SettingsPage: React.FC = () => {
             className="settings-card"
           >
             <h2 className="settings-section-title">
-              <IoLanguage /> Appearance
+              <IoLanguage /> {t('nav.appearance')}
             </h2>
 
             <div className="settings-item">
@@ -214,7 +214,7 @@ const SettingsPage: React.FC = () => {
             className="settings-card"
           >
             <h2 className="settings-section-title">
-              <IoPerson /> Account Settings
+              <IoPerson /> {t('nav.account')}
             </h2>
             <div className="settings-item">
               <div className="settings-item-info">
@@ -256,7 +256,7 @@ const SettingsPage: React.FC = () => {
             className="settings-card"
           >
             <h2 className="settings-section-title">
-              <IoEye /> Privacy & Safety
+              <IoEye /> {t('nav.privacy')}
             </h2>
             <div className="settings-item">
               <div className="settings-item-info">
