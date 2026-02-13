@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV } from 'react-icons/fa';
+import { BsBookmark, BsBookmarkFill } from 'react-icons/bs';
+import { FiTrash2, FiFlag, FiLink, FiEyeOff } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { postsAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 import PostCommentsModal from './PostCommentsModal';
+import Avatar from './Avatar';
 import './PostCard.css';
 
 interface Post {
@@ -56,7 +63,7 @@ interface PostCardProps {
   handleLike: (postId: string, isReel?: boolean) => void;
   handleSave: (postId: string, isReel?: boolean) => void;
   handleDoubleTap: (postId: string, filteredPosts: Post[], isReel?: boolean) => void;
-  handleShare: (userId: string, message: string) => void;
+  handleShare: (postId: string) => void;
   heartBurst: { [key: string]: boolean };
   expandedCaptions: { [key: string]: boolean };
   setExpandedCaptions: React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>;
@@ -79,258 +86,226 @@ const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [videoErrors, setVideoErrors] = React.useState<Record<string, boolean>>({});
+  const queryClient = useQueryClient();
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
   const [selectedPostForComments, setSelectedPostForComments] = useState<{ id: string; authorId: string; commentsCount: number } | null>(null);
-
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isLiked = (post.likes || []).some(like => like.user === user?._id) ?? false;
   const isSaved = (post.saves || []).some(save => save.user === user?._id) ?? false;
+  const isAuthor = post.author?._id === user?._id;
+
+  const handleAction = async (action: string) => {
+    setShowActionMenu(false);
+    switch (action) {
+      case 'delete':
+        setShowDeleteModal(true);
+        break;
+      case 'report':
+        toast.success('Post reported. Thank you for keeping Naaya safe.');
+        break;
+      case 'copy-link':
+        const link = `${window.location.origin}/post/${post._id}`;
+        navigator.clipboard.writeText(link);
+        toast.success('Link copied to clipboard');
+        break;
+      case 'not-interested':
+        toast.success("We'll show you fewer posts like this");
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      await postsAPI.deletePost(post._id);
+      toast.success('Post deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['userPosts', post.author.username] });
+      setShowDeleteModal(false);
+    } catch (error) {
+      toast.error('Failed to delete post');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (post.author?.username) {
+      navigate(`/profile/${post.author.username}`);
+    }
+  };
 
   return (
     <motion.div
-      key={`${post._id}-${index}`}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      initial={{ opacity: 0, scale: 0.98, y: 15 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.05 }}
+      className="naaya-post-card"
     >
-      <div className="card" onDoubleClick={() => handleDoubleTap(post._id, filteredPosts, post.isReel)}>
-        <div className="card-content">
-          <div className="author-info">
-            {post.author && (
-              <>
-                <img
-                  src={post.author.profilePicture}
-                  alt={post.author.username}
-                  className="avatar"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-                <div className="avatar-fallback">
-                  {typeof post.author.fullName === 'string' ? post.author.fullName.charAt(0) : 'U'}
-                </div>
-                <div className="author-box">
-                  <div className="name-box">
-                    <span
-                      onClick={() => {
-                        if (post.author._id !== user?._id) {
-                          navigate(`/profile/${post.author.username}`);
-                        }
-                      }}
-                    >
-                      {typeof post.author.fullName === 'string' ? post.author.fullName : ''}
-                    </span>
-                    {post.author.isVerified && (
-                      <div className="verified-badge">
-                        ✓
-                      </div>
-                    )}
-                  </div>
-                  <div className="time-box">
-                    <span>
-                      {formatTimeAgo(post.createdAt)}
-                    </span>
-                    {post.location?.city && (
-                      <>
-                        <span>·</span>
-                        <span>
-                          📍 {post.location.city}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <button className="icon-button">
-                  <FaEllipsisV className="icon" />
-                </button>
-              </>
-            )}
-          </div>
-
-          {post.content && (
-            <div>
-              {expandedCaptions[post._id] || post.content.length <= 100 ? (
-                <p className="post-content">
-                  {typeof post.content === 'string' ? post.content : ''}
-                </p>
-              ) : (
-                <p className="post-content">
-                  {typeof post.content === 'string' ? post.content.slice(0, 100) : ''}... <span className="post-content-more" onClick={() => setExpandedCaptions(prev => ({ ...prev, [post._id]: true }))}>more</span>
-                </p>
-              )}
-            </div>
-          )}
-
+      <div className="post-interaction-container">
+        <div
+          className="post-media-stage"
+          onDoubleClick={() => handleDoubleTap(post._id, filteredPosts, post.isReel)}
+        >
           {post.media && post.media.length > 0 && (
-            <div className="media-box">
+            <div className="media-canvas">
               {post.isReel ? (
-                <div className="reel-container">
-                  {videoErrors[post._id] ? (
-                    <div className="video-placeholder">
-                      Video unavailable
-                    </div>
-                  ) : (
-                    <video
-                      src={post.media[0].url.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0].url}`}
-                      muted
-                      playsInline
-                      className="media-video reel-video"
-                      onError={(e) => {
-                        console.error(`[PostCard] Video load error for post ${post._id}:`, {
-                          videoUrl: post.media[0].url,
-                          error: e,
-                          postData: post.media[0]
-                        });
-                        setVideoErrors(prev => ({ ...prev, [post._id]: true }));
-                      }}
-                    />
-                  )}
-                  <div className="reel-overlay">
-                    <div className="play-button">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </div>
-                    <div className="reel-indicator">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                      <span>Reels</span>
-                    </div>
-                  </div>
-                </div>
+                <video
+                  src={post.media[0]?.url?.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0]?.url}`}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  className="canvas-media-item"
+                />
               ) : (
-                post.media.map((media, idx) => {
-                  let fullUrl = media.url;
-                  if (!fullUrl.startsWith('http')) {
-                    const normalizedUrl = fullUrl.replace(/\\/g, '/').replace(/^\/?/, '/');
-                    fullUrl = `${BACKEND_BASE_URL}${normalizedUrl}`;
-                  }
-
-                  let paddingTop = '56.25%';
-                  if (media.width && media.height) {
-                    paddingTop = `${(media.height / media.width) * 100}%`;
-                  }
-
-                  return (
-                    <div
-                      key={`${post._id}-${idx}`}
-                      className="media-item"
-                      style={{ paddingTop }}
-                    >
-                      {media.type === 'image' ? (
-                        <img
-                          src={fullUrl}
-                          alt="Post content"
-                          className="media-img"
-                        />
-                      ) : (
-                        <video
-                          src={fullUrl}
-                          controls
-                          className="media-video"
-                        />
-                      )}
-                    </div>
-                  );
-                })
+                <img
+                  src={post.media[0]?.url?.startsWith('http') ? post.media[0].url : `${BACKEND_BASE_URL}${post.media[0]?.url}`}
+                  alt="Post"
+                  className="canvas-media-item"
+                />
               )}
-              <AnimatePresence>
-                {heartBurst[post._id] && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1.5 }}
-                    exit={{ scale: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="heart-burst"
-                  >
-                    <FaHeart size={50} color="red" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
           )}
 
-          <div className="actions-box">
-            <div className="left-actions">
+          {/* Action Blade - Floating on the right of media */}
+          <div className="post-action-blade">
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="blade-item">
               <button
-                className="icon-button"
+                className={`blade-btn ${isLiked ? 'active' : ''}`}
                 onClick={() => handleLike(post._id, post.isReel)}
               >
-                {isLiked ? (
-                  <FaHeart className="liked-icon" />
-                ) : (
-                  <FaRegHeart className="icon" />
-                )}
+                {isLiked ? <FaHeart /> : <FaRegHeart />}
               </button>
+              <span className="blade-label">{post.likesCount || 0}</span>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="blade-item">
               <button
-                className="icon-button"
+                className="blade-btn"
                 onClick={() => {
                   setSelectedPostForComments({
                     id: post._id,
-                    authorId: post.author._id,
+                    authorId: post.author?._id || '',
                     commentsCount: post.commentsCount || 0
                   });
                   setCommentsModalOpen(true);
                 }}
               >
-                <FaComment className="icon" />
+                <FaComment />
               </button>
-              <button className="icon-button">
-                <FaShare className="icon" />
+              <span className="blade-label">{post.commentsCount || 0}</span>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="blade-item">
+              <button className="blade-btn" onClick={() => handleShare(post._id)}>
+                <FaShare />
               </button>
-            </div>
-            <div className="save-container">
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="blade-item">
               <button
-                className="icon-button"
+                className={`blade-btn ${isSaved ? 'active' : ''}`}
                 onClick={() => handleSave(post._id, post.isReel)}
               >
-                <FaRegBookmark
-                  className={isSaved ? "saved-icon" : "icon"}
-                />
+                {isSaved ? <BsBookmarkFill /> : <BsBookmark />}
               </button>
-              {(post.savesCount || 0) > 0 && (
-                <span className="save-count">
-                  {(post.savesCount || 0).toLocaleString()}
-                </span>
+            </motion.div>
+          </div>
+
+          {/* User Info Plate - Floating Glass Overlay at top */}
+          <div className="post-user-plate" onClick={handleAuthorClick}>
+            <div className="plate-avatar">
+              <Avatar
+                src={post.author?.profilePicture}
+                alt={post.author?.username}
+                name={post.author?.fullName}
+                size="100%"
+              />
+            </div>
+            <div className="plate-details">
+              <span className="plate-username">@{post.author?.username}</span>
+              {post.location?.city && (
+                <span className="plate-location">{post.location.city}</span>
               )}
+            </div>
+            <button className="plate-menu" onClick={(e) => { e.stopPropagation(); setShowActionMenu(!showActionMenu); }}>
+              <FaEllipsisV />
+            </button>
+
+            <AnimatePresence>
+              {showActionMenu && (
+                <>
+                  <div className="menu-backdrop-v2" onClick={() => setShowActionMenu(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    className="action-dropdown-v2"
+                  >
+                    <button className="menu-item-v2" onClick={() => handleAction('copy-link')}>
+                      <FiLink /> <span>Copy Link</span>
+                    </button>
+                    {!isAuthor && (
+                      <button className="menu-item-v2" onClick={() => handleAction('not-interested')}>
+                        <FiEyeOff /> <span>Not Interested</span>
+                      </button>
+                    )}
+                    <button className="menu-item-v2" onClick={() => handleAction('report')}>
+                      <FiFlag /> <span>Report</span>
+                    </button>
+                    {isAuthor && (
+                      <button className="menu-item-v2 danger" onClick={() => handleAction('delete')}>
+                        <FiTrash2 /> <span>Delete Post</span>
+                      </button>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Caption Overlay - Bottom Glass Blade */}
+          <div className="post-caption-plate">
+            <div className="caption-text-content">
+              {expandedCaptions[post._id] || (post.content || '').length <= 60 ? (
+                post.content
+              ) : (
+                <>
+                  {(post.content || '').slice(0, 60)}
+                  <span
+                    className="plate-read-more"
+                    onClick={() => setExpandedCaptions(prev => ({ ...prev, [post._id]: true }))}
+                  >
+                    ... view more
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="plate-timestamp">
+              {formatTimeAgo(post.createdAt)}
             </div>
           </div>
 
-          <div className="likes-comments-section">
-            {(post.likes || []).length > 0 && (
-              <p className="likes-count">
-                {(post.likes || []).length.toLocaleString()} {(post.likes || []).length === 1 ? 'like' : 'likes'}
-              </p>
-            )}
-            <div>
-              {(post.comments || []).slice(0, 2).map((comment) => (
-                <p key={`${post._id}-${comment._id}`} className="comment-item">
-                  <strong>{comment.author.username}</strong> {comment.content}
-                </p>
-              ))}
-            </div>
-            {(post.comments || []).length > 2 && (
-              <p
-                className="view-all-comments"
-                onMouseEnter={(e) => e.currentTarget.style.color = '#000'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
-                onClick={() => {
-                  setSelectedPostForComments({
-                    id: post._id,
-                    authorId: post.author._id,
-                    commentsCount: post.commentsCount || 0
-                  });
-                  setCommentsModalOpen(true);
-                }}
+          <AnimatePresence>
+            {heartBurst[post._id] && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 0] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6 }}
+                className="stage-heart-burst"
               >
-                View all {(post.comments || []).length} comments
-              </p>
+                <FaHeart />
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -347,8 +322,14 @@ const PostCard: React.FC<PostCardProps> = ({
         />
       )}
 
-
-
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Post?"
+        message="This will permanently remove this post from your profile and the feed. This action cannot be undone."
+        isPending={isDeleting}
+      />
     </motion.div>
   );
 };

@@ -1,0 +1,22 @@
+{
+    "title": "Settings",
+    "appearance": "Appearance",
+    "account": "Account",
+    "privacy": "Privacy",
+    "notifications": "Notifications",
+    "languageRegion": "Language & Region",
+    "theme": "Theme",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode",
+    "logout": "Logout",
+    "logoutConfirm": "Are you sure you want to logout?",
+    "accountSettings": "Account Settings",
+    "privacySettings": "Privacy Settings",
+    "blockedUsers": "Blocked Users",
+    "language": "Language",
+    "english": "English",
+    "nepali": "Nepali",
+    "appearanceSettings": "Appearance Settings",
+    "darkModeDesc": "Switch between dark and light themes",
+    "languageDesc": "Change the language of the application"
+}

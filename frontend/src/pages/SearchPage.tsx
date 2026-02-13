@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usersAPI, postsAPI, reelsAPI } from '../services/api';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import Avatar from '../components/Avatar';
 import './SearchPage.css';
 
 type User = {
@@ -167,7 +168,7 @@ const SearchPage: React.FC = () => {
     },
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleUserFollowed = (data: any) => {
       setUsers((prevUsers) => {
         const exists = prevUsers.some(user => user._id === data.follower._id);
@@ -250,7 +251,12 @@ const SearchPage: React.FC = () => {
             {users.length === 0 && <li>No users found.</li>}
             {users.map((user) => (
               <li key={user._id} className="user-result">
-                <img src={user.profilePicture || '/default-profile.png'} alt={`${user.username} profile`} />
+                <Avatar
+                  src={user.profilePicture}
+                  alt={`${user.username} profile`}
+                  name={user.fullName}
+                  size={50}
+                />
                 <div>
                   <strong onClick={user._id !== currentUser?._id ? () => navigate(`/profile/${user.username}`) : undefined} style={user._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{user.fullName}</strong> @{user.username}
                   {user.isVerified && <span title="Verified">✔️</span>}
@@ -264,8 +270,8 @@ const SearchPage: React.FC = () => {
                     {loadingUserIds.includes(user._id)
                       ? '...'
                       : user.isFollowing
-                      ? 'Following'
-                      : 'Follow'}
+                        ? 'Following'
+                        : 'Follow'}
                   </button>
                 </div>
               </li>

@@ -11,6 +11,21 @@
   "nearby": "Nearby",
   "following": "Following",
   "invalidFileType": "Only images and videos are allowed",
-  "fileTooLarge": "File exceeds size limit"
+  "fileTooLarge": "File exceeds size limit",
+  "postUpdated": "Post updated successfully",
+  "postNotFound": "Post not found",
+  "missingMediaOrContent": "Either media or content is required",
+  "invalidLocation": "Invalid location format",
+  "invalidTags": "Invalid tags format",
+  "fileProcessingError": "Error processing uploaded files",
+  "databaseError": "Database connection error",
+  "postLiked": "Post liked successfully",
+  "postUnliked": "Post unliked successfully",
+  "postSaved": "Post saved successfully",
+  "postUnsaved": "Post unsaved successfully",
+  "postShared": "Post shared successfully",
+  "postUnshared": "Post unshared successfully",
+  "likePostError": "Server error liking post",
+  "savePostError": "Server error saving post",
+  "sharePostError": "Server error sharing post"
 }
-

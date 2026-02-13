@@ -16,6 +16,10 @@ const resources = {
         profile: 'Profile',
         settings: 'Settings',
         logout: 'Logout',
+        appearance: 'Appearance',
+        account: 'Account',
+        privacy: 'Privacy',
+        notifications: 'Notifications',
         english: 'English',
         nepali: 'Nepali',
         language: 'Language',
@@ -43,7 +47,17 @@ const resources = {
         follow: 'Follow',
         mention: 'Mention',
         message: 'Message',
-        story_reply: 'Story Reply'
+        story_reply: 'Story Reply',
+        preferencesTitle: 'Notification Preferences',
+        pushNotifications: 'Push Notifications',
+        pushNotificationsDesc: 'Receive notifications on your device',
+        emailNotifications: 'Email Notifications',
+        emailNotificationsDesc: 'Get updates delivered to your inbox',
+        soundEffects: 'Sound Effects',
+        soundEffectsDesc: 'Play sounds when you receive notifications',
+        enabled: 'Enabled',
+        enable: 'Enable',
+        loadingPreferences: 'Loading your preferences...'
       }
     }
   },
@@ -61,6 +75,10 @@ const resources = {
         profile: 'प्रोफाइल',
         settings: 'सेटिङ',
         logout: 'लगआउट',
+        appearance: 'रूप',
+        account: 'खाता',
+        privacy: 'गोपनीयता',
+        notifications: 'सूचनाहरू',
         english: 'English',
         nepali: 'नेपाली',
         language: 'भाषा',
@@ -88,7 +106,17 @@ const resources = {
         follow: 'फलो',
         mention: 'उल्लेख',
         message: 'सन्देश',
-        story_reply: 'स्टोरी जवाफ'
+        story_reply: 'स्टोरी जवाफ',
+        preferencesTitle: 'सूचना प्राथमिकताहरू',
+        pushNotifications: 'पुश सूचनाहरू',
+        pushNotificationsDesc: 'तपाईंको उपकरणमा सूचनाहरू प्राप्त गर्नुहोस्',
+        emailNotifications: 'इमेल सूचनाहरू',
+        emailNotificationsDesc: 'तपाईंको इनबक्समा अपडेटहरू प्राप्त गर्नुहोस्',
+        soundEffects: 'ध्वनि प्रभावहरू',
+        soundEffectsDesc: 'तपाईंले सूचनाहरू प्राप्त गर्दा ध्वनि बजाउनुहोस्',
+        enabled: 'सक्षम गरिएको',
+        enable: 'सक्षम गर्नुहोस्',
+        loadingPreferences: 'तपाईंका प्राथमिकताहरू लोड हुँदैछ...'
       }
     }
   }

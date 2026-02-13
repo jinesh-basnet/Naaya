@@ -1,0 +1,265 @@
+.message-options-container {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.message-item:hover .message-options-container {
+  opacity: 1;
+}
+
+.message-item.own .message-options-container {
+  left: -40px;
+}
+
+.message-item.other .message-options-container {
+  right: -40px;
+}
+
+.options-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  gap: 3px;
+  color: var(--text-secondary);
+}
+
+.options-trigger .dot {
+  width: 4px;
+  height: 4px;
+  background-color: currentColor;
+  border-radius: 50%;
+}
+
+.options-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  background: var(--background-paper);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  min-width: 180px;
+  backdrop-filter: blur(10px);
+  animation: fadeInDown 0.2s ease-out;
+}
+
+.options-menu.own {
+  right: 0;
+}
+
+.options-menu.other {
+  left: 0;
+}
+
+.reactions-row {
+  display: flex;
+  justify-content: space-around;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.reaction-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+  padding: 4px;
+}
+
+.reaction-btn:hover {
+  transform: scale(1.3);
+}
+
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+  background-color: var(--background-elevated);
+}
+
+.menu-item svg {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+.menu-item.delete {
+  color: #ff4d4d;
+}
+
+.menu-item.delete svg {
+  color: #ff4d4d;
+}
+
+.menu-item.delete:hover {
+  background-color: #fff1f1;
+}
+
+/* Edit Overlay */
+.message-edit-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.message-edit-card {
+  background: var(--background-paper);
+  width: 90%;
+  max-width: 500px;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow-lg);
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: var(--background-default);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: none;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  outline: none;
+}
+
+.edit-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.edit-cancel,
+.edit-save {
+  padding: 10px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-cancel {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.edit-save {
+  background: var(--primary-main);
+  border: none;
+  color: white;
+}
+
+.edit-save:hover {
+  background: var(--primary-dark);
+}
+
+/* Forward Modal */
+.forward-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.forward-modal {
+  background: var(--background-paper);
+  padding: 24px;
+  border-radius: 20px;
+  width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+
+.forward-modal h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.forward-modal input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+  background: var(--background-default);
+  color: var(--text-primary);
+}
+
+.forward-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.forward-actions button {
+  padding: 8px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.forward-actions .send {
+  background: var(--primary-main);
+  color: white;
+  border: none;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode overrides if needed extra */
+[data-theme="dark"] .options-menu {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+[data-theme="dark"] .menu-item:hover {
+  background-color: #3d3d3d;
+}

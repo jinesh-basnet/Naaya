@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaArrowLeft } from 'react-icons/fa';
@@ -92,7 +92,7 @@ const FollowingPage: React.FC = () => {
     },
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!username) return;
 
     const handleUserFollowed = (data: any) => {
@@ -240,7 +240,7 @@ const FollowingPage: React.FC = () => {
                   style={{ cursor: 'pointer' }}
                 >
                   <img
-                    src={user.profilePicture || '/default-profile.png'}
+                    src={user.profilePicture || '/default-profile.svg'}
                     alt={`${user.username} profile`}
                     className="user-avatar"
                   />
@@ -261,8 +261,8 @@ const FollowingPage: React.FC = () => {
                       {loadingUserIds.includes(user._id)
                         ? '...'
                         : user.isFollowing
-                        ? 'Following'
-                        : 'Follow'}
+                          ? 'Following'
+                          : 'Follow'}
                     </button>
                     {user.isFollowing && (
                       <button

@@ -1,7 +1,10 @@
 import React from 'react';
 import { MdAdd, MdFavoriteBorder, MdSend, MdSearch } from 'react-icons/md';
+import { HiMenuAlt4 } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { useCreatePost } from '../contexts/CreatePostContext';
+import logo from '../assets/logo.png';
+import './TopHeader.css';
 
 interface TopHeaderProps {
   isMobile?: boolean;
@@ -30,105 +33,56 @@ const TopHeader: React.FC<TopHeaderProps> = ({
   };
 
   return (
-    <header
-      style={{
-        height: 60,
-        backgroundColor: '#fff',
-        color: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 16px',
-        borderBottom: '1px solid #dbdbdb',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1000,
-      }}
-      aria-label="Instagram top navigation"
-    >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <button
-          onClick={handleMenuToggle}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#000',
-            fontSize: 24,
-            cursor: 'pointer',
-            marginRight: 16,
-            display: isMobile ? 'block' : 'none',
-          }}
-          aria-label="Toggle menu"
-        >
-          &#9776;
-        </button>
+    <header className="top-header" aria-label="Desktop top navigation">
+      <div className="top-header-left">
+        {isMobile && (
+          <button
+            onClick={handleMenuToggle}
+            className="menu-toggle-btn"
+            aria-label="Toggle menu"
+          >
+            <HiMenuAlt4 size={24} />
+          </button>
+        )}
+        {isMobile && (
+          <div className="logo-container" onClick={() => navigate('/home')}>
+            <img src={logo} alt="Naaya" style={{ width: 32, height: 32 }} />
+          </div>
+        )}
       </div>
 
-      {isMobile ? (
-        <nav
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-          }}
-          aria-label="Mobile top navigation"
-        >
-          <button
-            aria-label="Messages"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={() => navigate('/messages')}
-          >
-            <MdSend size={24} />
-          </button>
-          <button
-            aria-label="Notifications"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={() => navigate('/notifications')}
-          >
-            <MdFavoriteBorder size={24} />
-          </button>
-        </nav>
-      ) : (
-        <nav
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 24,
-          }}
-          aria-label="Primary navigation"
-        >
+      <nav className="top-header-nav" aria-label={isMobile ? "Mobile top navigation" : "Primary navigation"}>
+        {!isMobile && (
           <button
             aria-label="Search"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            className="nav-action-btn"
             onClick={() => navigate('/search')}
           >
-            <MdSearch size={24} />
+            <MdSearch />
           </button>
-          <button
-            aria-label="Create post"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={openModal}
-          >
-            <MdAdd size={24} />
-          </button>
-          <button
-            aria-label="Activity"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={() => navigate('/notifications')}
-          >
-            <MdFavoriteBorder size={24} />
-          </button>
-          <button
-            aria-label="Direct messages"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            onClick={() => navigate('/messages')}
-          >
-            <MdSend size={24} />
-          </button>
-        </nav>
-      )}
+        )}
+        <button
+          aria-label="Create post"
+          className="nav-action-btn"
+          onClick={openModal}
+        >
+          <MdAdd />
+        </button>
+        <button
+          aria-label="Activity"
+          className="nav-action-btn"
+          onClick={() => navigate('/notifications')}
+        >
+          <MdFavoriteBorder />
+        </button>
+        <button
+          aria-label="Direct messages"
+          className="nav-action-btn"
+          onClick={() => navigate('/messages')}
+        >
+          <MdSend />
+        </button>
+      </nav>
     </header>
   );
 };

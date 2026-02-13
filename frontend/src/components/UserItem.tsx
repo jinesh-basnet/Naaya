@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MdChat } from 'react-icons/md';
 import { useAuth } from '../contexts/AuthContext';
 import FollowButton from './FollowButton';
+import Avatar from './Avatar';
 
 interface User {
   _id: string;
@@ -29,7 +30,7 @@ const UserItem: React.FC<UserItemProps> = ({ user, onFollowToggle, loadingUserId
   };
 
   const handleMessageClick = () => {
-    navigate(`/messages?user=${user.username}`);
+    navigate(`/messages/${user._id}`);
   };
 
   return (
@@ -39,9 +40,11 @@ const UserItem: React.FC<UserItemProps> = ({ user, onFollowToggle, loadingUserId
         onClick={handleUserClick}
         style={{ cursor: 'pointer' }}
       >
-        <img
-          src={user.profilePicture || '/default-profile.png'}
+        <Avatar
+          src={user.profilePicture}
           alt={`${user.username} profile`}
+          name={user.fullName}
+          size={50}
           className="user-avatar"
         />
         <div className="user-details">
@@ -59,11 +62,11 @@ const UserItem: React.FC<UserItemProps> = ({ user, onFollowToggle, loadingUserId
           />
           {user.isFollowing && (
             <button
-              className="message-button"
-              onClick={handleMessageClick}
+              className="profile-button outlined"
+              onClick={() => navigate(`/messages/${user._id}`)}
               aria-label="Send message"
             >
-              <MdChat />
+              <MdChat /> Message
             </button>
           )}
         </div>

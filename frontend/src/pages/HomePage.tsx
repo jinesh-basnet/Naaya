@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { postsAPI, reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +18,9 @@ import { useLocation } from '../hooks/useLocation';
 import { useFeed } from '../hooks/useFeed';
 import { usePostInteractions } from '../hooks/usePostInteractions';
 import { useSocketUpdates } from '../hooks/useSocketUpdates';
+import PostCommentsModal from '../components/PostCommentsModal';
+import Avatar from '../components/Avatar';
+import { useState } from 'react';
 import './HomePage.css';
 
 interface Post {
@@ -62,13 +66,21 @@ interface Post {
 }
 
 const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { isModalOpen, closeModal } = useCreatePost();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { locationData, locationPermission, showLocationAlert, handleEnableLocation } = useLocation();
   const { feedData, isLoading, handleRefresh } = useFeed(locationData);
-  const { heartBurst, expandedCaptions, setExpandedCaptions, handleLike, handleSave, handleDoubleTap } = usePostInteractions(locationData, () => {});
-  useSocketUpdates(locationData, () => {});
+  const { heartBurst, expandedCaptions, setExpandedCaptions, handleLike, handleSave, handleShare, handleDoubleTap } = usePostInteractions(locationData, () => { });
+  useSocketUpdates(locationData, () => { });
+
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false);
+  const [selectedPostForComments, setSelectedPostForComments] = useState({
+    id: '',
+    authorId: '',
+    commentsCount: 0
+  });
 
   const handleModalPost = async (post: {
     postType: 'post' | 'reel';
@@ -188,63 +200,78 @@ const HomePage: React.FC = () => {
   };
 
   const posts = feedData?.data?.posts || [];
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const filteredPosts = posts.filter((post: Post) => post.postType === 'post');
-
   return (
-    <div className="home-page">
-      <div className="container">
-        <StoriesBar isCollapsed={false} setIsCollapsed={() => {}} />
+    <div className="home-page-container">
+      <div className="home-content-layout">
+        <main className="feed-column">
+          {/* Top Stories Bar */}
+          <div className="home-stories-wrapper">
+            <StoriesBar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+          </div>
 
-        <LocationAlert
-          showLocationAlert={showLocationAlert}
-          locationPermission={locationPermission}
-          handleEnableLocation={handleEnableLocation}
-        />
+          {/* Social Social Feed - Vertical Flow */}
+          <div className="home-feed-flow">
+            {filteredPosts.map((post: Post, index: number) => (
+              <PostCard
+                key={post._id}
+                post={post}
+                index={index}
+                handleLike={handleLike}
+                handleSave={handleSave}
+                handleShare={handleShare}
+                handleDoubleTap={handleDoubleTap}
+                heartBurst={heartBurst}
+                expandedCaptions={expandedCaptions}
+                setExpandedCaptions={setExpandedCaptions}
+                formatTimeAgo={formatTimeAgo}
+                filteredPosts={filteredPosts}
+              />
+            ))}
+          </div>
+        </main>
 
-        <LocationBox locationData={locationData} />
-
-        <PullToRefresh
-          onRefresh={handleRefresh}
-          distanceToRefresh={60}
-          resistance={2}
-          className="pull-to-refresh"
-        >
-          {isLoading ? (
-            <LoadingSkeleton />
-          ) : (
-            <div className="posts-container">
-              {filteredPosts.map((post: Post, index: number) => (
-                <PostCard
-                  key={`${post._id}-${index}`}
-                  post={post}
-                  index={index}
-                  handleLike={handleLike}
-                  handleSave={handleSave}
-                  handleShare={() => {}}
-                  handleDoubleTap={handleDoubleTap}
-                  heartBurst={heartBurst}
-                  expandedCaptions={expandedCaptions}
-                  setExpandedCaptions={setExpandedCaptions}
-                  formatTimeAgo={formatTimeAgo}
-                  filteredPosts={filteredPosts}
-                />
-              ))}
-
-              <div className="suggestion-feed-item">
-                <Suggestions limit={6} />
+        {/* Right Sidebar - Standard Social Media Pattern */}
+        <aside className="home-sidebar-right">
+          <div className="sidebar-inner-glass">
+            <div className="user-profile-widget" onClick={() => navigate(`/profile/${user?.username}`)}>
+              <Avatar
+                src={user?.profilePicture}
+                alt={user?.username || 'User Profile'}
+                size="60px"
+              />
+              <div className="user-text">
+                <span className="username">@{user?.username}</span>
+                <span className="fullname">{user?.fullName}</span>
               </div>
             </div>
-          )}
-        </PullToRefresh>
-        {filteredPosts.length === 0 && !isLoading && <NoPostsMessage />}
-      </div>
 
-      <CreatePostModal
-        open={isModalOpen}
-        onClose={closeModal}
-        onPost={handleModalPost}
-        editMode={false}
-      />
+            <div className="sidebar-suggestions-box">
+              <div className="box-header">
+                <h3>Recommended for you</h3>
+                <button onClick={() => navigate('/explore')}>See All</button>
+              </div>
+              <Suggestions limit={5} />
+            </div>
+
+            <div className="sidebar-stats-box">
+              <div className="stat-item">
+                <span className="stat-value">{user?.followers?.length || 0}</span>
+                <span className="stat-label">Soulmates</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value">{user?.following?.length || 0}</span>
+                <span className="stat-label">Following</span>
+              </div>
+            </div>
+
+            <footer className="sidebar-footer-text">
+              <p>© 2026 NAAYA • BY JINESH</p>
+            </footer>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 };

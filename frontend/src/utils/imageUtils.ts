@@ -41,3 +41,18 @@ export const preloadImage = (src: string): Promise<void> => {
 export const preloadImages = (srcs: string[]): Promise<void[]> => {
   return Promise.all(srcs.map(preloadImage));
 };
+
+export const getProfileImageUrl = (url: string | undefined | null): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  if (url.startsWith('/default-') || url === '/logo.png') {
+    return url;
+  }
+  const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+  const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+  return `${cleanBaseUrl}/${cleanUrl}`;
+};

@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 const { loginRateLimiter, registerRateLimiter } = require('../middleware/rateLimiter');
 const SecurityLogger = require('../services/securityLogger');
+const { sendVerificationEmail } = require('../services/communicationService');
 
 const router = express.Router();
 
@@ -27,26 +28,26 @@ const generateRefreshToken = () => {
 router.post('/register', registerRateLimiter, [
   body('username')
     .isLength({ min: 3, max: 30 })
-    .withMessage('Username must be between 3 and 30 characters'),
+    .withMessage((value, { req }) => req.t('auth:validation.usernameLength')),
   body('email')
     .isEmail()
-    .withMessage('Please provide a valid email')
+    .withMessage((value, { req }) => req.t('auth:validation.invalidEmail'))
     .normalizeEmail(),
   body('password')
     .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long')
+    .withMessage((value, { req }) => req.t('auth:validation.passwordLength'))
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)
-    .withMessage('Password must include at least one uppercase letter, one lowercase letter, one number, and one special character'),
+    .withMessage((value, { req }) => req.t('auth:validation.passwordStrength')),
   body('fullName')
     .isLength({ min: 2, max: 50 })
-    .withMessage('Full name must be between 2 and 50 characters')
+    .withMessage((value, { req }) => req.t('auth:validation.fullNameLength'))
     .trim()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: req.t('errors:validationFailed'),
         errors: errors.array()
       });
     }
@@ -66,7 +67,7 @@ router.post('/register', registerRateLimiter, [
       if (existingUser.phone === trimmedPhone) field = 'phone';
 
       return res.status(400).json({
-        message: `User with this ${field} already exists`,
+        message: req.t('auth:userExists', { field: req.t(`auth:${field}`) }),
         code: 'USER_EXISTS'
       });
     }
@@ -89,8 +90,14 @@ router.post('/register', registerRateLimiter, [
 
     const userData = user.getPublicProfile();
 
+    // Send verification email
+    const verificationToken = user.generateEmailVerificationToken();
+    await user.save();
+    const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    await sendVerificationEmail(user.email, verificationUrl, user.fullName);
+
     res.status(201).json({
-      message: 'User registered successfully',
+      message: req.t('auth:registrationSuccess'),
       accessToken,
       refreshToken,
       user: userData
@@ -120,7 +127,7 @@ router.post('/login', loginRateLimiter, [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: req.t('errors:validationFailed'),
         errors: errors.array()
       });
     }
@@ -138,7 +145,7 @@ router.post('/login', loginRateLimiter, [
     if (!user) {
       await new SecurityLogger().logFailedLogin(identifier, 'User not found', req.ip, req.headers['user-agent']);
       return res.status(401).json({
-        message: 'Invalid credentials',
+        message: req.t('auth:invalidCredentials'),
         code: 'INVALID_CREDENTIALS'
       });
     }
@@ -153,7 +160,7 @@ router.post('/login', loginRateLimiter, [
 
     if (!user.isActive) {
       return res.status(401).json({
-        message: 'Account is deactivated',
+        message: req.t('auth:accountDeactivated'),
         code: 'ACCOUNT_DEACTIVATED'
       });
     }
@@ -163,7 +170,7 @@ router.post('/login', loginRateLimiter, [
       await user.incLoginAttempts();
       await new SecurityLogger().logFailedLogin(identifier, 'Invalid password', req.ip, req.headers['user-agent']);
       return res.status(401).json({
-        message: 'Invalid credentials',
+        message: req.t('auth:invalidCredentials'),
         code: 'INVALID_CREDENTIALS'
       });
     }
@@ -178,7 +185,7 @@ router.post('/login', loginRateLimiter, [
     const userData = user.getPublicProfile();
 
     res.json({
-      message: 'Login successful',
+      message: req.t('auth:loginSuccess'),
       accessToken,
       refreshToken,
       user: userData
@@ -200,7 +207,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const userData = req.user.getPublicProfile();
     res.json({
-      message: 'User data retrieved successfully',
+      message: req.t('auth:profileRetrieved'),
       user: userData
     });
   } catch (error) {
@@ -229,9 +236,12 @@ router.post('/send-verification', authenticateToken, async (req, res) => {
     const verificationToken = user.generateEmailVerificationToken();
     await user.save();
 
+    const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
+    await sendVerificationEmail(user.email, verificationUrl, user.fullName);
+
     res.json({
       message: 'Verification email sent',
-      verificationUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
+      verificationUrl: verificationUrl // Keep returning for development/debug if needed
     });
 
   } catch (error) {

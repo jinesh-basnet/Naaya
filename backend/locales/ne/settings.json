@@ -1,0 +1,22 @@
+{
+    "title": "सेटिङहरू",
+    "appearance": "रूप",
+    "account": "खाता",
+    "privacy": "गोपनीयता",
+    "notifications": "सूचनाहरू",
+    "languageRegion": "भाषा र क्षेत्र",
+    "theme": "विषयवस्तु",
+    "darkMode": "गाढा मोड",
+    "lightMode": "उज्यालो मोड",
+    "logout": "लगआउट",
+    "logoutConfirm": "के तपाईं लगआउट गर्न निश्चित हुनुहुन्छ?",
+    "accountSettings": "खाता सेटिङहरू",
+    "privacySettings": "गोपनीयता सेटिङहरू",
+    "blockedUsers": "ब्लक गरिएका प्रयोगकर्ताहरू",
+    "language": "भाषा",
+    "english": "अंग्रेजी",
+    "nepali": "नेपाली",
+    "appearanceSettings": "रूप सेटिङहरू",
+    "darkModeDesc": "गाढा र उज्यालो विषयवस्तुहरू बीच टगल गर्नुहोस्",
+    "languageDesc": "अनुप्रयोगको भाषा परिवर्तन गर्नुहोस्"
+}

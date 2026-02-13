@@ -6,10 +6,14 @@ const messageSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  conversation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Conversation',
+    required: true
+  },
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   },
   content: {
     type: String,
@@ -134,8 +138,9 @@ const messageSchema = new mongoose.Schema({
   timestamps: true
 });
 
-messageSchema.index({ sender: 1, receiver: 1, createdAt: -1 });
-messageSchema.index({ receiver: 1, isRead: 1 });
+messageSchema.index({ conversation: 1, createdAt: -1 });
+messageSchema.index({ sender: 1, conversation: 1, createdAt: -1 });
+messageSchema.index({ conversation: 1, isRead: 1 });
 messageSchema.index({ createdAt: -1 });
 
 messageSchema.methods.markAsRead = function() {

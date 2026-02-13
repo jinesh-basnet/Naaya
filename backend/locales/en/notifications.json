@@ -7,6 +7,15 @@
   "newMessage": "sent you a message",
   "storyReply": "replied to your story",
   "markAllRead": "Mark all as read",
-  "noNotifications": "No notifications yet"
+  "noNotifications": "No notifications yet",
+  "preferencesTitle": "Notification Preferences",
+  "pushNotifications": "Push Notifications",
+  "pushNotificationsDesc": "Receive notifications on your device",
+  "emailNotifications": "Email Notifications",
+  "emailNotificationsDesc": "Get updates delivered to your inbox",
+  "soundEffects": "Sound Effects",
+  "soundEffectsDesc": "Play sounds when you receive notifications",
+  "enabled": "Enabled",
+  "enable": "Enable",
+  "loadingPreferences": "Loading your preferences..."
 }
-

@@ -19,7 +19,7 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({
-        message: 'Post not found',
+        message: req.t('posts:postNotFound'),
         code: 'POST_NOT_FOUND'
       });
     }
@@ -72,7 +72,7 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
     }
 
     res.json({
-      message: wasLiked ? 'Post liked successfully' : 'Post unliked successfully',
+      message: wasLiked ? req.t('posts:postLiked') : req.t('posts:postUnliked'),
       isLiked: wasLiked,
       likesCount: post.likesCount
     });
@@ -80,7 +80,7 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Like post error:', error);
     res.status(500).json({
-      message: 'Server error liking post',
+      message: req.t('posts:likePostError'),
       code: 'LIKE_POST_ERROR'
     });
   }
@@ -97,7 +97,7 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({
-        message: 'Post not found',
+        message: req.t('posts:postNotFound'),
         code: 'POST_NOT_FOUND'
       });
     }
@@ -138,43 +138,43 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
       await defaultCollection.save();
     }
 
-      if (global.io) {
-        try {
-          global.io.emit('feed_post_saved', {
-            postId: post._id,
-            userId: userId,
-            savesCount: post.savesCount,
-            isSaved: wasSaved
-          });
-        } catch (socketError) {
-          console.error('Error sending real-time save update:', socketError);
-        }
+    if (global.io) {
+      try {
+        global.io.emit('feed_post_saved', {
+          postId: post._id,
+          userId: userId,
+          savesCount: post.savesCount,
+          isSaved: wasSaved
+        });
+      } catch (socketError) {
+        console.error('Error sending real-time save update:', socketError);
       }
+    }
 
-      if (wasSaved && userId.toString() !== post.author._id.toString()) {
-        try {
-          if (global.notificationService && global.notificationService.createSaveNotification) {
-            await global.notificationService.createSaveNotification(
-              post._id,
-              userId,
-              post.author._id
-            );
-          }
-        } catch (error) {
-          console.error('Error creating save notification:', error);
+    if (wasSaved && userId.toString() !== post.author._id.toString()) {
+      try {
+        if (global.notificationService && global.notificationService.createSaveNotification) {
+          await global.notificationService.createSaveNotification(
+            post._id,
+            userId,
+            post.author._id
+          );
         }
+      } catch (error) {
+        console.error('Error creating save notification:', error);
       }
+    }
 
-      res.json({
-        message: wasSaved ? 'Post saved successfully' : 'Post unsaved successfully',
-        isSaved: wasSaved,
-        savesCount: post.savesCount
-      });
+    res.json({
+      message: wasSaved ? req.t('posts:postSaved') : req.t('posts:postUnsaved'),
+      isSaved: wasSaved,
+      savesCount: post.savesCount
+    });
 
   } catch (error) {
     console.error('Save post error:', error);
     res.status(500).json({
-      message: 'Server error saving post',
+      message: req.t('posts:savePostError'),
       code: 'SAVE_POST_ERROR'
     });
   }
@@ -195,7 +195,7 @@ router.post('/:postId/share', authenticateToken, [
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({
-        message: 'Post not found',
+        message: req.t('posts:postNotFound'),
         code: 'POST_NOT_FOUND'
       });
     }
@@ -241,7 +241,7 @@ router.post('/:postId/share', authenticateToken, [
       }
 
       res.json({
-        message: 'Post unshared successfully',
+        message: req.t('posts:postUnshared'),
         isShared: false,
         sharesCount: post.sharesCount
       });
@@ -308,7 +308,7 @@ router.post('/:postId/share', authenticateToken, [
       }
 
       res.json({
-        message: 'Post shared successfully',
+        message: req.t('posts:postShared'),
         isShared: true,
         sharesCount: post.sharesCount,
         sharedPost
@@ -318,7 +318,7 @@ router.post('/:postId/share', authenticateToken, [
   } catch (error) {
     console.error('Share post error:', error);
     res.status(500).json({
-      message: 'Server error sharing post',
+      message: req.t('posts:sharePostError'),
       code: 'SHARE_POST_ERROR'
     });
   }

@@ -1,6 +1,8 @@
 import React from 'react';
-import { FaEdit, FaUserPlus } from 'react-icons/fa';
+import { FaEdit, FaUserPlus, FaMapMarkerAlt } from 'react-icons/fa';
+import Avatar from './Avatar';
 import { MdChat } from 'react-icons/md';
+import { FiCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { safeString, formatLocation } from '../utils/locationUtils';
 
@@ -38,69 +40,105 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const navigate = useNavigate();
 
   return (
-    <div className="profile-header">
-      {profile.profilePicture ? (
-        <img
-          src={profile.profilePicture}
-          alt={profile.fullName}
-          className="profile-avatar"
-        />
-      ) : (
-        <div className="profile-avatar">
-          {profile.fullName?.charAt(0)}
+    <div className="profile-hero-section">
+      <div className="profile-cover-area">
+        <div className="cover-pattern" />
+        <div className="cover-overlay" />
+      </div>
+
+      <div className="profile-main-card">
+        <div className="avatar-side">
+          <Avatar
+            src={profile.profilePicture}
+            alt={profile.fullName}
+            name={profile.fullName}
+            className="profile-avatar-unique"
+            size={180}
+          />
+          {!isCurrentUser && profile.isFollowing && (
+            <div className="active-badge" title="You follow each other">
+              <FiCheck />
+            </div>
+          )}
         </div>
-      )}
-      <div className="profile-info">
-        <h5 className={`profile-name ${!isCurrentUser ? 'clickable' : ''}`} {...(!isCurrentUser && { onClick: () => navigate(`/profile/${profile.username}`) })}>
-          {safeString(profile.fullName)}
-        </h5>
-        <p className="profile-username">@{safeString(profile.username)}</p>
-        <p className="profile-bio">{safeString(profile.bio) || 'No bio available.'}</p>
-        {profile.location && (
-          <p className="profile-location">Location: {formatLocation(profile.location)}</p>
-        )}
-        <div className="profile-stats">
-          <span>
-            <strong
-              onClick={() => navigate(`/profile/${profile.username}/followers`)}
-              aria-label="View followers"
-            >
-              {profile.followersCount || 0}
-            </strong> Followers
-          </span>
-          <span>
-            <strong
-              onClick={() => navigate(`/profile/${profile.username}/following`)}
-              aria-label="View following"
-            >
-              {profile.followingCount || 0}
-            </strong> Following
-          </span>
-        </div>
-        {isCurrentUser ? (
-          <button className="profile-button outlined" onClick={onEdit}>
-            <FaEdit /> Edit Profile
-          </button>
-        ) : (
-          <div className="profile-actions">
-            <button
-              className={`profile-button ${profile.isFollowing ? 'outlined' : 'contained'}`}
-              onClick={onFollowToggle}
-              disabled={isPending}
-            >
-              <FaUserPlus /> {profile.isFollowing ? 'Following' : 'Follow'}
-            </button>
-            {profile.isFollowing && (
-              <button
-                className="profile-button message-button"
-                onClick={() => navigate(`/messages?user=${profile.username}`)}
-                aria-label="Send message"
-              >
-                <MdChat />
-              </button>
+
+        <div className="profile-content-side">
+          <div className="profile-header-top">
+            <div className="name-group">
+              <h1 className="profile-display-name">
+                {safeString(profile.fullName)}
+              </h1>
+              <span className="profile-handle">@{safeString(profile.username)}</span>
+            </div>
+
+            <div className="header-actions-integrated">
+              {isCurrentUser ? (
+                <button className="premium-action-btn edit" onClick={onEdit}>
+                  <FaEdit /> <span>Edit</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    className={`premium-action-btn ${profile.isFollowing ? 'unfollow' : 'follow'}`}
+                    onClick={onFollowToggle}
+                    disabled={isPending}
+                  >
+                    {profile.isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                  {profile.isFollowing && (
+                    <button
+                      className="premium-action-btn message"
+                      onClick={() => navigate(`/messages/${profile._id}`)}
+                    >
+                      <MdChat />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="profile-bio-container">
+            {profile.bio && (
+              <p className="bio-text">
+                {safeString(profile.bio).split('\n').map((line, i) => (
+                  <React.Fragment key={i}>
+                    {line}
+                    <br />
+                  </React.Fragment>
+                ))}
+              </p>
+            )}
+
+            {profile.location && (
+              <div className="location-info-row">
+                <div className="location-pill">
+                  <FaMapMarkerAlt />
+                  <span>{formatLocation(profile.location)}</span>
+                </div>
+                <div className="status-pill">
+                  <span className="pulse-dot" />
+                  <span>Available</span>
+                </div>
+              </div>
             )}
           </div>
-        )}
+
+          <div className="profile-dashboard-stats">
+            <div className="stat-card" onClick={() => navigate(`/profile/${profile.username}/followers`)}>
+              <span className="stat-value">{profile.followersCount || 0}</span>
+              <span className="stat-label">Followers</span>
+            </div>
+            <div className="stat-card" onClick={() => navigate(`/profile/${profile.username}/following`)}>
+              <span className="stat-value">{profile.followingCount || 0}</span>
+              <span className="stat-label">Following</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">Posts</span>
+              <span className="stat-label">Active</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

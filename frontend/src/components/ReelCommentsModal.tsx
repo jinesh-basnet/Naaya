@@ -3,6 +3,7 @@ import { MdClose, MdSend, MdFavorite, MdFavoriteBorder } from 'react-icons/md';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { safeRender } from '../utils/safeRender';
+import Avatar from './Avatar';
 import './ReelCommentsModal.css';
 
 interface Comment {
@@ -193,17 +194,13 @@ const ReelCommentsModal: React.FC<ReelCommentsModalProps> = ({
     return (
       <div key={comment._id} className={`comment-item ${isReply ? 'reply' : ''}`} style={{ marginLeft: depth * 20 }}>
         <div className="comment-avatar">
-          {comment.author.profilePicture ? (
-            <img
-              src={comment.author.profilePicture}
-              alt={comment.author.fullName}
-              className="avatar-img"
-            />
-          ) : (
-            <div className="avatar-placeholder">
-              {safeRender(comment.author.fullName).charAt(0)}
-            </div>
-          )}
+          <Avatar
+            src={comment.author.profilePicture}
+            alt={comment.author.fullName}
+            name={comment.author.fullName}
+            size={36}
+            className="avatar-img"
+          />
         </div>
 
         <div className="comment-content">
@@ -298,17 +295,13 @@ const ReelCommentsModal: React.FC<ReelCommentsModalProps> = ({
         )}
 
         <div className="comment-input-section">
-          {user?.profilePicture ? (
-            <img
-              src={user.profilePicture}
-              alt={user.fullName}
-              className="input-avatar"
-            />
-          ) : (
-            <div className="input-avatar-placeholder">
-              {safeRender(user?.fullName || '').charAt(0)}
-            </div>
-          )}
+          <Avatar
+            src={user?.profilePicture}
+            alt={user?.fullName || 'User'}
+            name={user?.fullName}
+            size={32}
+            className="input-avatar"
+          />
 
           <div className="input-container">
             <input

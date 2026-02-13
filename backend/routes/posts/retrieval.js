@@ -19,10 +19,10 @@ router.get('/saved', authenticateToken, async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .sort({})
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .sort({})
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     res.json({
       message: 'Saved posts retrieved successfully',
@@ -64,11 +64,11 @@ router.get('/user/:username', authenticateToken, async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .populate('comments.author', 'username fullName profilePicture')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .populate('comments.author', 'username fullName profilePicture')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     res.json({
       message: 'User posts retrieved successfully',
@@ -121,10 +121,10 @@ router.get('/search', authenticateToken, async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     const total = await Post.countDocuments({
       $or: [
@@ -172,9 +172,19 @@ router.get('/:postId', optionalAuth, async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified')
-    .populate('comments.author', 'username fullName profilePicture isVerified')
-    .populate('comments.replies.author', 'username fullName profilePicture isVerified');
+      .populate('author', 'username fullName profilePicture isVerified')
+      .populate({
+        path: 'comments.author',
+        select: 'username fullName profilePicture isVerified'
+      })
+      .populate({
+        path: 'comments.replies.author',
+        select: 'username fullName profilePicture isVerified'
+      })
+      .populate({
+        path: 'comments.replies.replies.author',
+        select: 'username fullName profilePicture isVerified'
+      });
 
     console.log('Post found:', !!post);
     if (post) {

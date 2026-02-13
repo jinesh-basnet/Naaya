@@ -1,10 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Post = require('../models/Post');
 const Follow = require('../models/Follow');
 const Following = require('../models/Following');
 const Followers = require('../models/Followers');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
+const { uploadSingle } = require('../middleware/upload');
 const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm');
 
 const router = express.Router();
@@ -48,13 +50,34 @@ router.get('/profile/:username', optionalAuth, async (req, res) => {
 // @route   PUT /api/users/profile
 // @desc    Update user profile
 // @access  Private
-router.put('/profile', authenticateToken, async (req, res) => {
+router.put('/profile', authenticateToken, uploadSingle('profilePicture'), async (req, res) => {
   try {
     const userId = req.user._id;
-    const updates = req.body;
+    // req.body contains text fields from FormData
+    const updates = { ...req.body };
+
+    // Handle nested location fields from FormData (e.g., location[city])
+    if (updates['location[city]'] || updates['location[district]'] || updates['location[province]']) {
+      updates.location = {
+        city: updates['location[city]'] || '',
+        district: updates['location[district]'] || '',
+        province: updates['location[province]'] || ''
+      };
+      // Remove flat keys to clean up
+      delete updates['location[city]'];
+      delete updates['location[district]'];
+      delete updates['location[province]'];
+    }
+
+    // Handle profile picture upload
+    if (req.file) {
+      // Construct URL: /uploads/filename
+      // Note: This relies on server.js serving /uploads statically
+      updates.profilePicture = `/uploads/${req.file.filename}`;
+    }
 
     const allowedFields = [
-      'fullName', 'bio', 'location', 'interests', 'privacySettings'
+      'fullName', 'bio', 'location', 'interests', 'privacySettings', 'profilePicture', 'gender'
     ];
 
     const invalidFields = Object.keys(updates).filter(field => !allowedFields.includes(field));
@@ -62,6 +85,13 @@ router.put('/profile', authenticateToken, async (req, res) => {
       return res.status(400).json({
         message: `Invalid fields: ${invalidFields.join(', ')}`,
         code: 'INVALID_UPDATE_FIELDS'
+      });
+    }
+
+    if (updates.gender && !['male', 'female', 'other'].includes(updates.gender)) {
+      return res.status(400).json({
+        message: 'Invalid gender value',
+        code: 'INVALID_GENDER'
       });
     }
 
@@ -102,26 +132,48 @@ router.put('/profile', authenticateToken, async (req, res) => {
     }
 
     if (updates.interests) {
-      const validInterests = [
-        'technology', 'music', 'sports', 'food', 'travel', 'fashion',
-        'photography', 'art', 'education', 'news', 'entertainment',
-        'health', 'fitness', 'gaming', 'books', 'movies', 'politics',
-        'religion', 'culture', 'festivals', 'tourism', 'agriculture'
-      ];
+      // Parse interests if it comes as a JSON string (common in FormData)
+      if (typeof updates.interests === 'string') {
+        try {
+          updates.interests = JSON.parse(updates.interests);
+        } catch (e) {
+          // If comma separated
+          updates.interests = updates.interests.split(',').map(i => i.trim());
+        }
+      }
 
-      const invalidInterests = updates.interests.filter(interest =>
-        !validInterests.includes(interest)
-      );
+      if (Array.isArray(updates.interests)) {
+        const validInterests = [
+          'technology', 'music', 'sports', 'food', 'travel', 'fashion',
+          'photography', 'art', 'education', 'news', 'entertainment',
+          'health', 'fitness', 'gaming', 'books', 'movies', 'politics',
+          'religion', 'culture', 'festivals', 'tourism', 'agriculture'
+        ];
 
-      if (invalidInterests.length > 0) {
-        return res.status(400).json({
-          message: `Invalid interests: ${invalidInterests.join(', ')}`,
-          code: 'INVALID_INTERESTS'
-        });
+        const invalidInterests = updates.interests.filter(interest =>
+          !validInterests.includes(interest)
+        );
+
+        if (invalidInterests.length > 0) {
+          return res.status(400).json({
+            message: `Invalid interests: ${invalidInterests.join(', ')}`,
+            code: 'INVALID_INTERESTS'
+          });
+        }
       }
     }
 
-    if (updates.privacySettings) {
+    // Privacy settings usually come as JSON string in FormData if sent as object, or flattened keys
+    // For now assuming it might be handled like location if flattened, but let's see if we need to parse JSON
+    if (typeof updates.privacySettings === 'string') {
+      try {
+        updates.privacySettings = JSON.parse(updates.privacySettings);
+      } catch (e) {
+        // ignore or handle error
+      }
+    }
+
+    if (updates.privacySettings && typeof updates.privacySettings === 'object') {
       const { profileVisibility, showOnlineStatus, allowMessagesFrom } = updates.privacySettings;
 
       const validVisibilities = ['public', 'followers', 'private'];
@@ -157,6 +209,31 @@ router.put('/profile', authenticateToken, async (req, res) => {
     });
 
     await user.save();
+
+    // If profile picture was updated, create a new post
+    if (updates.profilePicture) {
+      try {
+        let pronoun = 'their';
+        if (user.gender === 'male') pronoun = 'his';
+        else if (user.gender === 'female') pronoun = 'her';
+
+        const newPost = new Post({
+          author: userId,
+          content: `updated ${pronoun} profile picture.`,
+          media: [{
+            type: 'image',
+            url: updates.profilePicture
+          }],
+          location: user.location,
+          postType: 'post',
+          visibility: updates.privacySettings?.profileVisibility || 'public'
+        });
+        await newPost.save();
+      } catch (postError) {
+        console.error('Error auto-creating profile update post:', postError);
+        // Don't fail the profile update if post creation fails
+      }
+    }
 
     const updatedUser = await User.findById(userId).select('-password -email -phone');
 
@@ -377,10 +454,10 @@ router.get('/search', authenticateToken, async (req, res) => {
       ],
       isDeleted: false
     })
-    .select('username fullName profilePicture isVerified bio location followers')
-    .limit(limit * 1)
-    .skip((page - 1) * limit)
-    .sort({ followersCount: -1, createdAt: -1 });
+      .select('username fullName profilePicture isVerified bio location followers')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ followersCount: -1, createdAt: -1 });
 
     const total = await User.countDocuments({
       $or: [

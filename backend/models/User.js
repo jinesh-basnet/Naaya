@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema({
     maxlength: 150,
     default: ''
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other'],
+    default: 'other'
+  },
   profilePicture: {
     type: String,
     default: ''
@@ -108,6 +113,19 @@ const userSchema = new mongoose.Schema({
       type: String,
       enum: ['everyone', 'followers', 'none'],
       default: 'everyone'
+    },
+    allowCommentsFrom: {
+      type: String,
+      enum: ['everyone', 'followers', 'none'],
+      default: 'everyone'
+    },
+    allowTagging: {
+      type: Boolean,
+      default: true
+    },
+    allowMentions: {
+      type: Boolean,
+      default: true
     }
   },
   lastActive: {
@@ -124,6 +142,10 @@ const userSchema = new mongoose.Schema({
     default: 'user'
   },
   isBanned: {
+    type: Boolean,
+    default: false
+  },
+  isBusiness: {
     type: Boolean,
     default: false
   },
@@ -260,9 +282,9 @@ userSchema.index({ interests: 1 });
 userSchema.index({ lastActive: -1 });
 userSchema.index({ isDeleted: 1 });
 
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  
+
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
@@ -272,21 +294,21 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-userSchema.methods.generatePasswordResetToken = function() {
+userSchema.methods.generatePasswordResetToken = function () {
   const crypto = require('crypto');
   const resetToken = crypto.randomBytes(32).toString('hex');
-  
+
   this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; 
-  
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
   return resetToken;
 };
 
-userSchema.methods.generateEmailVerificationToken = function() {
+userSchema.methods.generateEmailVerificationToken = function () {
   const crypto = require('crypto');
   const verificationToken = crypto.randomBytes(32).toString('hex');
 
@@ -296,16 +318,16 @@ userSchema.methods.generateEmailVerificationToken = function() {
   return verificationToken;
 };
 
-userSchema.methods.generateOTP = function() {
+userSchema.methods.generateOTP = function () {
   const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
   this.otp = otp;
-  this.otpExpires = Date.now() + 10 * 60 * 1000; 
+  this.otpExpires = Date.now() + 10 * 60 * 1000;
 
   return otp;
 };
 
-userSchema.methods.getPublicProfile = function() {
+userSchema.methods.getPublicProfile = function () {
   const userObj = this.toObject();
   delete userObj.password;
   delete userObj.email;
@@ -314,11 +336,11 @@ userSchema.methods.getPublicProfile = function() {
 };
 
 
-userSchema.virtual('isLocked').get(function() {
+userSchema.virtual('isLocked').get(function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
-userSchema.methods.incLoginAttempts = function() {
+userSchema.methods.incLoginAttempts = function () {
   if (this.lockUntil && this.lockUntil < Date.now()) {
     return this.updateOne({
       $unset: { lockUntil: 1 },
@@ -328,20 +350,20 @@ userSchema.methods.incLoginAttempts = function() {
   const updates = { $inc: { failedLoginAttempts: 1 } };
   if (this.failedLoginAttempts + 1 >= 5 && !this.isLocked) {
     updates.$set = {
-      lockUntil: Date.now() + 2 * 60 * 60 * 1000 
+      lockUntil: Date.now() + 2 * 60 * 60 * 1000
     };
   }
   return this.updateOne(updates);
 };
 
-userSchema.methods.resetLoginAttempts = function() {
+userSchema.methods.resetLoginAttempts = function () {
   return this.updateOne({
     $unset: { failedLoginAttempts: 1, lockUntil: 1 },
     $set: { lastActive: new Date() }
   });
 };
 
-userSchema.methods.addRefreshToken = function(token, userAgent, ipAddress) {
+userSchema.methods.addRefreshToken = function (token, userAgent, ipAddress) {
   const crypto = require('crypto');
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -361,26 +383,26 @@ userSchema.methods.addRefreshToken = function(token, userAgent, ipAddress) {
   return this.save();
 };
 
-userSchema.methods.removeRefreshToken = function(token) {
+userSchema.methods.removeRefreshToken = function (token) {
   const crypto = require('crypto');
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
   this.refreshTokens = this.refreshTokens.filter(rt => rt.token !== hashedToken);
   return this.save();
 };
 
-userSchema.methods.removeExpiredRefreshTokens = function() {
+userSchema.methods.removeExpiredRefreshTokens = function () {
   const now = new Date();
   this.refreshTokens = this.refreshTokens.filter(rt => rt.expiresAt > now);
   return this.save();
 };
 
-userSchema.methods.isValidRefreshToken = function(token) {
+userSchema.methods.isValidRefreshToken = function (token) {
   const crypto = require('crypto');
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
   return this.refreshTokens.some(rt => rt.token === hashedToken && rt.expiresAt > new Date());
 };
 
-userSchema.methods.clearAllRefreshTokens = function() {
+userSchema.methods.clearAllRefreshTokens = function () {
   this.refreshTokens = [];
   return this.save();
 };

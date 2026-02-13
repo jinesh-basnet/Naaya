@@ -5,6 +5,8 @@ import { FaPlus } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import ErrorBoundary from '../components/ErrorBoundary';
+import PostViewerModal from '../components/PostViewerModal';
+import EditProfileModal from '../components/EditProfileModal';
 import HighlightViewer from '../components/HighlightViewer';
 import HighlightManager from '../components/HighlightManager';
 import UserHighlights from '../components/UserHighlights';
@@ -28,6 +30,9 @@ const ProfilePage: React.FC = () => {
   const [selectedHighlight, setSelectedHighlight] = useState<any>(null);
   const [isHighlightViewerOpen, setIsHighlightViewerOpen] = useState(false);
   const [isHighlightManagerOpen, setIsHighlightManagerOpen] = useState(false);
+  const [isPostViewerOpen, setIsPostViewerOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | undefined>(undefined);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   const {
     profile,
@@ -60,8 +65,25 @@ const ProfilePage: React.FC = () => {
 
   if (profileLoading) {
     return (
-      <div className="loading-spinner initial">
-        Loading...
+      <div className="profile-container">
+        <div className="profile-loading-skeleton">
+          <div className="skeleton-header-large">
+            <div className="skeleton-avatar-large"></div>
+            <div className="skeleton-info-large">
+              <div className="skeleton-line-40"></div>
+              <div className="skeleton-line-20"></div>
+              <div className="skeleton-line-60"></div>
+            </div>
+          </div>
+          <div className="skeleton-tabs">
+            <div className="skeleton-tab"></div>
+            <div className="skeleton-tab"></div>
+            <div className="skeleton-tab"></div>
+          </div>
+          <div className="skeleton-grid">
+            {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="skeleton-grid-item"></div>)}
+          </div>
+        </div>
       </div>
     );
   }
@@ -86,7 +108,7 @@ const ProfilePage: React.FC = () => {
   }
 
   const handleEditProfile = () => {
-    navigate('/settings');
+    setIsEditProfileModalOpen(true);
   };
 
   const handleFollowToggle = () => {
@@ -184,8 +206,29 @@ const ProfilePage: React.FC = () => {
             videoErrors={videoErrors}
             setVideoErrors={setVideoErrors}
             isCurrentUser={isCurrentUser}
+            onPostClick={(postId) => {
+              setSelectedPostId(postId);
+              setIsPostViewerOpen(true);
+            }}
           />
         </div>
+
+        {isPostViewerOpen && profile && (
+          <PostViewerModal
+            isOpen={isPostViewerOpen}
+            onClose={() => setIsPostViewerOpen(false)}
+            username={profile.username}
+            initialPostId={selectedPostId}
+          />
+        )}
+
+        {profile && (
+          <EditProfileModal
+            isOpen={isEditProfileModalOpen}
+            onClose={() => setIsEditProfileModalOpen(false)}
+            currentUser={profile}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

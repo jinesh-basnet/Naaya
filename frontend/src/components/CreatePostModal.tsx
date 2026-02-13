@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaPaperPlane } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaPaperPlane, FaPlus, FaImage, FaVideo } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
 import './CreatePostModal.css';
 
 interface CreatePostModalProps {
@@ -154,26 +154,32 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
   return (
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{editMode ? 'Edit Post' : 'Create Post'}</h2>
+        <header className="modal-header">
+          <h2>
+            {editMode ? 'Edit ' : 'Create '}
+            {media?.type.startsWith('video/') ? 'Reel' : 'Post'}
+          </h2>
           <button className="icon-button" onClick={handleClose}>
             <FaTimes />
           </button>
-        </div>
+        </header>
 
         <div className="modal-body">
           <div className="media-section">
             {!mediaPreview ? (
               <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="empty-media-state"
               >
-                <FaImages className="icon" />
-                <h3>Select media</h3>
-                <p>Share photos and videos with your community</p>
+                <div className="icon-group">
+                  <FaImage className="icon photo" />
+                  <FaVideo className="icon video" />
+                </div>
+                <h3>Start your masterpiece</h3>
+                <p>Drag and drop or click to upload photos and videos</p>
                 <button className="select-button" onClick={() => fileInputRef.current?.click()}>
-                  Select from computer
+                  Upload from Device
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -229,40 +235,59 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
               <div className="caption-count">{caption.length}/2200</div>
             </div>
 
-            <div className="input-group">
-              <label>Add location</label>
+            <motion.div
+              className="input-group"
+              initial={{ x: -10, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <label>Location</label>
               <div className="input-with-icon">
                 <FaMapMarkerAlt className="icon" />
                 <input
                   type="text"
-                  placeholder="Add location"
+                  placeholder="Where was this taken?"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                 />
               </div>
-            </div>
+            </motion.div>
 
-            <div className="input-group">
-              <label>Tag people</label>
+            <motion.div
+              className="input-group"
+              initial={{ x: -10, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <label>Collaborators</label>
               <div className="input-with-icon">
                 <FaUserPlus className="icon" />
                 <input
                   type="text"
-                  placeholder="Tag people"
+                  placeholder="Who are you with?"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
                 />
               </div>
               <div className="tags-container">
-                {tags.map((tag) => (
-                  <span key={tag} className="tag">
-                    {tag}
-                    <span className="tag-delete" onClick={() => handleDeleteTag(tag)}>×</span>
-                  </span>
-                ))}
+                <AnimatePresence mode="popLayout">
+                  {tags.map((tag) => (
+                    <motion.span
+                      key={tag}
+                      className="tag"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      layout
+                    >
+                      {tag}
+                      <span className="tag-delete" onClick={() => handleDeleteTag(tag)}>×</span>
+                    </motion.span>
+                  ))}
+                </AnimatePresence>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 

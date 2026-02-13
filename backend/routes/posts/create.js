@@ -31,7 +31,7 @@ router.post('/', authenticateToken, upload.any(), [
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
       return res.status(400).json({
-        message: 'Validation failed',
+        message: req.t('errors:validationFailed'),
         errors: errors.array()
       });
     }
@@ -64,7 +64,7 @@ router.post('/', authenticateToken, upload.any(), [
       } catch (fileError) {
         console.error('File processing error:', fileError);
         return res.status(400).json({
-          message: 'Error processing uploaded files',
+          message: req.t('posts:fileProcessingError'),
           code: 'FILE_PROCESSING_ERROR',
           error: fileError.message
         });
@@ -84,7 +84,7 @@ router.post('/', authenticateToken, upload.any(), [
       } catch (e) {
         console.error('Location parsing error:', e);
         return res.status(400).json({
-          message: 'Invalid location format',
+          message: req.t('posts:invalidLocation'),
           code: 'INVALID_LOCATION'
         });
       }
@@ -100,7 +100,7 @@ router.post('/', authenticateToken, upload.any(), [
       } catch (e) {
         console.error('Tags parsing error:', e);
         return res.status(400).json({
-          message: 'Invalid tags format',
+          message: req.t('posts:invalidTags'),
           code: 'INVALID_TAGS'
         });
       }
@@ -108,7 +108,7 @@ router.post('/', authenticateToken, upload.any(), [
 
     if ((!postData.media || postData.media.length === 0) && (!postData.content || postData.content.trim() === '')) {
       return res.status(400).json({
-        message: 'Either media or content is required',
+        message: req.t('posts:missingMediaOrContent'),
         code: 'MISSING_MEDIA_OR_CONTENT'
       });
     }
@@ -116,7 +116,7 @@ router.post('/', authenticateToken, upload.any(), [
     if (mongoose.connection.readyState !== 1) {
       console.error('Database not connected, readyState:', mongoose.connection.readyState);
       return res.status(500).json({
-        message: 'Database connection error',
+        message: req.t('posts:databaseError'),
         code: 'DATABASE_ERROR'
       });
     }
@@ -130,7 +130,7 @@ router.post('/', authenticateToken, upload.any(), [
 
     console.log('Post created successfully:', post._id);
     res.status(201).json({
-      message: 'Post created successfully',
+      message: req.t('posts:postCreated'),
       post
     });
 
@@ -146,10 +146,10 @@ router.post('/', authenticateToken, upload.any(), [
   }
 });
 
- // @route   PUT /api/posts/:postId
- // @desc    Update a post
- // @access  Private
- router.put('/:postId', authenticateToken, uploadMultiple('media'), [
+// @route   PUT /api/posts/:postId
+// @desc    Update a post
+// @access  Private
+router.put('/:postId', authenticateToken, uploadMultiple('media'), [
   body('content').optional().isString().isLength({ max: 2200 }),
   body('tags').optional().isString(),
   body('location').optional().isString(),
@@ -162,7 +162,7 @@ router.post('/', authenticateToken, upload.any(), [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: req.t('errors:validationFailed'),
         errors: errors.array()
       });
     }
@@ -175,7 +175,7 @@ router.post('/', authenticateToken, upload.any(), [
 
     if (!post) {
       return res.status(404).json({
-        message: 'Post not found',
+        message: req.t('posts:postNotFound'),
         code: 'POST_NOT_FOUND'
       });
     }
@@ -192,7 +192,7 @@ router.post('/', authenticateToken, upload.any(), [
     await post.save();
 
     res.json({
-      message: 'Post updated successfully',
+      message: req.t('posts:postUpdated'),
       post
     });
 

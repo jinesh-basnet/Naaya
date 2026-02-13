@@ -3,6 +3,7 @@ import { MdClose, MdSend, MdSearch, MdImage } from 'react-icons/md';
 import { useAuth } from '../contexts/AuthContext';
 import { usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import Avatar from './Avatar';
 
 interface User {
   _id: string;
@@ -290,13 +291,12 @@ const ShareModal: React.FC<ShareModalProps> = ({
                     onClick={() => handleUserSelect(user._id)}
                   >
                     <div className="user-avatar">
-                      {user.profilePicture ? (
-                        <img src={user.profilePicture} alt={user.fullName} />
-                      ) : (
-                        <div className="avatar-placeholder">
-                          {user.fullName.charAt(0)}
-                        </div>
-                      )}
+                      <Avatar
+                        src={user.profilePicture}
+                        alt={user.fullName}
+                        name={user.fullName}
+                        size={40}
+                      />
                     </div>
                     <div className="user-info">
                       <div className="user-name">

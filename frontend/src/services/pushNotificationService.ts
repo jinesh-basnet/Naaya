@@ -13,16 +13,20 @@ class PushNotificationService {
 
   async init(): Promise<void> {
     if (this.isInitialized) {
-      return; 
+      return;
     }
 
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
-        this.swRegistration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.register('/service-worker.js');
         console.log('Service Worker registered successfully');
+
+        this.swRegistration = await navigator.serviceWorker.ready;
+        console.log('Service Worker is ready and active');
+
         this.isInitialized = true;
       } catch (error) {
-        console.error('Service Worker registration failed:', error);
+        console.error('Service Worker initialization failed:', error);
       }
     }
   }
@@ -45,8 +49,9 @@ class PushNotificationService {
 
   async subscribeToPush(): Promise<PushSubscription | null> {
     if (!this.swRegistration) {
-      console.error('Service Worker not registered');
-      return null;
+      console.warn('Cannot subscribe: Service Worker registration not found');
+      await this.init();
+      if (!this.swRegistration) return null;
     }
 
     const token = localStorage.getItem('token');
@@ -56,8 +61,9 @@ class PushNotificationService {
     }
 
     try {
-const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : '/api';
+      const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : '/api';
 
+      console.log('Fetching VAPID public key...');
       const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
         method: 'POST',
         headers: {
@@ -82,10 +88,16 @@ const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_AP
         return null;
       }
 
+      console.log('Got VAPID key, subscribing...');
+
+      const serverKey = this.urlBase64ToUint8Array(publicKey);
+
       const subscription = await this.swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(publicKey) as any
+        applicationServerKey: serverKey as any
       });
+
+      console.log('Browser subscription successful, saving to server...');
 
       const subResponse = await fetch(`${API_BASE_URL}/notifications/subscription`, {
         method: 'POST',
@@ -98,23 +110,42 @@ const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_AP
 
       if (!subResponse.ok) {
         const subError = await subResponse.json().catch(() => ({}));
-        console.error('Failed to save subscription:', subResponse.status, subError);
+        console.error('Failed to save subscription to server:', subResponse.status, subError);
         return null;
       }
 
-      console.log('Push subscription successful');
+      console.log('Push subscription fully established');
       return subscription;
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.warn('Push subscription aborted - likely due to browser restrictions or invalid VAPID keys');
+        console.error('Push subscription aborted: Use HTTPS OR check if permissions are blocked on localhost. Error details:', error);
       } else if (error.name === 'NotAllowedError') {
-        console.warn('Push notifications not allowed by user');
+        console.warn('Push notifications permission denied by user');
       } else if (error.name === 'InvalidStateError') {
-        console.warn('Push manager not available or already subscribed');
+        console.warn('Push manager state error - maybe already subscribed or SW not active');
       } else {
-        console.error('Push subscription failed:', error.message || error);
+        console.error('Push subscription failed with unexpected error:', error.name, error.message);
       }
       return null;
+    }
+  }
+
+  async unsubscribeFromPush(): Promise<boolean> {
+    if (!this.swRegistration) {
+      return false;
+    }
+
+    try {
+      const subscription = await this.swRegistration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe();
+        console.log('Unsubscribed from push notifications in browser');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error unsubscribing from push:', error);
+      return false;
     }
   }
 
@@ -122,8 +153,8 @@ const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_AP
     if (this.swRegistration) {
       await this.swRegistration.showNotification(data.title, {
         body: data.body,
-  icon: data.icon || '/logo192.svg',
-  badge: data.badge || '/logo192.svg',
+        icon: data.icon || '/logo192.svg',
+        badge: data.badge || '/logo192.svg',
         data: data.data,
         requireInteraction: true
       });

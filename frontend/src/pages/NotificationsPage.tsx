@@ -4,6 +4,7 @@ import { MdCheckCircle } from 'react-icons/md';
 import { FaBell } from 'react-icons/fa';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
+import Avatar from '../components/Avatar';
 import './NotificationsPage.css';
 
 interface Notification {
@@ -103,15 +104,16 @@ const NotificationsPage: React.FC = () => {
       ) : (
         <ul className="notifications-list">
           {notifications.map((notif) => (
-            <li 
-              key={notif._id} 
+            <li
+              key={notif._id}
               className={`notification-item ${notif.isRead ? '' : 'unread'}`}
             >
-              <img
+              <Avatar
                 src={notif.sender.profilePicture}
                 alt={notif.sender.fullName}
+                name={notif.sender.fullName}
+                size={40}
                 className="notification-avatar"
-                onError={(e) => { e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM5OTk5OTkiLz4KPHBhdGggZD0iTTIwIDIwQzIyLjc2MTQgMjAgMjUgMTcuNzYxNCAyNSAxNUMyNSAxMi4yMzg2IDIyLjc2MTQgMTAgMjAgMTBDMTcuMjM4NiAxMCAxNSAxMi4yMzg2IDE1IDE1QzE1IDE3Ljc2MTQgMTcuNzYxNCAyMCAyMFoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo='; }}
               />
               <div className="notification-content">
                 <h3>{notif.title}</h3>

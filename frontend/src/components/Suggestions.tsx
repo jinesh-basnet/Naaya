@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
-
+import Avatar from './Avatar';
 import './Suggestions.css';
 
 const Suggestions: React.FC<{ limit?: number }> = ({ limit = 6 }) => {
@@ -91,55 +91,34 @@ const Suggestions: React.FC<{ limit?: number }> = ({ limit = 6 }) => {
   const users = data?.users || [];
 
   return (
-    <aside className="suggestions">
-      <div className="suggestions-header">
-        <h3>People you may know</h3>
-      </div>
+    <div className="suggestions-list">
+      {users.length === 0 && !isLoading && <div className="empty-suggestions">No suggestions right now</div>}
 
-      <div className="suggestions-carousel" role="list">
-        {users.length === 0 && <div className="empty-suggestions">No suggestions right now</div>}
-
-        {users.map((u: any) => (
-          <div key={u._id} className="suggestion-card" role="listitem">
-            <div className="card-top">
-              <img src={u.profilePicture || '/default-profile.png'} alt={u.username} className="card-avatar" />
-              <div className="card-badge">{u.suggestionReason ? (u.suggestionReason.replace('_', ' ')) : ''}</div>
-            </div>
-            <div className="card-info">
-              <div
-                className={"card-name" + (u._id !== currentUser?._id ? ' clickable' : '')}
-                onClick={() => u._id !== currentUser?._id && navigate(`/profile/${u.username}`)}
-                role={u._id !== currentUser?._id ? 'link' : undefined}
-                tabIndex={u._id !== currentUser?._id ? 0 : -1}
-                onKeyPress={(e) => { if (e.key === 'Enter' && u._id !== currentUser?._id) navigate(`/profile/${u.username}`); }}
-              >
-                {u.fullName}
-              </div>
-              <div
-                className={"card-username" + (u._id !== currentUser?._id ? ' clickable' : '')}
-                onClick={() => u._id !== currentUser?._id && navigate(`/profile/${u.username}`)}
-                role={u._id !== currentUser?._id ? 'link' : undefined}
-                tabIndex={u._id !== currentUser?._id ? 0 : -1}
-                onKeyPress={(e) => { if (e.key === 'Enter' && u._id !== currentUser?._id) navigate(`/profile/${u.username}`); }}
-              >
-                @{u.username}
-              </div>
-              <div className="card-meta">{u.followersCount ?? 0} followers</div>
-            </div>
-            <div className="card-action">
-              <button
-                className={"toggle-btn " + (u.isFollowing ? 'following' : 'not-following')}
-                onClick={() => (u.isFollowing ? unfollowMutation.mutate(u._id) : followMutation.mutate(u._id))}
-                disabled={loadingUserIds.includes(u._id)}
-                aria-pressed={!!u.isFollowing}
-              >
-                {loadingUserIds.includes(u._id) ? '...' : (u.isFollowing ? 'Following' : 'Follow')}
-              </button>
+      {users.map((u: any) => (
+        <div key={u._id} className="suggestion-item">
+          <div className="suggestion-user" onClick={() => navigate(`/profile/${u.username}`)}>
+            <Avatar
+              src={u.profilePicture}
+              alt={u.username}
+              name={u.username}
+              size={40}
+              className="card-avatar"
+            />
+            <div className="suggestion-info">
+              <span className="card-name">{u.username}</span>
+              <span className="card-username">Suggested for you</span>
             </div>
           </div>
-        ))}
-      </div>
-    </aside>
+          <button
+            className={"toggle-btn " + (u.isFollowing ? 'following' : '')}
+            onClick={() => (u.isFollowing ? unfollowMutation.mutate(u._id) : followMutation.mutate(u._id))}
+            disabled={loadingUserIds.includes(u._id)}
+          >
+            {loadingUserIds.includes(u._id) ? '...' : (u.isFollowing ? 'Following' : 'Follow')}
+          </button>
+        </div>
+      ))}
+    </div>
   );
 };
 

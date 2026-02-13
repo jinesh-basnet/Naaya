@@ -7,6 +7,15 @@
   "newMessage": "तपाईंलाई सन्देश पठायो",
   "storyReply": "तपाईंको स्टोरीमा जवाफ दियो",
   "markAllRead": "सबै पढिसकियो",
-  "noNotifications": "अहिलेसम्म कुनै सूचना छैन"
+  "noNotifications": "अहिलेसम्म कुनै सूचना छैन",
+  "preferencesTitle": "सूचना प्राथमिकताहरू",
+  "pushNotifications": "पुश सूचनाहरू",
+  "pushNotificationsDesc": "तपाईंको उपकरणमा सूचनाहरू प्राप्त गर्नुहोस्",
+  "emailNotifications": "इमेल सूचनाहरू",
+  "emailNotificationsDesc": "तपाईंको इनबक्समा अपडेटहरू प्राप्त गर्नुहोस्",
+  "soundEffects": "ध्वनि प्रभावहरू",
+  "soundEffectsDesc": "तपाईंले सूचनाहरू प्राप्त गर्दा ध्वनि बजाउनुहोस्",
+  "enabled": "सक्षम गरिएको",
+  "enable": "सक्षम गर्नुहोस्",
+  "loadingPreferences": "तपाईंका प्राथमिकताहरू लोड हुँदैछ..."
 }
-

@@ -28,8 +28,6 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
   const handleNavigation = (path: string) => {
     if (path === '/profile' && user) {
       navigate(`/profile/${user.username}`);
-    } else if (path === '/messages') {
-      alert('Messages feature coming soon!');
     } else {
       navigate(path);
     }
@@ -41,31 +39,50 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
 
   return (
     <div className="bottom-nav-container" role="navigation" aria-label="Main navigation">
-      <div className="nav-wrapper">
-        <nav className="bottom-nav">
-          {navItems.map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <button
-                key={item.path}
-                className={`nav-item ${currentIndex === index ? 'active' : ''}`}
-                onClick={() => handleNavigation(item.path)}
-                aria-label={t(item.labelKey)}
-              >
-                <IconComponent />
-              </button>
-            );
-          })}
-        </nav>
+      <nav className="bottom-nav">
+        {/* Left Side Items */}
+        {navItems.slice(0, 2).map((item, index) => {
+          const IconComponent = item.icon;
+          const isActive = location.pathname === item.path ||
+            (item.path === '/profile' && location.pathname.startsWith('/profile'));
+          return (
+            <button
+              key={item.path}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => handleNavigation(item.path)}
+              aria-label={t(item.labelKey)}
+            >
+              <IconComponent />
+            </button>
+          );
+        })}
+
+        {/* Center Action Button */}
         <button
-          className="add-fab"
+          className="add-fab-v2"
           aria-label="Create post"
           onClick={openModal}
-          title="Create post"
         >
-          <MdAdd size={28} />
+          <MdAdd />
         </button>
-      </div>
+
+        {/* Right Side Items */}
+        {navItems.slice(2, 4).map((item, index) => {
+          const IconComponent = item.icon;
+          const isActive = location.pathname === item.path ||
+            (item.path === '/profile' && location.pathname.startsWith('/profile'));
+          return (
+            <button
+              key={item.path}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => handleNavigation(item.path)}
+              aria-label={t(item.labelKey)}
+            >
+              <IconComponent />
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 };

@@ -8,9 +8,12 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const connectDB = require('./config/database');
 const path = require('path');
-const fs = require('fs');
+const i18next = require('./config/i18n');
+const i18nextMiddleware = require('i18next-http-middleware');
 
 const app = express();
+
+app.use(i18nextMiddleware.handle(i18next));
 
 app.set('trust proxy', 'loopback');
 
@@ -54,10 +57,10 @@ app.use(cookieParser());
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
-  message: {
-    message: 'Too many requests from this IP, please try again later.',
+  message: (req, res) => ({
+    message: req.t('errors:rateLimited'),
     code: 'RATE_LIMIT_EXCEEDED'
-  },
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -190,11 +193,14 @@ app.use('/api/feed', require('./routes/feed'));
 app.use('/api/stories', require('./routes/stories'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/conversations', require('./routes/conversations'));
 app.use('/api/password-reset', require('./routes/passwordReset'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/bookmark-collections', require('./routes/bookmarkCollections'));
+app.use('/api/blocks', require('./routes/blocks'));
+app.use('/api/privacy', require('./routes/privacy'));
 app.use('/api/welcome', require('./routes/welcome'));
 
 app.get('/', (req, res) => {
@@ -242,7 +248,7 @@ app.use((err, req, res, next) => {
 
   if (err.name === 'ValidationError') {
     return res.status(400).json({
-      message: 'Validation Error',
+      message: req.t('errors:validationFailed'),
       errors: err.errors,
       code: 'VALIDATION_ERROR'
     });
@@ -263,7 +269,7 @@ app.use((err, req, res, next) => {
   }
 
   res.status(err.status || 500).json({
-    message: err.message || 'Something went wrong!',
+    message: err.message || req.t('errors:serverError'),
     error: process.env.NODE_ENV === 'production' ? {} : err.stack,
     code: err.code || 'INTERNAL_ERROR',
     timestamp: new Date().toISOString()
@@ -283,6 +289,7 @@ app.use('*', (req, res) => {
       '/api/stories',
       '/api/reels',
       '/api/messages',
+      '/api/conversations',
       '/api/password-reset',
       '/api/notifications',
       '/api/reports',
@@ -336,10 +343,22 @@ const startServer = async () => {
       });
     });
 
+    // Track online users
+    const onlineUsers = new Map();
+
     io.on('connection', (socket) => {
       console.log(`📱 Socket connected: ${socket.id} (User: ${socket.userId})`);
 
+      // Mark user as online
+      onlineUsers.set(socket.userId, {
+        socketId: socket.id,
+        lastSeen: new Date()
+      });
+
       socket.join(`user:${socket.userId}`);
+
+      // Broadcast online status
+      socket.broadcast.emit('user_online', { userId: socket.userId });
 
       socket.on('join_room', (room) => {
         socket.join(room);
@@ -351,20 +370,58 @@ const startServer = async () => {
         console.log(`📱 Socket ${socket.id} left room: ${room}`);
       });
 
+      socket.on('join_conversation', (conversationId) => {
+        socket.join(`conversation:${conversationId}`);
+        console.log(`📱 Socket ${socket.id} joined conversation: ${conversationId}`);
+      });
+
+      socket.on('leave_conversation', (conversationId) => {
+        socket.leave(`conversation:${conversationId}`);
+        console.log(`📱 Socket ${socket.id} left conversation: ${conversationId}`);
+      });
+
       socket.on('send_message', (data) => {
         socket.to(data.room).emit('receive_message', data);
       });
 
       socket.on('typing_start', (data) => {
-        socket.to(data.room).emit('user_typing', { userId: data.userId, isTyping: true });
+        socket.to(`conversation:${data.conversationId}`).emit('user_typing', {
+          userId: socket.userId,
+          conversationId: data.conversationId,
+          isTyping: true
+        });
       });
 
       socket.on('typing_stop', (data) => {
-        socket.to(data.room).emit('user_typing', { userId: data.userId, isTyping: false });
+        socket.to(`conversation:${data.conversationId}`).emit('user_typing', {
+          userId: socket.userId,
+          conversationId: data.conversationId,
+          isTyping: false
+        });
+      });
+
+      socket.on('mark_messages_read', (data) => {
+        // Broadcast to conversation that messages were read
+        socket.to(`conversation:${data.conversationId}`).emit('messages_read', {
+          conversationId: data.conversationId,
+          userId: socket.userId,
+          messageIds: data.messageIds
+        });
       });
 
       socket.on('disconnect', (reason) => {
         console.log(`📱 Socket disconnected: ${socket.id} (Reason: ${reason})`);
+
+        // Mark user as offline after a delay to handle reconnections
+        setTimeout(() => {
+          const userSockets = Array.from(io.sockets.sockets.values())
+            .filter(s => s.userId === socket.userId);
+
+          if (userSockets.length === 0) {
+            onlineUsers.delete(socket.userId);
+            socket.broadcast.emit('user_offline', { userId: socket.userId });
+          }
+        }, 5000); // 5 second grace period
       });
 
       socket.on('connect_error', (error) => {

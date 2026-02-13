@@ -10,7 +10,22 @@
   "feed": "फिड",
   "nearby": "नजिकै",
   "following": "फलोइङ",
-  "invalidFileType": "मात्र फोटो र भिडियो अनुमति छ",
-  "fileTooLarge": "फाइल साइज सीमा नाघ्यो"
+  "invalidFileType": "केवल तस्विर र भिडियोहरू अनुमति छ",
+  "fileTooLarge": "फाइल आकार सीमा भन्दा बढी छ",
+  "postUpdated": "पोस्ट सफलतापूर्वक अपडेट गरियो",
+  "postNotFound": "पोस्ट फेला परेन",
+  "missingMediaOrContent": "मिडिया वा सामग्री मध्ये एक आवश्यक छ",
+  "invalidLocation": "अमान्य स्थान ढाँचा",
+  "invalidTags": "अमान्य ट्याग ढाँचा",
+  "fileProcessingError": "अपलोड गरिएका फाइलहरू प्रशोधन गर्दा त्रुटि",
+  "databaseError": "डाटाबेस जडान त्रुटि",
+  "postLiked": "पोस्ट मन पराइयो",
+  "postUnliked": "पोस्ट अनलाइक गरियो",
+  "postSaved": "पोस्ट सुरक्षित गरियो",
+  "postUnsaved": "पोस्ट असुरक्षित गरियो",
+  "postShared": "पोस्ट साझा गरियो",
+  "postUnshared": "पोस्ट अनसेयर गरियो",
+  "likePostError": "पोस्ट लाइक गर्दा त्रुटि",
+  "savePostError": "पोस्ट सेभ गर्दा त्रुटि",
+  "sharePostError": "पोस्ट सेयर गर्दा त्रुटि"
 }
-

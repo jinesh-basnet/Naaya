@@ -1,5 +1,8 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Message = require('../models/Message');
+const Conversation = require('../models/Conversation');
+const Block = require('../models/Block');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -9,12 +12,70 @@ const router = express.Router();
 // @access  Private
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { receiver, content, messageType = 'text', replyTo, mentions, sharedContent, storyReply } = req.body;
+    const { conversationId, content, messageType = 'text', replyTo, mentions, sharedContent, storyReply } = req.body;
     const senderId = req.user._id;
+
+    let actualConversationId = conversationId;
+    let conversation;
+
+    // Handle virtual direct conversation IDs (e.g., direct_userA_userB)
+    if (typeof conversationId === 'string' && conversationId.startsWith('direct_')) {
+      const parts = conversationId.split('_');
+      if (parts.length === 3) {
+        const userA = parts[1];
+        const userB = parts[2];
+
+        // Ensure sender is one of the users in the virtual ID
+        if (userA !== senderId.toString() && userB !== senderId.toString()) {
+          return res.status(403).json({ message: 'Unauthorized conversation ID' });
+        }
+
+        const targetUserId = userA === senderId.toString() ? userB : userA;
+        conversation = await Conversation.createDirectConversation(senderId, targetUserId);
+        actualConversationId = conversation._id;
+      }
+    }
+
+    // Verify user is participant in conversation if not already found/created
+    if (!conversation) {
+      if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+        return res.status(400).json({ message: 'Invalid conversation ID' });
+      }
+
+      conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: {
+          $elemMatch: { user: senderId, isActive: true }
+        },
+        isActive: true
+      });
+    }
+
+    if (!conversation) {
+      return res.status(403).json({
+        message: 'You are not a participant in this conversation',
+        code: 'NOT_PARTICIPANT'
+      });
+    }
+
+    // Check for blocking: prevent sending messages if sender is blocked by any participant or has blocked any participant
+    const otherParticipants = conversation.participants.filter(p =>
+      p.isActive && p.user.toString() !== senderId.toString()
+    );
+
+    for (const participant of otherParticipants) {
+      const isBlocked = await Block.areBlocked(senderId, participant.user);
+      if (isBlocked) {
+        return res.status(403).json({
+          message: 'You cannot send messages to this conversation due to blocking restrictions',
+          code: 'BLOCKING_RESTRICTION'
+        });
+      }
+    }
 
     const messageData = {
       sender: senderId,
-      receiver,
+      conversation: actualConversationId,
       content,
       messageType
     };
@@ -29,10 +90,19 @@ router.post('/', authenticateToken, async (req, res) => {
     const message = new Message(messageData);
     await message.save();
 
+    // Update conversation's last message
+    await conversation.updateLastMessage(message._id, message.createdAt);
+
     try {
       if (global.io) {
-        global.io.to(`conversation:${receiver}`).emit('receive_message', message);
-        global.io.to(`user:${receiver}`).emit('receive_message', message);
+        // Emit to conversation room
+        global.io.to(`conversation:${actualConversationId.toString()}`).emit('receive_message', message);
+        // Also emit to individual user rooms for participants
+        conversation.participants.forEach(participant => {
+          if (participant.isActive && participant.user.toString() !== senderId.toString()) {
+            global.io.to(`user:${participant.user}`).emit('receive_message', message);
+          }
+        });
       }
     } catch (err) {
       console.error('Socket emit error (send message):', err);
@@ -41,19 +111,28 @@ router.post('/', authenticateToken, async (req, res) => {
     await message.populate('sender', 'username fullName profilePicture isVerified');
 
     try {
-      await global.notificationService.createMessageNotification(
-        receiver,
-        senderId,
-        message._id,
-        content
+      // Send notifications to other participants
+      const otherParticipants = conversation.participants.filter(p =>
+        p.isActive && p.user.toString() !== senderId.toString()
       );
+
+      for (const participant of otherParticipants) {
+        await global.notificationService.createMessageNotification(
+          participant.user,
+          senderId,
+          message._id,
+          content,
+          actualConversationId
+        );
+      }
     } catch (error) {
-      console.error('Error creating message notification:', error);
+      console.error('Error creating message notifications:', error);
     }
 
     res.status(201).json({
       message: 'Message sent successfully',
-      messageData: message
+      messageData: message,
+      conversationId: actualConversationId
     });
 
   } catch (error) {
@@ -75,125 +154,95 @@ router.get('/conversations', authenticateToken, async (req, res) => {
     const skip = (page - 1) * limit;
     const userId = req.user._id;
 
-    const conversations = await Message.aggregate([
-      {
-        $match: {
-          $or: [{ sender: userId }, { receiver: userId }],
-          isDeleted: { $ne: true }
+    const Conversation = require('../models/Conversation');
+    const conversations = await Conversation.find({
+      participants: {
+        $elemMatch: { user: userId, isActive: true }
+      },
+      isActive: true
+    })
+      .populate('participants.user', 'username fullName profilePicture isVerified lastActive')
+      .populate({
+        path: 'lastMessage',
+        populate: {
+          path: 'sender',
+          select: 'username fullName'
         }
-      },
-      {
-        $addFields: {
-          conversationId: {
-            $cond: {
-              if: { $lt: ["$sender", "$receiver"] },
-              then: { $concat: [{ $toString: "$sender" }, "_", { $toString: "$receiver" }] },
-              else: { $concat: [{ $toString: "$receiver" }, "_", { $toString: "$sender" }] }
-            }
-          },
-          partnerId: {
-            $cond: {
-              if: { $eq: ["$sender", userId] },
-              then: "$receiver",
-              else: "$sender"
-            }
-          }
-        }
-      },
-      {
-        $sort: { createdAt: -1 }
-      },
-      {
-        $group: {
-          _id: "$conversationId",
-          latestMessage: { $first: "$$ROOT" },
-          partnerId: { $first: "$partnerId" },
-          unreadCount: {
-            $sum: {
-              $cond: [
-                { $and: [{ $eq: ["$receiver", userId] }, { $eq: ["$isRead", false] }] },
-                1,
-                0
-              ]
-            }
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "partnerId",
-          foreignField: "_id",
-          as: "partner"
-        }
-      },
-      {
-        $unwind: "$partner"
-      },
-      {
-        $project: {
-          _id: 0,
-          partner: {
-            _id: 1,
-            username: 1,
-            fullName: 1,
-            profilePicture: 1,
-            isVerified: 1,
-            lastActive: 1
-          },
-          latestMessage: {
-            _id: 1,
-            content: { $substr: ["$latestMessage.content", 0, 100] },
-            messageType: 1,
-            createdAt: 1,
-            isRead: 1
-          },
-          unreadCount: 1
-        }
-      },
-      {
-        $sort: { "latestMessage.createdAt": -1 }
-      },
-      {
-        $skip: skip
-      },
-      {
-        $limit: limit
-      }
-    ]);
+      })
+      .sort({ lastMessageAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    const totalAgg = await Message.aggregate([
-      {
-        $match: {
-          $or: [{ sender: userId }, { receiver: userId }],
-          isDeleted: { $ne: true }
-        }
-      },
-      {
-        $addFields: {
-          conversationId: {
-            $cond: {
-              if: { $lt: ["$sender", "$receiver"] },
-              then: { $concat: [{ $toString: "$sender" }, "_", { $toString: "$receiver" }] },
-              else: { $concat: [{ $toString: "$receiver" }, "_", { $toString: "$sender" }] }
-            }
-          }
-        }
-      },
-      {
-        $group: {
-          _id: "$conversationId"
-        }
-      },
-      {
-        $count: "total"
-      }
-    ]);
+    // Get blocked user IDs for filtering conversations
+    const blockedUserIds = await Block.getBlockedUserIds(userId);
+    const blockerUserIds = await Block.getBlockerUserIds(userId);
+    const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])];
 
-    const totalCount = totalAgg.length > 0 ? totalAgg[0].total : 0;
+    // Calculate unread counts for each conversation
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conv) => {
+        const unreadCount = await Message.countDocuments({
+          conversation: conv._id,
+          sender: { $ne: userId },
+          isRead: false,
+          seenBy: { $ne: userId }
+        });
+
+        // Format for backward compatibility with old aggregation structure
+        if (conv.type === 'direct') {
+          const otherParticipant = conv.participants.find(p =>
+            p.user._id.toString() !== userId.toString()
+          );
+
+          // Filter out direct conversations with blocked users
+          if (otherParticipant && allBlockedIds.includes(otherParticipant.user._id.toString())) {
+            return null; // Skip this conversation
+          }
+
+          return {
+            partner: otherParticipant ? otherParticipant.user : null,
+            latestMessage: conv.lastMessage ? {
+              _id: conv.lastMessage._id,
+              content: conv.lastMessage.content ? conv.lastMessage.content.substring(0, 100) : '',
+              messageType: conv.lastMessage.messageType,
+              createdAt: conv.lastMessage.createdAt,
+              isRead: conv.lastMessage.isRead
+            } : null,
+            unreadCount
+          };
+        } else {
+          // For group chats, we might want to filter based on group participants, but for now keep them
+          return {
+            _id: conv._id,
+            type: 'group',
+            name: conv.name,
+            avatar: conv.avatar,
+            participants: conv.participants,
+            latestMessage: conv.lastMessage ? {
+              _id: conv.lastMessage._id,
+              content: conv.lastMessage.content ? conv.lastMessage.content.substring(0, 100) : '',
+              messageType: conv.lastMessage.messageType,
+              createdAt: conv.lastMessage.createdAt,
+              isRead: conv.lastMessage.isRead
+            } : null,
+            unreadCount
+          };
+        }
+      })
+    );
+
+    // Filter out null conversations (blocked direct chats)
+    const filteredConversations = conversationsWithUnread.filter(conv => conv !== null);
+
+    const totalCount = await Conversation.countDocuments({
+      participants: {
+        $elemMatch: { user: userId, isActive: true }
+      },
+      isActive: true
+    });
 
     res.json({
-      conversations,
+      conversations: filteredConversations,
       total: totalCount,
       page,
       limit,
@@ -209,8 +258,137 @@ router.get('/conversations', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   GET /api/messages/conversation/:conversationId
+// @desc    Get messages in a conversation
+// @access  Private
+router.get('/conversation/:conversationId', authenticateToken, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    // Handle virtual IDs or invalid IDs
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      if (typeof conversationId === 'string' && conversationId.startsWith('direct_')) {
+        // Find the actual conversation for this virtual ID
+        const parts = conversationId.split('_');
+        if (parts.length === 3) {
+          const userA = parts[1];
+          const userB = parts[2];
+          const conv = await Conversation.findDirectConversation(userA, userB);
+          if (conv) {
+            // Continue with actual ID
+            const messages = await Message.find({ conversation: conv._id, isDeleted: { $ne: true } })
+              .populate('sender', 'username fullName profilePicture isVerified')
+              .populate('replyTo', 'content sender')
+              .populate('reactions.user', 'username fullName profilePicture')
+              .sort({ createdAt: -1 }).skip(skip).limit(limit);
+            return res.json({ messages });
+          } else {
+            // No conversation exists yet for this virtual ID, return empty array
+            return res.json({ messages: [] });
+          }
+        }
+      }
+      return res.status(400).json({ message: 'Invalid conversation ID' });
+    }
+
+    // Verify user is participant in conversation
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: {
+        $elemMatch: { user: userId, isActive: true }
+      },
+      isActive: true
+    });
+
+    if (!conversation) {
+      return res.status(403).json({
+        message: 'You are not a participant in this conversation',
+        code: 'NOT_PARTICIPANT'
+      });
+    }
+
+    // Get blocked user IDs for filtering messages
+    const blockedUserIds = await Block.getBlockedUserIds(userId);
+    const blockerUserIds = await Block.getBlockerUserIds(userId);
+    const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])];
+
+    const messages = await Message.find({
+      conversation: conversationId,
+      isDeleted: { $ne: true },
+      sender: { $nin: allBlockedIds }
+    })
+      .populate('sender', 'username fullName profilePicture isVerified')
+      .populate('replyTo', 'content sender')
+      .populate('reactions.user', 'username fullName profilePicture')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Find unread messages from others
+    const unreadMessages = await Message.find({
+      conversation: conversationId,
+      sender: { $ne: userId },
+      isRead: false
+    });
+
+    if (unreadMessages.length > 0) {
+      // Mark messages as read for current user
+      await Message.updateMany(
+        { _id: { $in: unreadMessages.map(m => m._id) } },
+        { isRead: true, readAt: new Date(), $addToSet: { seenBy: userId } }
+      );
+
+      // Emit socket events
+      try {
+        if (global.io) {
+          unreadMessages.forEach(msg => {
+            // Emit to sender's personal room and conversation room (if needed)
+            // Ideally avoid broadcasting to everyone if not necessary, but here we notify sender
+            global.io.to(`user:${msg.sender}`).emit('message_read', {
+              messageId: msg._id,
+              conversationId: msg.conversation,
+              userId
+            });
+            global.io.to(`conversation:${conversationId}`).emit('messages_read', {
+              conversationId,
+              userId,
+              messageIds: [msg._id]
+            });
+          });
+        }
+      } catch (err) {
+        console.error('Socket emit error (mark messages read):', err);
+      }
+    }
+
+    const totalCount = await Message.countDocuments({
+      conversation: conversationId,
+      isDeleted: { $ne: true }
+    });
+
+    res.json({
+      messages: messages.reverse(),
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
+    });
+
+  } catch (error) {
+    console.error('Get conversation messages error:', error);
+    res.status(500).json({
+      message: 'Server error fetching messages',
+      code: 'GET_MESSAGES_ERROR'
+    });
+  }
+});
+
 // @route   GET /api/messages/:userId
-// @desc    Get messages between current user and another user
+// @desc    Get messages between current user and another user (backward compatibility)
 // @access  Private
 router.get('/:userId', authenticateToken, async (req, res) => {
   try {
@@ -220,41 +398,83 @@ router.get('/:userId', authenticateToken, async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
 
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        message: 'Invalid user ID',
+        code: 'INVALID_USER_ID'
+      });
+    }
+
+    // Try to find existing direct conversation
+    const Conversation = require('../models/Conversation');
+    let conversation = await Conversation.findDirectConversation(currentUserId, userId);
+
+    if (!conversation) {
+      // Create conversation if it doesn't exist
+      conversation = await Conversation.createDirectConversation(currentUserId, userId);
+    }
+
+    // Get blocked user IDs for filtering messages
+    const blockedUserIds = await Block.getBlockedUserIds(currentUserId);
+    const blockerUserIds = await Block.getBlockerUserIds(currentUserId);
+    const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])];
+
+    // Get messages from the conversation
     const messages = await Message.find({
-      $or: [
-        { sender: currentUserId, receiver: userId },
-        { sender: userId, receiver: currentUserId }
-      ],
-      isDeleted: { $ne: true }
+      conversation: conversation._id,
+      isDeleted: { $ne: true },
+      sender: { $nin: allBlockedIds }
     })
-    .populate('sender', 'username fullName profilePicture isVerified')
-    .populate('receiver', 'username fullName profilePicture isVerified')
-    .populate('replyTo', 'content sender')
-    .populate('reactions.user', 'username fullName profilePicture')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+      .populate('sender', 'username fullName profilePicture isVerified')
+      .populate('replyTo', 'content sender')
+      .populate('reactions.user', 'username fullName profilePicture')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    await Message.updateMany(
-      { sender: userId, receiver: currentUserId, isRead: false },
-      { isRead: true, readAt: new Date() }
-    );
+    // Check for unread messages
+    const unreadMessages = await Message.find({
+      conversation: conversation._id,
+      sender: { $ne: currentUserId },
+      isRead: false
+    });
 
-    await Message.updateMany(
-      { sender: userId, receiver: currentUserId, isDelivered: false },
-      { isDelivered: true, deliveredAt: new Date() }
-    );
+    if (unreadMessages.length > 0) {
+      // Mark messages as read for current user
+      await Message.updateMany(
+        { _id: { $in: unreadMessages.map(m => m._id) } },
+        { isRead: true, readAt: new Date(), $addToSet: { seenBy: currentUserId } }
+      );
+
+      // Emit socket events
+      try {
+        if (global.io) {
+          unreadMessages.forEach(msg => {
+            global.io.to(`user:${msg.sender}`).emit('message_read', {
+              messageId: msg._id,
+              conversationId: msg.conversation,
+              userId: currentUserId
+            });
+            global.io.to(`conversation:${conversation._id}`).emit('messages_read', {
+              conversationId: conversation._id,
+              userId: currentUserId,
+              messageIds: [msg._id]
+            });
+          });
+        }
+      } catch (err) {
+        console.error('Socket emit error (mark messages read):', err);
+      }
+    }
 
     const totalCount = await Message.countDocuments({
-      $or: [
-        { sender: currentUserId, receiver: userId },
-        { sender: userId, receiver: currentUserId }
-      ],
+      conversation: conversation._id,
       isDeleted: { $ne: true }
     });
 
     res.json({
-      messages: messages.reverse(), 
+      messages: messages.reverse(),
       total: totalCount,
       page,
       limit,
@@ -286,9 +506,15 @@ router.put('/:messageId/read', authenticateToken, async (req, res) => {
       });
     }
 
-    if (message.receiver.toString() !== userId.toString()) {
+    // Check if user is participant in the conversation
+    await message.populate('conversation');
+    const isParticipant = message.conversation.participants.some(p =>
+      p.user.toString() === userId.toString() && p.isActive
+    );
+
+    if (!isParticipant) {
       return res.status(403).json({
-        message: 'You can only mark your own messages as read',
+        message: 'You can only mark messages as read in your conversations',
         code: 'MARK_READ_PERMISSION_DENIED'
       });
     }
@@ -341,7 +567,7 @@ router.post('/:messageId/reaction', authenticateToken, async (req, res) => {
       });
     }
 
-    const message = await Message.findById(messageId);
+    const message = await Message.findById(messageId).populate('conversation');
     if (!message) {
       return res.status(404).json({
         message: 'Message not found',
@@ -349,7 +575,12 @@ router.post('/:messageId/reaction', authenticateToken, async (req, res) => {
       });
     }
 
-    if (message.sender.toString() !== userId.toString() && message.receiver.toString() !== userId.toString()) {
+    // Check if user is participant in the conversation
+    const isParticipant = message.conversation.participants.some(p =>
+      p.user.toString() === userId.toString() && p.isActive
+    );
+
+    if (!isParticipant) {
       return res.status(403).json({
         message: 'You can only react to messages in your conversations',
         code: 'REACTION_PERMISSION_DENIED'
@@ -367,9 +598,13 @@ router.post('/:messageId/reaction', authenticateToken, async (req, res) => {
 
     try {
       if (global.io) {
-        global.io.to(`conversation:${message.receiver}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
-        global.io.to(`conversation:${message.sender}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
-        global.io.to(`user:${message.receiver}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
+        // Emit to conversation room and participant user rooms
+        global.io.to(`conversation:${message.conversation._id}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
+        message.conversation.participants.forEach(participant => {
+          if (participant.isActive) {
+            global.io.to(`user:${participant.user}`).emit('reaction_added', { messageId: message._id, reaction: message.reactions });
+          }
+        });
       }
     } catch (err) {
       console.error('Socket emit error (reaction added):', err);
@@ -590,15 +825,33 @@ router.post('/:messageId/forward', authenticateToken, async (req, res) => {
       });
     }
 
-    if (originalMessage.sender.toString() !== userId.toString() && originalMessage.receiver.toString() !== userId.toString()) {
+    // Verify user is participant in the original conversation
+    const Conversation = require('../models/Conversation');
+    const originalConversation = await Conversation.findOne({
+      _id: originalMessage.conversation,
+      participants: { $elemMatch: { user: userId, isActive: true } }
+    });
+
+    if (!originalConversation) {
       return res.status(403).json({
         message: 'You can only forward messages from your conversations',
         code: 'FORWARD_PERMISSION_DENIED'
       });
     }
 
+    // Find or create target conversation with receiver
+    let targetConversation = await Conversation.findDirectConversation(userId, receiverId);
+    if (!targetConversation) {
+      targetConversation = await Conversation.createDirectConversation(userId, receiverId);
+    }
+
+    // Create forwarded message
     const forwardedMessage = originalMessage.forwardMessage(receiverId, userId);
+    forwardedMessage.conversation = targetConversation._id;
     await forwardedMessage.save();
+
+    // Update target conversation
+    await targetConversation.updateLastMessage(forwardedMessage._id, forwardedMessage.createdAt);
 
     await forwardedMessage.populate('sender', 'username fullName profilePicture isVerified');
     await forwardedMessage.populate('receiver', 'username fullName profilePicture isVerified');
@@ -626,8 +879,6 @@ router.post('/:messageId/forward', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router;
-
 // @route   PUT /api/messages/:messageId/seen
 // @desc    Add current user to seenBy for the message (idempotent)
 // @access  Private
@@ -636,7 +887,7 @@ router.put('/:messageId/seen', authenticateToken, async (req, res) => {
     const { messageId } = req.params;
     const userId = req.user._id;
 
-    const message = await Message.findById(messageId);
+    const message = await Message.findById(messageId).populate('conversation');
     if (!message) {
       return res.status(404).json({
         message: 'Message not found',
@@ -644,10 +895,22 @@ router.put('/:messageId/seen', authenticateToken, async (req, res) => {
       });
     }
 
+    // Check if user is participant in the conversation
+    const isParticipant = message.conversation.participants.some(p =>
+      p.user.toString() === userId.toString() && p.isActive
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        message: 'You can only mark messages as seen in your conversations',
+        code: 'SEEN_PERMISSION_DENIED'
+      });
+    }
+
     message.seenBy = message.seenBy || [];
     if (!message.seenBy.find(id => id.toString() === userId.toString())) {
       message.seenBy.push(userId);
-      if (message.receiver && message.receiver.toString() === userId.toString() && !message.isRead) {
+      if (!message.isRead) {
         message.isRead = true;
         message.readAt = new Date();
       }
@@ -667,3 +930,5 @@ router.put('/:messageId/seen', authenticateToken, async (req, res) => {
     });
   }
 });
+
+module.exports = router;

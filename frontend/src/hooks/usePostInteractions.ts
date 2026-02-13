@@ -151,14 +151,36 @@ export const usePostInteractions = (locationData: any, refetch: () => void) => {
     }
   };
 
+  const handleShare = async (postId: string) => {
+    try {
+      const shareUrl = `${window.location.origin}/post/${postId}`;
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link copied to clipboard!');
+
+      await postsAPI.sharePost(postId);
+      refetch();
+    } catch (error) {
+      console.error('Share error:', error);
+      toast.error('Failed to share');
+    }
+  };
+
   const handleDoubleTap = (postId: string, filteredPosts: Post[], isReel?: boolean) => {
     const isLiked = (filteredPosts.find((p: Post) => p._id === postId)?.likes || []).some((like: { user: string }) => like.user === user?._id) ?? false;
     if (!isLiked) {
       handleLike(postId, isReel);
     }
     setHeartBurst(prev => ({ ...prev, [postId]: true }));
-    setTimeout(() => setHeartBurst(prev => ({ ...prev, [postId]: false })), 500);
+    setTimeout(() => setHeartBurst(prev => ({ ...prev, [postId]: false })), 800);
   };
 
-  return { heartBurst, expandedCaptions, setExpandedCaptions, handleLike, handleSave, handleDoubleTap };
+  return {
+    heartBurst,
+    expandedCaptions,
+    setExpandedCaptions,
+    handleLike,
+    handleSave,
+    handleShare,
+    handleDoubleTap
+  };
 };

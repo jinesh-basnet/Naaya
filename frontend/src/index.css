@@ -1,36 +1,77 @@
 :root {
-  --primary-main: #D32F2F; 
-  --primary-light: #FF7043;
-  --primary-dark: #B71C1C;
-  --secondary-main: #1976D2; 
-  --secondary-light: #64B5F6;
-  --secondary-dark: #0D47A1;
-  --background-default: #FAFAFA;
-  --background-paper: #FFFFFF;
-  --text-primary: #212121;
-  --text-secondary: #757575;
-  --border-radius: 12px;
+  --primary-main: #6366f1;
+  /* Indigo */
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --secondary-main: #ec4899;
+  /* Pink/Rose */
+  --secondary-light: #f472b6;
+  --secondary-dark: #db2777;
+  --accent-main: #8b5cf6;
+  /* Violet */
+  --accent-light: #a78bfa;
+  --accent-dark: #7c3aed;
+
+  --background-default: #f8fafc;
+  --background-paper: #ffffff;
+  --background-elevated: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border-color: rgba(0, 0, 0, 0.05);
+  --border-radius: 24px;
+  --border-radius-sm: 12px;
+  --border-radius-lg: 32px;
+
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-blur: blur(12px) saturate(180%);
+
+  --mesh-gradient: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(99, 102, 241, 0.15) 0, transparent 50%);
 }
 
 [data-theme="dark"] {
-  --background-default: #121212;
-  --background-paper: #1e1e1e;
-  --text-primary: #ffffff;
-  --text-secondary: #cccccc;
+  --background-default: #020617;
+  --background-paper: #0f172a;
+  --background-elevated: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+
+  --mesh-gradient: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(99, 102, 241, 0.1) 0, transparent 50%);
 }
 
 body {
   margin: 0;
-  font-family: 'Noto Sans Devanagari', 'Mukta', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  font-family: 'Inter', 'Outfit', 'Noto Sans Devanagari', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-default);
+  background-image: var(--mesh-gradient);
+  background-attachment: fixed;
   color: var(--text-primary);
+  line-height: 1.6;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
 * {
@@ -40,10 +81,42 @@ code {
 button {
   text-transform: none;
   font-weight: 600;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-sm);
+  transition: var(--transition-normal);
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
 }
 
 .card {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }

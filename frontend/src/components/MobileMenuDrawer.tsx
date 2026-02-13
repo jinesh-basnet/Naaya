@@ -4,22 +4,25 @@ import { useTranslation } from 'react-i18next';
 import { getNepaliDate } from '../utils/nepaliDateUtils';
 import { FaSearch, FaSignOutAlt, FaPlus } from 'react-icons/fa';
 import { MdClose } from 'react-icons/md';
+import Avatar from './Avatar';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getNavItems, userNavItems } from '../utils/navItems';
+import { useCreatePost } from '../contexts/CreatePostContext';
 import api from '../services/api';
+import logo from '../assets/logo.png';
 import './MobileMenuDrawer.css';
 
 interface MobileMenuDrawerProps {
   open: boolean;
   onClose: () => void;
   isMobile: boolean;
-  openCreatePostModal: () => void;
 }
 
-const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMobile, openCreatePostModal }) => {
+const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMobile }) => {
   const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
+  const { openModal } = useCreatePost();
 
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,7 +47,7 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
     const fetchUnreadCounts = async () => {
       try {
         const notifRes = await api.get('/notifications/unread-count');
-        const msgRes = await api.get('/messages/unread-count'); 
+        const msgRes = await api.get('/messages/unread-count');
         if (isMounted) {
           setUnreadNotifications(notifRes.data.unreadCount || 0);
           setUnreadMessages(msgRes.data.unreadCount || 0);
@@ -108,6 +111,10 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
             <div className="drawer-header">
+              <div className="drawer-brand" onClick={() => { navigate('/home'); onClose(); }}>
+                <img src={logo} alt="Naaya" className="drawer-logo" />
+                <span className="drawer-brand-name">नाया</span>
+              </div>
               <button className="close-btn" onClick={onClose}>
                 <MdClose />
               </button>
@@ -161,7 +168,7 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
                 <button
                   className="link-btn create-btn"
                   onClick={() => {
-                    openCreatePostModal();
+                    openModal();
                     onClose();
                   }}
                 >
@@ -173,11 +180,13 @@ const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({ open, onClose, isMo
               <hr className="divider" />
 
               <div className="user-section">
-                {user?.profilePicture ? (
-                  <img src={user.profilePicture} alt="avatar" className="user-avatar" />
-                ) : (
-                  <div className="user-avatar fallback">{user?.fullName?.charAt(0)}</div>
-                )}
+                <Avatar
+                  src={user?.profilePicture}
+                  alt={user?.fullName || 'User'}
+                  name={user?.fullName}
+                  size={60}
+                  className="user-avatar"
+                />
                 <div className="user-info">
                   <p>{user?.fullName}</p>
                   <p>@{user?.username}</p>

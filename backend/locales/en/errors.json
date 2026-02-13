@@ -4,6 +4,7 @@
   "notFound": "Resource not found",
   "unauthorized": "Unauthorized",
   "forbidden": "Forbidden",
-  "rateLimited": "Too many requests, please try again later"
+  "rateLimited": "Too many requests, please try again later",
+  "authError": "Authentication error",
+  "authorizationError": "Authorization error"
 }
-

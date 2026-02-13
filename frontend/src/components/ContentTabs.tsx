@@ -1,8 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import PostCard from './PostCard';
-import { usePostInteractions } from '../hooks/usePostInteractions';
-import { formatTimeAgo } from '../utils';
+import React, { useEffect, useRef } from 'react';
+import { FaHeart, FaComment } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
+import { BsGrid3X3, BsFilm, BsBookmark, BsPlayFill, BsImages } from 'react-icons/bs';
 
 interface Post {
   _id: string;
@@ -24,6 +23,7 @@ interface Post {
   location: {
     city: string;
     district: string;
+    province: string;
   };
   language: string;
   likes: Array<{ user: string }>;
@@ -69,6 +69,7 @@ interface ContentTabsProps {
   videoErrors: Record<string, boolean>;
   setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   isCurrentUser: boolean;
+  onPostClick?: (postId: string) => void;
 }
 
 const ContentTabs: React.FC<ContentTabsProps> = ({
@@ -94,12 +95,18 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
   videoErrors,
   setVideoErrors,
   isCurrentUser,
+  onPostClick,
 }) => {
   const { user } = useAuth();
-  const { handleLike, handleSave, handleDoubleTap } = usePostInteractions(null, () => {});
-  const [heartBurst, setHeartBurst] = useState<{ [key: string]: boolean }>({});
-  const [expandedCaptions, setExpandedCaptions] = useState<{ [key: string]: boolean }>({});
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const BACKEND_BASE_URL = 'http://localhost:5000';
+
+  const getMediaUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    const normalizedUrl = url.replace(/\\/g, '/').replace(/^\/?/, '/');
+    return `${BACKEND_BASE_URL}${normalizedUrl}`;
+  };
 
   useEffect(() => {
     const sentinel = loadMoreRef.current;
@@ -121,45 +128,85 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
           }
         });
       },
-      { root: null, rootMargin: '1000px', threshold: 0.1 }
+      { root: null, rootMargin: '500px', threshold: 0.1 }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [activeTab, hasNextPosts, isFetchingNextPosts, hasNextReels, isFetchingNextReels, fetchNextPosts, fetchNextReels]);
 
-  const renderContent = (data: Post[], loading: boolean, error: any, isReel: boolean = false) => {
+  const renderContent = (data: Post[], loading: boolean, error: any, isReelTab: boolean = false) => {
     if (loading) {
-      return <div className="loading-spinner">Loading...</div>;
+      return <div className="loading-spinner"></div>;
     }
     if (error) {
       return <div className="error-alert">Failed to load content.</div>;
     }
     if (!data || data.length === 0) {
-      return <div className="no-posts-message">No content available.</div>;
+      return (
+        <div className="no-posts">
+          <div className="no-posts-icon">
+            {isReelTab ? <BsFilm /> : <BsGrid3X3 />}
+          </div>
+          <h3>{isReelTab ? 'No Reels Yet' : 'No Posts Yet'}</h3>
+          <p>When {isCurrentUser ? 'you share' : 'this user shares'} {isReelTab ? 'reels' : 'posts'}, they will appear here.</p>
+        </div>
+      );
     }
+
     return (
       <div className="posts-grid">
-        {data.map((post, index) => (
-          <PostCard
-            key={post._id}
-            post={{ ...post, isReel }}
-            index={index}
-            handleLike={handleLike}
-            handleSave={handleSave}
-            handleShare={() => {}}
-            handleDoubleTap={(postId, filteredPosts, isReelFlag) => {
-              handleDoubleTap(postId, filteredPosts, isReelFlag);
-              setHeartBurst(prev => ({ ...prev, [postId]: true }));
-              setTimeout(() => setHeartBurst(prev => ({ ...prev, [postId]: false })), 500);
-            }}
-            heartBurst={heartBurst}
-            expandedCaptions={expandedCaptions}
-            setExpandedCaptions={setExpandedCaptions}
-            formatTimeAgo={formatTimeAgo}
-            filteredPosts={data}
-          />
-        ))}
+        {data.map((post, index) => {
+          const isReel = isReelTab || post.isReel || post.postType === 'reel';
+          const mediaItem = post.media && post.media.length > 0 ? post.media[0] : null;
+
+          if (!mediaItem) return null;
+
+          const mediaUrl = getMediaUrl(mediaItem.url);
+          const isVideo = mediaItem.type === 'video' || isReel;
+
+          return (
+            <div
+              key={post._id}
+              className={`profile-post-card ${isReel ? 'reel-card' : 'standard-card'}`}
+              onClick={() => onPostClick && onPostClick(post._id)}
+              style={{ animationDelay: `${index % 12 * 0.05}s` }}
+            >
+              <div className="media-wrapper">
+                {isVideo ? (
+                  <video
+                    src={mediaUrl}
+                    muted
+                    playsInline
+                    className="post-media"
+                    onMouseOver={e => e.currentTarget.play()}
+                    onMouseOut={e => {
+                      e.currentTarget.pause();
+                      e.currentTarget.currentTime = 0;
+                    }}
+                  />
+                ) : (
+                  <img src={mediaUrl} alt="Post" className="post-media" loading="lazy" />
+                )}
+
+                <div className="card-overlay">
+                  <div className="overlay-content">
+                    <div className="overlay-stat">
+                      <FaHeart /> <span>{post.likesCount || 0}</span>
+                    </div>
+                    <div className="overlay-stat">
+                      <FaComment /> <span>{post.commentsCount || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="item-badge">
+                  {isReel ? <BsFilm /> : (post.media.length > 1 ? <BsImages /> : null)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -170,7 +217,7 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
       return (
         <>
           {renderContent(postsArr, postsLoading, postsError, false)}
-              {hasNextPosts && <div ref={loadMoreRef} style={{ height: 1, width: '100%' }} aria-hidden />}
+          {hasNextPosts && <div ref={loadMoreRef} style={{ height: 20, width: '100%' }} />}
         </>
       );
     case 'reels':
@@ -178,7 +225,7 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
       return (
         <>
           {renderContent(reelsArr, reelsLoading, reelsError, true)}
-          {hasNextReels && <div ref={loadMoreRef} style={{ height: 1, width: '100%' }} aria-hidden />}
+          {hasNextReels && <div ref={loadMoreRef} style={{ height: 20, width: '100%' }} />}
         </>
       );
     case 'bookmarks':
@@ -190,7 +237,7 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
         const bSave = b.saves?.find((save: any) => save.user === user?._id);
         const aDate = aSave ? new Date(aSave.savedAt).getTime() : 0;
         const bDate = bSave ? new Date(bSave.savedAt).getTime() : 0;
-        return bDate - aDate; 
+        return bDate - aDate;
       });
 
       return renderContent(combinedSaved, bookmarksLoading || savedReelsLoading, bookmarksError || savedReelsError, false);

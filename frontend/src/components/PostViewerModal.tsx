@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import PostCommentsModal from './PostCommentsModal';
+import Avatar from './Avatar';
 
 
 
@@ -18,6 +19,13 @@ interface PostViewerModalProps {
 }
 
 const BACKEND_BASE_URL = 'http://localhost:5000';
+
+const getMediaUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  const normalizedUrl = url.replace(/\\/g, '/').replace(/^\/?/, '/');
+  return `${BACKEND_BASE_URL}${normalizedUrl}`;
+};
 
 const PostViewerModal: React.FC<PostViewerModalProps> = ({
   isOpen,
@@ -154,26 +162,20 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
 
                 return (
                   <div
-                    className="post-viewer-card"
+                    className={`post-viewer-card ${currentPost.postType === 'reel' ? 'reel-viewer-mode' : ''}`}
                     onDoubleClick={() => handleDoubleTap(currentPost._id)}
                   >
                     <div className="card-content">
                       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
                         {currentPost.author && (
                           <>
-                            <img
+                            <Avatar
                               src={currentPost.author.profilePicture}
                               alt={currentPost.author.username}
+                              name={typeof currentPost.author.fullName === 'string' ? currentPost.author.fullName : ''}
                               className="avatar"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
+                              size={32}
                             />
-                            <div className="avatar-fallback" style={{ display: 'none', width: 32, height: 32, border: '1px solid #e0e0e0', borderRadius: '50%', alignItems: 'center', justifyContent: 'center', background: '#f0f0f0', fontSize: 14, fontWeight: 'bold' }}>
-                              {typeof currentPost.author.fullName === 'string' ? currentPost.author.fullName.charAt(0) : 'U'}
-                            </div>
                             <div className="author-box">
                               <div className="name-box">
                                 <span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>
@@ -263,15 +265,17 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                               >
                                 {media.type === 'image' ? (
                                   <img
-                                    src={fullUrl}
+                                    src={getMediaUrl(media.url)}
                                     alt="Post content"
                                     className="media-img"
                                   />
                                 ) : (
                                   <video
-                                    src={fullUrl}
+                                    src={getMediaUrl(media.url)}
                                     controls
+                                    autoPlay={currentPost.postType === 'reel'}
                                     muted
+                                    loop={currentPost.postType === 'reel'}
                                     playsInline
                                     className="media-video"
                                     onError={(e) => {

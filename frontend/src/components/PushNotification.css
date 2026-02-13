@@ -1,0 +1,222 @@
+.push-notification {
+  position: relative;
+  display: inline-block;
+}
+
+.notification-toggle {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.notification-toggle:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.notification-settings {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 300px;
+  margin-top: 8px;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.settings-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.close-settings {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.close-settings:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.settings-content {
+  padding: 20px;
+}
+
+.permission-section {
+  text-align: center;
+}
+
+.permission-section p {
+  margin: 0 0 16px 0;
+  color: #495057;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.permission-section small {
+  display: block;
+  color: #6c757d;
+  font-size: 12px;
+  margin-top: 8px;
+  line-height: 1.3;
+}
+
+.enable-notifications-btn,
+.subscribe-btn,
+.unsubscribe-btn,
+.test-notification-btn {
+  padding: 10px 20px;
+  border: 1px solid #007bff;
+  border-radius: 6px;
+  background: #007bff;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 4px;
+}
+
+.enable-notifications-btn:hover,
+.subscribe-btn:hover,
+.test-notification-btn:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.unsubscribe-btn {
+  background: #dc3545;
+  border-color: #dc3545;
+}
+
+.unsubscribe-btn:hover {
+  background: #c82333;
+  border-color: #bd2130;
+}
+
+.subscription-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.status-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.status-indicator.active {
+  background: #28a745;
+  color: white;
+}
+
+.status-indicator.inactive {
+  background: #6c757d;
+  color: white;
+}
+
+.subscription-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .notification-toggle:hover {
+    background: #4a5568;
+  }
+
+  .notification-settings {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .settings-header {
+    background: #4a5568;
+    border-color: #718096;
+  }
+
+  .settings-header h4 {
+    color: #e2e8f0;
+  }
+
+  .close-settings:hover {
+    background: #718096;
+  }
+
+  .permission-section p {
+    color: #e2e8f0;
+  }
+
+  .permission-section small {
+    color: #a0aec0;
+  }
+
+  .subscription-status {
+    color: #e2e8f0;
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .notification-settings {
+    min-width: 280px;
+    right: -20px;
+  }
+
+  .settings-content {
+    padding: 16px;
+  }
+
+  .subscription-actions {
+    flex-direction: column;
+  }
+
+  .enable-notifications-btn,
+  .subscribe-btn,
+  .unsubscribe-btn,
+  .test-notification-btn {
+    width: 100%;
+    margin: 2px 0;
+  }
+}

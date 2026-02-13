@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { api } from '../services/api';
 import { pushNotificationService } from '../services/pushNotificationService';
 
@@ -28,6 +28,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
+  refetchUser: () => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
 }
@@ -61,11 +62,11 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const getStoredToken = React.useCallback(() => {
+  const getStoredToken = useCallback(() => {
     return localStorage.getItem('token');
   }, []);
 
-  const setStoredToken = React.useCallback((token: string | null) => {
+  const setStoredToken = useCallback((token: string | null) => {
     if (token && token.length > 0) {
       localStorage.setItem('token', token);
     } else {
@@ -161,12 +162,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
   };
 
+  const refetchUser = async () => {
+    const storedToken = getStoredToken();
+    if (storedToken) {
+      try {
+        const response = await api.get('/auth/me');
+        setUser(response.data.user);
+      } catch (error) {
+        console.error('Failed to refetch user:', error);
+      }
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
     login,
     register,
     logout,
+    refetchUser,
     loading,
     isAuthenticated: !!user && !!token,
   };

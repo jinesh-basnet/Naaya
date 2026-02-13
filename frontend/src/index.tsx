@@ -21,3 +21,7 @@ root.render(
 
 
 reportWebVitals();
+
+// Service Worker registration is handled in PushNotificationService via AuthContext
+
+

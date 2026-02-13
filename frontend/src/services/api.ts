@@ -59,16 +59,16 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (identifier: string, password: string) =>
     api.post('/auth/login', { identifier, password }),
-  
+
   register: (userData: any) =>
     api.post('/auth/register', userData),
-  
+
   getMe: () =>
     api.get('/auth/me'),
-  
+
   refreshToken: () =>
     api.post('/auth/refresh'),
-  
+
   logout: () =>
     api.post('/auth/logout'),
 };
@@ -86,18 +86,24 @@ export const postsAPI = {
 
   getCombinedFeed: (page: number = 1, limit: number = 20) =>
     api.get(`/feed/simple?page=${page}&limit=${limit}`),
-  
+
   getPost: (postId: string) =>
     api.get(`/posts/${postId}`),
-  
+
+  getComments: (postId: string, page: number = 1, limit: number = 20) =>
+    api.get(`/posts/${postId}/comments?page=${page}&limit=${limit}`),
+
   likePost: (postId: string) =>
     api.post(`/posts/${postId}/like`),
-  
+
   savePost: (postId: string) =>
     api.post(`/posts/${postId}/save`),
-  
+
   addComment: (postId: string, content: string) =>
     api.post(`/posts/${postId}/comment`, { content }),
+
+  sharePost: (postId: string, data?: { caption?: string; tags?: string; location?: string }) =>
+    api.post(`/posts/${postId}/share`, data),
 
   replyToComment: (postId: string, commentId: string, content: string) =>
     api.post(`/posts/${postId}/comments/${commentId}/reply`, { content }),
@@ -117,7 +123,7 @@ export const postsAPI = {
 
   deletePost: (postId: string) =>
     api.delete(`/posts/${postId}`),
-  
+
   getUserPosts: (username: string, page: number = 1, limit: number = 10) =>
     api.get(`/posts/user/${username}?page=${page}&limit=${limit}`),
 
@@ -131,28 +137,28 @@ export const postsAPI = {
 export const usersAPI = {
   getProfile: (username: string) =>
     api.get(`/users/profile/${username}`),
-  
+
   updateProfile: (userData: any) =>
     api.put('/users/profile', userData),
-  
+
   followUser: (userId: string) =>
     api.post(`/users/${userId}/follow`),
 
   unfollowUser: (userId: string) =>
     api.post(`/users/${userId}/unfollow`),
-  
+
   getFollowers: (username: string, page: number = 1, limit: number = 20) =>
     api.get(`/users/followers/${username}?page=${page}&limit=${limit}`),
 
   getFollowing: (username: string, page: number = 1, limit: number = 20) =>
     api.get(`/users/following/${username}?page=${page}&limit=${limit}`),
-  
+
   getSuggestions: (limit: number = 10) =>
     api.get(`/users/suggestions?limit=${limit}`),
-  
+
   searchUsers: (query: string, page: number = 1, limit: number = 20) =>
     api.get(`/users/search?q=${query}&page=${page}&limit=${limit}`),
-  
+
   updatePrivacy: (privacySettings: any) =>
     api.put('/users/privacy', { privacySettings }),
 };
@@ -170,43 +176,43 @@ export const storiesAPI = {
     if (options.includeViewStatus) params.append('include_view_status', 'true');
     return api.get(`/stories?${params.toString()}`);
   },
-  
+
   getStory: (storyId: string) =>
     api.get(`/stories/${storyId}`),
-  
+
   addReaction: (storyId: string, type: string) =>
     api.post(`/stories/${storyId}/reaction`, { type }),
-  
+
   removeReaction: (storyId: string) =>
     api.delete(`/stories/${storyId}/reaction`),
-  
+
   addReply: (storyId: string, content: string) =>
     api.post(`/stories/${storyId}/reply`, { content }),
-  
+
   deleteStory: (storyId: string) =>
     api.delete(`/stories/${storyId}`),
-  
+
   getUserStories: (username: string) =>
     api.get(`/stories/user/${username}`),
-  
+
   createPollStory: (pollData: any) =>
     api.post('/stories/poll', pollData),
-  
+
   voteOnPoll: (storyId: string, option: number) =>
     api.post(`/stories/${storyId}/vote`, { option }),
 
   getUserHighlights: () =>
     api.get('/stories/highlights'),
-  
+
   createHighlight: (highlightData: any) =>
     api.post('/stories/highlights', highlightData),
-  
+
   getHighlight: (highlightId: string) =>
     api.get(`/stories/highlights/${highlightId}`),
-  
+
   updateHighlight: (highlightId: string, updateData: any) =>
     api.put(`/stories/highlights/${highlightId}`, updateData),
-  
+
   deleteHighlight: (highlightId: string) =>
     api.delete(`/stories/highlights/${highlightId}`),
 
@@ -255,6 +261,9 @@ export const reelsAPI = {
 
   replyToReply: (reelId: string, replyId: string, content: string) =>
     api.post(`/reels/${reelId}/replies/${replyId}/reply`, { content }),
+
+  deleteReel: (reelId: string) =>
+    api.delete(`/reels/${reelId}`),
 };
 
 export const bookmarkCollectionsAPI = {
@@ -275,6 +284,67 @@ export const bookmarkCollectionsAPI = {
 
   removePostFromCollection: (collectionId: string, postId: string) =>
     api.delete(`/bookmark-collections/${collectionId}/posts/${postId}`),
+};
+
+export const notificationsAPI = {
+  getPreferences: () =>
+    api.get('/notifications/preferences'),
+
+  updatePreferences: (preferences: any) =>
+    api.put('/notifications/preferences', { preferences }),
+
+  getNotifications: (page: number = 1, limit: number = 20) =>
+    api.get(`/notifications?page=${page}&limit=${limit}`),
+
+  markAsRead: (notificationId: string) =>
+    api.put(`/notifications/${notificationId}/read`),
+
+  markAllAsRead: () =>
+    api.put('/notifications/read-all'),
+
+  getUnreadCount: () =>
+    api.get('/notifications/unread-count'),
+};
+
+export const messagesAPI = {
+  getConversations: () =>
+    api.get('/conversations'),
+
+  getConversation: (conversationId: string) =>
+    api.get(`/conversations/${conversationId}`),
+
+  getConversationByUserId: (userId: string) =>
+    api.get(`/conversations/user/${userId}`),
+
+  getMessages: (userId: string) =>
+    api.get(`/messages/${userId}`),
+
+  getConversationMessages: (conversationId: string) =>
+    api.get(`/messages/conversation/${conversationId}`),
+
+  sendMessage: (conversationId: string, content: string, messageType: string = 'text', replyTo?: string) =>
+    api.post('/messages', { conversationId, content, messageType, replyTo }),
+
+  addReaction: (messageId: string, emoji: string) =>
+    api.post(`/messages/${messageId}/reaction`, { emoji }),
+
+  removeReaction: (messageId: string, emoji: string) =>
+    api.delete(`/messages/${messageId}/reaction`),
+
+  editMessage: (messageId: string, content: string) =>
+    api.put(`/messages/${messageId}`, { content }),
+
+  deleteMessage: (messageId: string) =>
+    api.delete(`/messages/${messageId}`),
+
+  markMessageAsRead: (messageId: string) =>
+    api.put(`/messages/${messageId}/read`),
+
+  markMessageAsSeen: (messageId: string) =>
+    api.put(`/messages/${messageId}/seen`),
+
+  forwardMessage: (messageId: string, receiverId: string) =>
+    api.post(`/messages/${messageId}/forward`, { receiverId }),
 };
 
 export default api;

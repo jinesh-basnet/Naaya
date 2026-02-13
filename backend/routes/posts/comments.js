@@ -113,15 +113,20 @@ router.get('/:postId/comments', async (req, res) => {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice((page - 1) * limit, page * limit);
 
-    await Post.populate(comments, {
-      path: 'author',
-      select: 'username fullName profilePicture'
-    });
-
-    await Post.populate(comments, {
-      path: 'replies.author',
-      select: 'username fullName profilePicture'
-    });
+    await Post.populate(comments, [
+      {
+        path: 'author',
+        select: 'username fullName profilePicture isVerified'
+      },
+      {
+        path: 'replies.author',
+        select: 'username fullName profilePicture isVerified'
+      },
+      {
+        path: 'replies.replies.author',
+        select: 'username fullName profilePicture isVerified'
+      }
+    ]);
 
     res.json({
       message: 'Comments retrieved successfully',

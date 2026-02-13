@@ -1,0 +1,175 @@
+.message-reply {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #f8f9fa;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.reply-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.reply-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.cancel-reply-btn {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-reply-btn:hover {
+  background: #dee2e6;
+  color: #495057;
+}
+
+.original-message-preview {
+  padding: 8px 12px;
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.original-content {
+  margin: 0;
+  font-size: 14px;
+  color: #6c757d;
+  font-style: italic;
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border-left: 3px solid #007bff;
+  border-radius: 4px;
+}
+
+.reply-form {
+  padding: 12px;
+}
+
+.reply-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 12px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.reply-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.reply-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cancel-btn,
+.send-reply-btn {
+  padding: 8px 16px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  background: white;
+  color: #6c757d;
+}
+
+.cancel-btn:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.send-reply-btn {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.send-reply-btn:hover:not(:disabled) {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.send-reply-btn:disabled {
+  background: #6c757d;
+  border-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .message-reply {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .reply-header {
+    background: #4a5568;
+    border-color: #718096;
+  }
+
+  .reply-indicator {
+    color: #e2e8f0;
+  }
+
+  .cancel-reply-btn:hover {
+    background: #718096;
+  }
+
+  .original-message-preview {
+    background: #2d3748;
+  }
+
+  .original-content {
+    color: #a0aec0;
+    background: #4a5568;
+    border-left-color: #3182ce;
+  }
+
+  .reply-input {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+
+  .reply-input:focus {
+    border-color: #3182ce;
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25);
+  }
+
+  .cancel-btn {
+    background: #2d3748;
+    color: #e2e8f0;
+    border-color: #4a5568;
+  }
+
+  .cancel-btn:hover {
+    background: #4a5568;
+  }
+}

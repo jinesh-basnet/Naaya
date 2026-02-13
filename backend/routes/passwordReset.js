@@ -29,6 +29,7 @@ router.post('/request', [
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
+      console.log(`Password reset requested for non-existent email: ${email}`);
       await securityLogger.logSuspiciousActivity('PASSWORD_RESET_REQUEST_NON_EXISTENT_USER', { email }, req.ip, req.headers['user-agent']);
       return res.status(200).json({
         success: true,
@@ -36,29 +37,33 @@ router.post('/request', [
       });
     }
 
+    console.log(`Generating OTP for user: ${user.username} (${user.email})`);
     const otp = user.generateOTP();
     await user.save();
 
+    console.log(`Sending OTP email to: ${user.email}`);
     const emailResult = await sendOTPEmail(user.email, otp, user.fullName);
+
     if (emailResult.success) {
+      console.log(`OTP email sent successfully to ${user.email}`);
       await securityLogger.logPasswordChange(user._id, req.ip, req.headers['user-agent']);
       return res.status(200).json({
         success: true,
         message: 'If an account with the provided information exists, we have sent an OTP to the registered email.'
       });
     } else {
-      console.error('Failed to send OTP email:', emailResult.error);
+      console.error(`Failed to send OTP email to ${user.email}:`, emailResult.error);
       return res.status(500).json({
         success: false,
-        message: 'Failed to send OTP email'
+        message: `Failed to send OTP email: ${emailResult.error || 'Unknown error'}`
       });
     }
 
   } catch (error) {
-    console.error('Password reset request error:', error);
+    console.error('CRITICAL: Password reset request crash:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error occurred while processing password reset request'
+      message: 'Server error: ' + error.message
     });
   }
 });
