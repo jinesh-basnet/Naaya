@@ -42,8 +42,8 @@ const registerRateLimiter = rateLimit({
 });
 
 const suggestionsRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 10, 
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   message: {
     message: 'Too many suggestion requests, please try again later.',
     code: 'SUGGESTIONS_RATE_LIMIT_EXCEEDED'
@@ -52,9 +52,22 @@ const suggestionsRateLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const messagingRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, 
+  max: 60,
+  message: {
+    message: 'Too many messages sent. Please slow down.',
+    code: 'MESSAGING_RATE_LIMIT_EXCEEDED'
+  },
+  keyGenerator: (req) => req.user?._id || req.ip,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 module.exports = {
   authRateLimiter,
   loginRateLimiter,
   registerRateLimiter,
-  suggestionsRateLimiter
+  suggestionsRateLimiter,
+  messagingRateLimiter
 };
