@@ -63,7 +63,8 @@ router.post('/', authenticateToken, [
       isPublic: isPublic || false,
       coverImage,
       user: req.user._id,
-      posts: []
+      posts: [],
+      reels: []
     });
 
     await collection.save();
@@ -276,7 +277,7 @@ router.get('/:collectionId/posts', authenticateToken, async (req, res) => {
     const collection = await BookmarkCollection.findOne({
       _id: collectionId,
       user: req.user._id
-    }).populate({ 
+    }).populate({
       path: 'posts',
       populate: {
         path: 'author',
@@ -316,6 +317,141 @@ router.get('/:collectionId/posts', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error retrieving collection posts',
       code: 'GET_COLLECTION_POSTS_ERROR'
+    });
+  }
+});
+
+// @route   POST /api/bookmark-collections/:collectionId/reels/:reelId
+// @desc    Add reel to collection
+// @access  Private
+router.post('/:collectionId/reels/:reelId', authenticateToken, async (req, res) => {
+  try {
+    const { collectionId, reelId } = req.params;
+
+    const collection = await BookmarkCollection.findOne({
+      _id: collectionId,
+      user: req.user._id
+    });
+
+    if (!collection) {
+      return res.status(404).json({
+        message: 'Collection not found',
+        code: 'COLLECTION_NOT_FOUND'
+      });
+    }
+
+    if (!collection.reels) collection.reels = [];
+    if (collection.reels.includes(reelId)) {
+      return res.status(400).json({
+        message: 'Reel already in collection',
+        code: 'REEL_ALREADY_IN_COLLECTION'
+      });
+    }
+
+    collection.reels.push(reelId);
+    await collection.save();
+
+    res.json({
+      message: 'Reel added to collection successfully',
+      collection
+    });
+  } catch (error) {
+    console.error('Add reel to collection error:', error);
+    res.status(500).json({
+      message: 'Server error adding reel to collection',
+      code: 'ADD_REEL_TO_COLLECTION_ERROR'
+    });
+  }
+});
+
+// @route   DELETE /api/bookmark-collections/:collectionId/reels/:reelId
+// @desc    Remove reel from collection
+// @access  Private
+router.delete('/:collectionId/reels/:reelId', authenticateToken, async (req, res) => {
+  try {
+    const { collectionId, reelId } = req.params;
+
+    const collection = await BookmarkCollection.findOne({
+      _id: collectionId,
+      user: req.user._id
+    });
+
+    if (!collection) {
+      return res.status(404).json({
+        message: 'Collection not found',
+        code: 'COLLECTION_NOT_FOUND'
+      });
+    }
+
+    if (collection.reels) {
+      collection.reels = collection.reels.filter(id => id.toString() !== reelId);
+      await collection.save();
+    }
+
+    res.json({
+      message: 'Reel removed from collection successfully',
+      collection
+    });
+  } catch (error) {
+    console.error('Remove reel from collection error:', error);
+    res.status(500).json({
+      message: 'Server error removing reel from collection',
+      code: 'REMOVE_REEL_FROM_COLLECTION_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/bookmark-collections/:collectionId/reels
+// @desc    Get reels in a collection
+// @access  Private
+router.get('/:collectionId/reels', authenticateToken, async (req, res) => {
+  try {
+    const { collectionId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const collection = await BookmarkCollection.findOne({
+      _id: collectionId,
+      user: req.user._id
+    }).populate({
+      path: 'reels',
+      populate: {
+        path: 'author',
+        select: 'username fullName profilePicture isVerified'
+      },
+      options: {
+        sort: { createdAt: -1 },
+        skip: (parseInt(page) - 1) * parseInt(limit),
+        limit: parseInt(limit)
+      }
+    });
+
+    if (!collection) {
+      return res.status(404).json({
+        message: 'Collection not found',
+        code: 'COLLECTION_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      message: 'Collection reels retrieved successfully',
+      collection: {
+        _id: collection._id,
+        name: collection.name,
+        description: collection.description,
+        reels: collection.reels || [],
+        reelCount: (collection.reels || []).length
+      },
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: (collection.reels || []).length
+      }
+    });
+  } catch (error) {
+    console.error('Get collection reels error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving collection reels',
+      code: 'GET_COLLECTION_REELS_ERROR'
     });
   }
 });

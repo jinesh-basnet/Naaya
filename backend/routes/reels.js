@@ -5,6 +5,7 @@ const { uploadSingle } = require('../middleware/upload');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
+const BookmarkCollection = require('../models/BookmarkCollection');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { findCommentById } = require('../utils/reelHelpers');
 
@@ -73,7 +74,7 @@ router.post('/', authenticateToken, uploadSingle('video'), (req, res, next) => {
       ...req.body,
       author: req.user._id,
       video: {
-        url: `/uploads/${filename}`, 
+        url: `/uploads/${filename}`,
         publicId: filename,
         duration: 0,
         size: req.file.size,
@@ -268,11 +269,11 @@ router.get('/feed', authenticateToken, async (req, res) => {
       isArchived: false,
       'video.url': { $exists: true, $ne: '' }
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .lean()
-    .sort({ createdAt: -1 })
-    .limit(limit * 5)
-    .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .lean()
+      .sort({ createdAt: -1 })
+      .limit(limit * 5)
+      .skip((page - 1) * limit);
 
     console.log('Reels feed count:', allReels.length, 'total:', total);
 
@@ -354,10 +355,10 @@ router.get('/search', authenticateToken, async (req, res) => {
       isArchived: false,
       visibility: 'public'
     })
-    .populate('author', 'username fullName profilePicture isVerified')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     const total = await Reel.countDocuments({
       $or: [
@@ -682,6 +683,35 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
     const wasSaved = reel.addSave(userId);
     await reel.save();
 
+    let defaultCollection = await BookmarkCollection.findOne({
+      user: userId,
+      name: 'Saved Posts'
+    });
+
+    if (!defaultCollection) {
+      defaultCollection = new BookmarkCollection({
+        name: 'Saved Posts',
+        description: 'Posts saved by you',
+        isPublic: false,
+        user: userId,
+        posts: [],
+        reels: []
+      });
+    }
+
+    if (wasSaved) {
+      if (!defaultCollection.reels) defaultCollection.reels = [];
+      if (!defaultCollection.reels.includes(reelId)) {
+        defaultCollection.reels.push(reelId);
+        await defaultCollection.save();
+      }
+    } else {
+      if (defaultCollection.reels) {
+        defaultCollection.reels = defaultCollection.reels.filter(id => id.toString() !== reelId);
+        await defaultCollection.save();
+      }
+    }
+
     if (global.io) {
       try {
         const eventType = wasSaved ? 'reel_saved' : 'reel_unsaved';
@@ -745,10 +775,10 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
 
     const finalReels = reels.map(reel => {
       const reelObj = reel.toObject();
@@ -881,13 +911,13 @@ router.get('/:reelId/comments', optionalAuth, async (req, res) => {
     });
 
   } catch (error) {
-      console.error('Get comments error:', error && error.message);
-      console.error(error && error.stack);
-      res.status(500).json({
-        message: 'Server error retrieving comments',
-        code: 'GET_COMMENTS_ERROR',
-        details: process.env.NODE_ENV === 'development' ? (error && error.message) : undefined
-      });
+    console.error('Get comments error:', error && error.message);
+    console.error(error && error.stack);
+    res.status(500).json({
+      message: 'Server error retrieving comments',
+      code: 'GET_COMMENTS_ERROR',
+      details: process.env.NODE_ENV === 'development' ? (error && error.message) : undefined
+    });
   }
 });
 

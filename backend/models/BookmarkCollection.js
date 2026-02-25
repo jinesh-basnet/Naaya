@@ -16,6 +16,10 @@ const bookmarkCollectionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Post'
   }],
+  reels: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Reel'
+  }],
   description: {
     type: String,
     maxlength: 200,
@@ -26,8 +30,8 @@ const bookmarkCollectionSchema = new mongoose.Schema({
     default: false
   },
   coverImage: {
-    type: String, 
-        default: null
+    type: String,
+    default: null
   }
 }, {
   timestamps: true
@@ -36,8 +40,12 @@ const bookmarkCollectionSchema = new mongoose.Schema({
 bookmarkCollectionSchema.index({ user: 1, name: 1 });
 bookmarkCollectionSchema.index({ user: 1, createdAt: -1 });
 
-bookmarkCollectionSchema.virtual('postCount').get(function() {
-  return this.posts.length;
+bookmarkCollectionSchema.virtual('postCount').get(function () {
+  return this.posts.length + (this.reels ? this.reels.length : 0);
+});
+
+bookmarkCollectionSchema.virtual('itemCount').get(function () {
+  return this.posts.length + (this.reels ? this.reels.length : 0);
 });
 
 bookmarkCollectionSchema.set('toJSON', { virtuals: true });
@@ -45,9 +53,10 @@ bookmarkCollectionSchema.set('toObject', { virtuals: true });
 
 
 
-bookmarkCollectionSchema.statics.getUserCollections = function(userId) {
+bookmarkCollectionSchema.statics.getUserCollections = function (userId) {
   return this.find({ user: userId })
     .populate('posts', '_id content media author createdAt')
+    .populate('reels', '_id video author createdAt caption')
     .sort({ createdAt: -1 });
 };
 
