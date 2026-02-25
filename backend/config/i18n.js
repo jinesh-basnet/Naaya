@@ -7,19 +7,19 @@ i18next
   .init({
     lng: 'en',
     fallbackLng: 'en',
-    debug: process.env.NODE_ENV === 'development',
-    
+    debug: false,
+
     backend: {
       loadPath: path.join(__dirname, '../locales/{{lng}}/{{ns}}.json')
     },
-    
+
     interpolation: {
-      escapeValue: false 
+      escapeValue: false
     },
-    
+
     ns: ['common', 'auth', 'posts', 'stories', 'reels', 'messages', 'notifications', 'admin', 'passwordReset', 'errors'],
     defaultNS: 'common',
-    
+
     detection: {
       order: ['header', 'query', 'cookie'],
       caches: ['cookie']
