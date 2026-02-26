@@ -68,23 +68,20 @@ const SettingsPage: React.FC = () => {
       [key]: !preferences[key]
     };
 
-    // Optimistic update
     setPreferences(newPreferences);
 
     try {
       if (key === 'pushNotifications') {
         if (!preferences.pushNotifications) {
-          // Attempting to enable push
           const permission = await pushNotificationService.requestPermission();
           if (permission === 'granted') {
             await pushNotificationService.subscribeToPush();
           } else {
             toast.error('Notification permission denied');
-            setPreferences(preferences); // Revert
+            setPreferences(preferences); 
             return;
           }
         } else {
-          // Attempting to disable push
           await pushNotificationService.unsubscribeFromPush();
         }
       }
@@ -94,7 +91,7 @@ const SettingsPage: React.FC = () => {
     } catch (error) {
       console.error('Error updating preference:', error);
       toast.error('Failed to update preference');
-      setPreferences(preferences); // Revert
+      setPreferences(preferences); 
     }
   };
 
@@ -130,10 +127,10 @@ const SettingsPage: React.FC = () => {
   };
 
   const navItems = [
-    { id: 'appearance', label: t('nav.appearance'), icon: <IoGlobe /> },
-    { id: 'account', label: t('nav.account'), icon: <IoPerson /> },
-    { id: 'privacy', label: t('nav.privacy'), icon: <IoLockClosed /> },
-    { id: 'notifications', label: t('nav.notifications'), icon: <IoNotifications /> },
+    { id: 'appearance', label: t('settings.appearance'), icon: <IoGlobe /> },
+    { id: 'account', label: t('settings.account'), icon: <IoPerson /> },
+    { id: 'privacy', label: t('settings.privacy'), icon: <IoLockClosed /> },
+    { id: 'notifications', label: t('settings.notifications'), icon: <IoNotifications /> },
   ];
 
   const renderContent = () => {
@@ -149,13 +146,13 @@ const SettingsPage: React.FC = () => {
             className="settings-card"
           >
             <h2 className="settings-section-title">
-              <IoLanguage /> {t('nav.appearance')}
+              <IoLanguage /> {t('settings.appearance')}
             </h2>
 
             <div className="settings-item">
               <div className="settings-item-info">
-                <h3>Language</h3>
-                <p>Choose your preferred language for the interface</p>
+                <h3>{t('settings.language')}</h3>
+                <p>{t('settings.languageDesc')}</p>
               </div>
               <div className="settings-control">
                 <button
@@ -179,8 +176,8 @@ const SettingsPage: React.FC = () => {
 
             <div className="settings-item">
               <div className="settings-item-info">
-                <h3>Theme</h3>
-                <p>Toggle between light and dark theme</p>
+                <h3>{t('settings.theme')}</h3>
+                <p>{t('settings.darkModeDesc')}</p>
               </div>
               <div className="settings-control">
                 <button
@@ -190,11 +187,11 @@ const SettingsPage: React.FC = () => {
                 >
                   {theme === 'light' ? (
                     <>
-                      <IoMoon /> Dark Mode
+                      <IoMoon /> {t('settings.darkMode')}
                     </>
                   ) : (
                     <>
-                      <IoSunny /> Light Mode
+                      <IoSunny /> {t('settings.lightMode')}
                     </>
                   )}
                 </button>
@@ -214,7 +211,7 @@ const SettingsPage: React.FC = () => {
             className="settings-card"
           >
             <h2 className="settings-section-title">
-              <IoPerson /> {t('nav.account')}
+              <IoPerson /> {t('settings.account')}
             </h2>
             <div className="settings-item">
               <div className="settings-item-info">
@@ -256,11 +253,11 @@ const SettingsPage: React.FC = () => {
             className="settings-card"
           >
             <h2 className="settings-section-title">
-              <IoEye /> {t('nav.privacy')}
+              <IoEye /> {t('settings.privacy')}
             </h2>
             <div className="settings-item">
               <div className="settings-item-info">
-                <h3>Blocked Accounts</h3>
+                <h3>{t('settings.blockedUsers')}</h3>
                 <p>View and manage accounts you've blocked</p>
               </div>
               <button
@@ -353,7 +350,6 @@ const SettingsPage: React.FC = () => {
           </motion.div>
         );
 
-
       default:
         return null;
     }
@@ -364,7 +360,7 @@ const SettingsPage: React.FC = () => {
       <div className="settings-wrapper">
         <aside className="settings-sidebar">
           <div className="settings-sidebar-header">
-            <h2>{t('nav.settings') || 'Settings'}</h2>
+            <h2>{t('settings.title') || 'Settings'}</h2>
           </div>
           <nav className="settings-nav" aria-label="Settings navigation">
             {navItems.map((item) => (
@@ -384,7 +380,7 @@ const SettingsPage: React.FC = () => {
               onClick={() => setShowLogoutModal(true)}
               aria-label="Logout"
             >
-              <IoLogOut /> Logout
+              <IoLogOut /> {t('settings.logout')}
             </button>
           </nav>
         </aside>
@@ -431,9 +427,9 @@ const SettingsPage: React.FC = () => {
                 boxShadow: 'var(--shadow-lg)',
               }}
             >
-              <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>Confirm Logout</h3>
+              <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>{t('settings.logout')}</h3>
               <p style={{ color: 'var(--text-secondary)' }}>
-                Are you sure you want to logout?
+                {t('settings.logoutConfirm')}
               </p>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                 <button
@@ -441,14 +437,14 @@ const SettingsPage: React.FC = () => {
                   className="lang-btn"
                   style={{ flex: 1 }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleLogout}
                   className="danger-btn"
                   style={{ flex: 1, border: '2px solid #ff4d4f' }}
                 >
-                  Logout
+                  {t('settings.logout')}
                 </button>
               </div>
             </motion.div>

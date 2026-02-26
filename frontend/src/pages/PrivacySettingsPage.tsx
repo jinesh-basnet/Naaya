@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { IoArrowBack, IoSave, IoCheckmarkCircle } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { api, usersAPI } from '../services/api';
+import { api } from '../services/api';
 import './PrivacySettingsPage.css';
 
 interface PrivacySettings {
