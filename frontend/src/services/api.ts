@@ -147,6 +147,9 @@ export const usersAPI = {
   unfollowUser: (userId: string) =>
     api.post(`/users/${userId}/unfollow`),
 
+  updateKeys: (data: { publicKey: string, privateKeyEncrypted: string, salt?: string }) =>
+    api.post('/users/keys', data),
+
   getFollowers: (username: string, page: number = 1, limit: number = 20) =>
     api.get(`/users/followers/${username}?page=${page}&limit=${limit}`),
 
@@ -345,6 +348,24 @@ export const messagesAPI = {
 
   forwardMessage: (messageId: string, receiverId: string) =>
     api.post(`/messages/${messageId}/forward`, { receiverId }),
+
+  createGroup: (data: { name: string, participants: string[], description?: string, avatar?: string }) =>
+    api.post('/messages/groups', data),
+
+  addParticipants: (conversationId: string, userIds: string[]) =>
+    api.put(`/messages/conversations/${conversationId}/participants`, { userIds }),
+
+  leaveGroup: (conversationId: string) =>
+    api.delete(`/messages/conversations/${conversationId}/leave`),
+
+  updateGroup: (conversationId: string, data: { name?: string, description?: string, avatar?: string }) =>
+    api.put(`/messages/conversations/${conversationId}`, data),
+
+  removeParticipant: (conversationId: string, userId: string) =>
+    api.delete(`/messages/conversations/${conversationId}/participants/${userId}`),
+
+  updateParticipantRole: (conversationId: string, userId: string, role: 'admin' | 'member') =>
+    api.put(`/messages/conversations/${conversationId}/participants/${userId}/role`, { role }),
 };
 
 export default api;
