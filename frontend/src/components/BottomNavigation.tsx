@@ -22,9 +22,6 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
 
   const navItems = getNavItems(t);
 
-  const currentPath = location.pathname;
-  const currentIndex = navItems.findIndex(item => item.path === currentPath);
-
   const handleNavigation = (path: string) => {
     if (path === '/profile' && user) {
       navigate(`/profile/${user.username}`);
@@ -40,8 +37,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
   return (
     <div className="bottom-nav-container" role="navigation" aria-label="Main navigation">
       <nav className="bottom-nav">
-        {/* Left Side Items */}
-        {navItems.slice(0, 2).map((item, index) => {
+        {navItems.slice(0, 2).map((item) => {
           const IconComponent = item.icon;
           const isActive = location.pathname === item.path ||
             (item.path === '/profile' && location.pathname.startsWith('/profile'));
@@ -57,7 +53,6 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
           );
         })}
 
-        {/* Center Action Button */}
         <button
           className="add-fab-v2"
           aria-label="Create post"
@@ -66,8 +61,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
           <MdAdd />
         </button>
 
-        {/* Right Side Items */}
-        {navItems.slice(2, 4).map((item, index) => {
+        {navItems.slice(2, 4).map((item) => {
           const IconComponent = item.icon;
           const isActive = location.pathname === item.path ||
             (item.path === '/profile' && location.pathname.startsWith('/profile'));
