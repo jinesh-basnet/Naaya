@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaComment, FaShare, FaEllipsisV } from 'react-icons/fa';
 import { BsBookmark, BsBookmarkFill } from 'react-icons/bs';
 import { FiTrash2, FiFlag, FiLink, FiEyeOff } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -124,8 +124,44 @@ const PostCard: React.FC<PostCardProps> = ({
     try {
       await postsAPI.deletePost(post._id);
       toast.success('Post deleted successfully');
+
+      const updateFn = (oldData: any) => {
+        if (!oldData) return oldData;
+
+        if (oldData.pages) {
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any) => {
+              if (page.data?.posts) {
+                return { ...page, data: { ...page.data, posts: page.data.posts.filter((p: any) => p._id !== post._id) } };
+              }
+              if (page.data?.reels) {
+                return { ...page, data: { ...page.data, reels: page.data.reels.filter((r: any) => r._id !== post._id) } };
+              }
+              return page;
+            })
+          };
+        }
+
+        if (oldData.data?.posts) {
+          return { ...oldData, data: { ...oldData.data, posts: oldData.data.posts.filter((p: any) => p._id !== post._id) } };
+        }
+
+        if (oldData.data?.reels) {
+          return { ...oldData, data: { ...oldData.data, reels: oldData.data.reels.filter((r: any) => r._id !== post._id) } };
+        }
+
+        return oldData;
+      };
+
+      queryClient.setQueriesData({ queryKey: ['feed'] }, updateFn);
+      queryClient.setQueriesData({ queryKey: ['userPosts'] }, updateFn);
+      queryClient.setQueriesData({ queryKey: ['userContentInfinite'] }, updateFn);
+      queryClient.setQueriesData({ queryKey: ['reels'] }, updateFn);
+      queryClient.setQueriesData({ queryKey: ['userReels'] }, updateFn);
+
       queryClient.invalidateQueries({ queryKey: ['feed'] });
-      queryClient.invalidateQueries({ queryKey: ['userPosts', post.author.username] });
+      queryClient.invalidateQueries({ queryKey: ['userPosts'] });
       setShowDeleteModal(false);
     } catch (error) {
       toast.error('Failed to delete post');
@@ -174,7 +210,6 @@ const PostCard: React.FC<PostCardProps> = ({
             </div>
           )}
 
-          {/* Action Blade - Floating on the right of media */}
           <div className="post-action-blade">
             <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="blade-item">
               <button
@@ -219,7 +254,6 @@ const PostCard: React.FC<PostCardProps> = ({
             </motion.div>
           </div>
 
-          {/* User Info Plate - Floating Glass Overlay at top */}
           <div className="post-user-plate" onClick={handleAuthorClick}>
             <div className="plate-avatar">
               <Avatar
@@ -271,7 +305,6 @@ const PostCard: React.FC<PostCardProps> = ({
             </AnimatePresence>
           </div>
 
-          {/* Caption Overlay - Bottom Glass Blade */}
           <div className="post-caption-plate">
             <div className="caption-text-content">
               {expandedCaptions[post._id] || (post.content || '').length <= 60 ? (

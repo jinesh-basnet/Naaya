@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MdClose, MdSend, MdFavorite, MdFavoriteBorder } from 'react-icons/md';
+import { MdClose, MdSend, MdFavorite } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postsAPI } from '../services/api';
+import { postsAPI, reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { safeRender } from '../utils/safeRender';
 import Avatar from './Avatar';
@@ -30,6 +30,7 @@ interface PostCommentsModalProps {
   postId: string;
   postAuthorId: string;
   initialCommentsCount: number;
+  contentType?: 'post' | 'reel';
 }
 
 const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
@@ -37,7 +38,8 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   onClose,
   postId,
   postAuthorId,
-  initialCommentsCount
+  initialCommentsCount,
+  contentType = 'post'
 }) => {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -54,7 +56,6 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const loadingRef = useRef(false);
 
-
   const loadComments = useCallback(async (pageNum = 1, append = false) => {
     if (!postId || (loadingRef.current && pageNum === 1)) return;
 
@@ -70,7 +71,9 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
     loadingRef.current = true;
     setIsLoading(true);
     try {
-      const response = await postsAPI.getComments(postId, pageNum);
+      const response = contentType === 'reel'
+        ? await reelsAPI.getReelComments(postId, pageNum)
+        : await postsAPI.getComments(postId, pageNum);
       const fetchedComments = response.data.comments || [];
       const pagination = response.data.pagination;
 
@@ -89,7 +92,7 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
       setIsLoading(false);
       loadingRef.current = false;
     }
-  }, [postId, loadedPostId, initialCommentsCount]);
+  }, [postId, loadedPostId, initialCommentsCount, contentType]);
 
   useEffect(() => {
     if (isOpen && postId) {
@@ -108,9 +111,11 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      console.log('Submitting comment:', newComment.trim());
-      const response = await postsAPI.addComment(postId, newComment.trim());
-      console.log('Comment response:', response);
+      if (contentType === 'reel') {
+        await reelsAPI.commentReel(postId, newComment.trim());
+      } else {
+        await postsAPI.addComment(postId, newComment.trim());
+      }
       setNewComment('');
       await loadComments(1, false);
     } catch (error) {
@@ -126,11 +131,18 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // If depth > 0, it's a nested reply. Use different endpoint for replies to replies.
-      if (replyTo.isReply) {
-        await postsAPI.replyToReply(postId, replyTo._id, replyContent.trim());
+      if (contentType === 'reel') {
+        if (replyTo.isReply) {
+          await reelsAPI.replyToReply(postId, replyTo._id, replyContent.trim());
+        } else {
+          await reelsAPI.replyToComment(postId, replyTo._id, replyContent.trim());
+        }
       } else {
-        await postsAPI.replyToComment(postId, replyTo._id, replyContent.trim());
+        if (replyTo.isReply) {
+          await postsAPI.replyToReply(postId, replyTo._id, replyContent.trim());
+        } else {
+          await postsAPI.replyToComment(postId, replyTo._id, replyContent.trim());
+        }
       }
       setReplyContent('');
       setReplyTo(null);
@@ -166,7 +178,11 @@ const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 
   const handleLikeReply = async (replyId: string) => {
     try {
-      await postsAPI.likeReply(postId, replyId);
+      if (contentType === 'reel') {
+        await reelsAPI.likeReply(postId, replyId);
+      } else {
+        await postsAPI.likeReply(postId, replyId);
+      }
       setComments(prev => updateCommentLikes(prev, replyId, user!._id));
     } catch (error) {
       console.error('Failed to like reply:', error);

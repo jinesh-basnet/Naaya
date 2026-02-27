@@ -8,6 +8,7 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const connectDB = require('./config/database');
 const path = require('path');
+const fs = require('fs');
 const i18next = require('./config/i18n');
 const i18nextMiddleware = require('i18next-http-middleware');
 

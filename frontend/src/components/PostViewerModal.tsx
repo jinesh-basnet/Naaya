@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { FaHeart, FaRegHeart, FaComment, FaShare, FaRegBookmark, FaEllipsisV, FaTimes, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
-import { postsAPI } from '../services/api';
+import { postsAPI, reelsAPI } from '../services/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -15,7 +15,9 @@ interface PostViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   username: string;
+  userId?: string;
   initialPostId?: string;
+  contentType?: 'post' | 'reel';
 }
 
 const BACKEND_BASE_URL = 'http://localhost:5000';
@@ -31,7 +33,9 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
   isOpen,
   onClose,
   username,
-  initialPostId
+  userId,
+  initialPostId,
+  contentType = 'post'
 }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -48,25 +52,53 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
     isLoading,
     error,
   } = useInfiniteQuery({
-    queryKey: ['userPostsInfinite', username],
-    queryFn: ({ pageParam = 1 }) => postsAPI.getUserPosts(username, pageParam, 10),
+    queryKey: ['userContentInfinite', username, contentType],
+    queryFn: ({ pageParam = 1 }) => {
+      if (contentType === 'reel' && userId) {
+        return reelsAPI.getUserReels(userId, pageParam, 10);
+      }
+      return postsAPI.getUserPosts(username, pageParam, 10);
+    },
     getNextPageParam: (lastPage, pages) => {
-      const totalLoaded = pages.reduce((acc, page) => acc + page.data.posts.length, 0);
+      const totalLoaded = pages.reduce((acc, page) => {
+        const items = page.data.posts || page.data.reels || [];
+        return acc + items.length;
+      }, 0);
       return totalLoaded < lastPage.data.pagination.total ? pages.length + 1 : undefined;
     },
-    enabled: isOpen && !!username,
+    enabled: isOpen && !!username && (contentType !== 'reel' || !!userId),
   });
 
-  const allPosts = useMemo(() => data?.pages.flatMap(page => page.data.posts) || [], [data]);
+  const allPosts = useMemo(() => data?.pages.flatMap(page => page.data.posts || page.data.reels || []) || [], [data]);
 
   useEffect(() => {
     if (initialPostId && allPosts.length > 0) {
       const index = allPosts.findIndex(post => post._id === initialPostId);
       if (index !== -1) {
         setCurrentIndex(index);
+        const post = allPosts[index];
+        if (post) {
+          setSelectedPostForComments({
+            id: post._id,
+            authorId: post.author._id,
+            commentsCount: post.commentsCount || 0
+          });
+          setCommentsModalOpen(true);
+        }
       }
     }
   }, [initialPostId, allPosts]);
+
+  useEffect(() => {
+    if (commentsModalOpen && allPosts[currentIndex]) {
+      const post = allPosts[currentIndex];
+      setSelectedPostForComments({
+        id: post._id,
+        authorId: post.author._id,
+        commentsCount: post.commentsCount || 0
+      });
+    }
+  }, [currentIndex, allPosts, commentsModalOpen]);
 
   const handleLike = async (postId: string) => {
     try {
@@ -201,27 +233,66 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                                 )}
                               </div>
                             </div>
-                            <button
-                              className="icon-button"
-                              onClick={async () => {
-                                if (!currentPost) return;
-                                const ok = window.confirm('Are you sure you want to delete this post?');
-                                if (!ok) return;
-                                try {
-                                  await postsAPI.deletePost(currentPost._id);
-                                  queryClient.invalidateQueries({ queryKey: ['userPosts', username] });
-                                  queryClient.invalidateQueries({ queryKey: ['profile', username] });
-                                  queryClient.invalidateQueries({ queryKey: ['feed'] });
-                                  toast.success('Post deleted');
-                                  onClose();
-                                } catch (error) {
-                                  console.error('Failed to delete post', error);
-                                  toast.error('Failed to delete post');
-                                }
-                              }}
-                            >
-                              <FaEllipsisV className="icon" />
-                            </button>
+                            {user?._id === currentPost.author._id && (
+                              <button
+                                className="icon-button"
+                                onClick={async () => {
+                                  if (!currentPost) return;
+                                  const ok = window.confirm('Are you sure you want to delete this content?');
+                                  if (!ok) return;
+                                  try {
+                                    if (currentPost.postType === 'reel' || contentType === 'reel') {
+                                      await reelsAPI.deleteReel(currentPost._id);
+                                    } else {
+                                      await postsAPI.deletePost(currentPost._id);
+                                    }
+
+                                    const updateFn = (oldData: any) => {
+                                      if (!oldData) return oldData;
+                                      if (oldData.pages) {
+                                        return {
+                                          ...oldData,
+                                          pages: oldData.pages.map((page: any) => {
+                                            if (page.data?.posts) {
+                                              return { ...page, data: { ...page.data, posts: page.data.posts.filter((p: any) => p._id !== currentPost._id) } };
+                                            }
+                                            if (page.data?.reels) {
+                                              return { ...page, data: { ...page.data, reels: page.data.reels.filter((r: any) => r._id !== currentPost._id) } };
+                                            }
+                                            return page;
+                                          })
+                                        };
+                                      }
+                                      if (oldData.data?.posts) {
+                                        return { ...oldData, data: { ...oldData.data, posts: oldData.data.posts.filter((p: any) => p._id !== currentPost._id) } };
+                                      }
+                                      if (oldData.data?.reels) {
+                                        return { ...oldData, data: { ...oldData.data, reels: oldData.data.reels.filter((r: any) => r._id !== currentPost._id) } };
+                                      }
+                                      return oldData;
+                                    };
+
+                                    queryClient.setQueriesData({ queryKey: ['feed'] }, updateFn);
+                                    queryClient.setQueriesData({ queryKey: ['userPosts'] }, updateFn);
+                                    queryClient.setQueriesData({ queryKey: ['userContentInfinite'] }, updateFn);
+                                    queryClient.setQueriesData({ queryKey: ['reels'] }, updateFn);
+                                    queryClient.setQueriesData({ queryKey: ['userReels'] }, updateFn);
+
+                                    queryClient.invalidateQueries({ queryKey: ['userPosts'] });
+                                    queryClient.invalidateQueries({ queryKey: ['userContentInfinite'] });
+                                    queryClient.invalidateQueries({ queryKey: ['profile'] });
+                                    queryClient.invalidateQueries({ queryKey: ['feed'] });
+                                    toast.success('Deleted successfully');
+                                    onClose();
+                                  } catch (error) {
+                                    console.error('Failed to delete', error);
+                                    toast.error('Failed to delete');
+                                  }
+                                }}
+                              >
+                                <FaEllipsisV className="icon" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -411,6 +482,7 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
           postId={selectedPostForComments.id}
           postAuthorId={selectedPostForComments.authorId}
           initialCommentsCount={selectedPostForComments.commentsCount}
+          contentType={allPosts[currentIndex]?.postType === 'reel' ? 'reel' : 'post'}
         />
       )}
     </AnimatePresence>

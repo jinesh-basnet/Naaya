@@ -141,11 +141,10 @@
 }
 
 .verified-badge {
-  color: #0095f6;
+  color: var(--primary-main);
   display: inline-flex;
 }
 
-/* Bubble Actions Layout */
 .comment-actions-row {
   display: flex;
   align-items: center;
@@ -171,7 +170,7 @@
 }
 
 .action-link.liked {
-  color: #2078f4;
+  color: var(--primary-main);
 }
 
 .comment-time-text {
@@ -184,7 +183,6 @@
   color: #b0b3b8;
 }
 
-/* Reaction pill on bubble */
 .bubble-reactions {
   position: absolute;
   right: -10px;
@@ -209,7 +207,7 @@
 
 .reaction-icons {
   display: flex;
-  color: #2078f4;
+  color: var(--primary-main);
 }
 
 /* Input Section - Facebook style */
@@ -258,7 +256,7 @@ input[type="text"] {
 }
 
 .send-btn.active {
-  color: #0084ff;
+  color: var(--primary-main);
 }
 
 .send-btn:disabled {
