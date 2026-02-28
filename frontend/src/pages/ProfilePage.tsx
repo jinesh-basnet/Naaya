@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { FaPlus } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +23,6 @@ const ProfilePage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser } = useAuth();
   const { onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed } = useSocket();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'bookmarks' | 'savedReels'>('posts');
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
@@ -218,7 +217,9 @@ const ProfilePage: React.FC = () => {
             isOpen={isPostViewerOpen}
             onClose={() => setIsPostViewerOpen(false)}
             username={profile.username}
+            userId={profile._id}
             initialPostId={selectedPostId}
+            contentType={activeTab === 'reels' || activeTab === 'savedReels' ? 'reel' : 'post'}
           />
         )}
 

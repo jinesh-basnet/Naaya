@@ -1,9 +1,9 @@
 import React from 'react';
-import { FaEdit, FaUserPlus, FaMapMarkerAlt } from 'react-icons/fa';
-import Avatar from './Avatar';
+import { FaEdit, FaMapMarkerAlt } from 'react-icons/fa';
 import { MdChat } from 'react-icons/md';
-import { FiCheck } from 'react-icons/fi';
+import { FiCheck, FiUserPlus, FiUserCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import Avatar from './Avatar';
 import { safeString, formatLocation } from '../utils/locationUtils';
 
 interface User {
@@ -19,6 +19,7 @@ interface User {
   };
   followersCount: number;
   followingCount: number;
+  postsCount?: number;
   isFollowing?: boolean;
 }
 
@@ -53,7 +54,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             alt={profile.fullName}
             name={profile.fullName}
             className="profile-avatar-unique"
-            size={180}
+            size={160}
           />
           {!isCurrentUser && profile.isFollowing && (
             <div className="active-badge" title="You follow each other">
@@ -73,22 +74,30 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
             <div className="header-actions-integrated">
               {isCurrentUser ? (
-                <button className="premium-action-btn edit" onClick={onEdit}>
-                  <FaEdit /> <span>Edit</span>
+                <button className="premium-action-btn edit" onClick={onEdit} id="edit-profile-btn">
+                  <FaEdit />
+                  <span>Edit Profile</span>
                 </button>
               ) : (
                 <>
                   <button
+                    id="follow-toggle-btn"
                     className={`premium-action-btn ${profile.isFollowing ? 'unfollow' : 'follow'}`}
                     onClick={onFollowToggle}
                     disabled={isPending}
                   >
-                    {profile.isFollowing ? 'Following' : 'Follow'}
+                    {profile.isFollowing ? (
+                      <><FiUserCheck /> Following</>
+                    ) : (
+                      <><FiUserPlus /> Follow</>
+                    )}
                   </button>
                   {profile.isFollowing && (
                     <button
+                      id="message-user-btn"
                       className="premium-action-btn message"
                       onClick={() => navigate(`/messages/${profile._id}`)}
+                      title="Send message"
                     >
                       <MdChat />
                     </button>
@@ -99,7 +108,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </div>
 
           <div className="profile-bio-container">
-            {profile.bio && (
+            {profile.bio ? (
               <p className="bio-text">
                 {safeString(profile.bio).split('\n').map((line, i) => (
                   <React.Fragment key={i}>
@@ -108,34 +117,48 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                   </React.Fragment>
                 ))}
               </p>
-            )}
+            ) : isCurrentUser ? (
+              <p className="bio-text" style={{ opacity: 0.4, fontStyle: 'italic' }}>
+                Add a bio to tell people about yourself…
+              </p>
+            ) : null}
 
             {profile.location && (
               <div className="location-info-row">
                 <div className="location-pill">
-                  <FaMapMarkerAlt />
+                  <FaMapMarkerAlt size={12} />
                   <span>{formatLocation(profile.location)}</span>
                 </div>
                 <div className="status-pill">
                   <span className="pulse-dot" />
-                  <span>Available</span>
+                  <span>Active</span>
                 </div>
               </div>
             )}
           </div>
 
           <div className="profile-dashboard-stats">
-            <div className="stat-card" onClick={() => navigate(`/profile/${profile.username}/followers`)}>
+            {profile.postsCount !== undefined && (
+              <div className="stat-card" id="posts-stat">
+                <span className="stat-value">{profile.postsCount}</span>
+                <span className="stat-label">Posts</span>
+              </div>
+            )}
+            <div
+              className="stat-card"
+              id="followers-stat"
+              onClick={() => navigate(`/profile/${profile.username}/followers`)}
+            >
               <span className="stat-value">{profile.followersCount || 0}</span>
               <span className="stat-label">Followers</span>
             </div>
-            <div className="stat-card" onClick={() => navigate(`/profile/${profile.username}/following`)}>
+            <div
+              className="stat-card"
+              id="following-stat"
+              onClick={() => navigate(`/profile/${profile.username}/following`)}
+            >
               <span className="stat-value">{profile.followingCount || 0}</span>
               <span className="stat-label">Following</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-value">Posts</span>
-              <span className="stat-label">Active</span>
             </div>
           </div>
         </div>
