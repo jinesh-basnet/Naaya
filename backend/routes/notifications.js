@@ -13,11 +13,13 @@ router.get('/preferences', authenticateToken, async (req, res) => {
   try {
     const userId = req.user._id;
     const user = await User.findById(userId).select('notificationPreferences');
-    res.json({ preferences: user.notificationPreferences || {
-      emailNotifications: true,
-      pushNotifications: true,
-      soundEffects: true,
-    }});
+    res.json({
+      preferences: user.notificationPreferences || {
+        emailNotifications: true,
+        pushNotifications: true,
+        soundEffects: true,
+      }
+    });
   } catch (error) {
     console.error('Get notification preferences error:', error);
     res.status(500).json({ message: 'Server error retrieving preferences' });
@@ -207,6 +209,28 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
     res.status(500).json({
       message: 'Server error retrieving unread count',
       code: 'GET_UNREAD_COUNT_ERROR'
+    });
+  }
+});
+
+// @route   DELETE /api/notifications/clear-all
+// @desc    Delete all notifications for user
+// @access  Private
+router.delete('/clear-all', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    await Notification.deleteMany({ recipient: userId });
+
+    res.json({
+      message: 'All notifications cleared successfully'
+    });
+
+  } catch (error) {
+    console.error('Clear all notifications error:', error);
+    res.status(500).json({
+      message: 'Server error clearing notifications',
+      code: 'CLEAR_NOTIFICATIONS_ERROR'
     });
   }
 });
