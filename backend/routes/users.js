@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const Reel = require('../models/Reel');
+const Story = require('../models/Story');
 const Follow = require('../models/Follow');
 const Following = require('../models/Following');
 const Followers = require('../models/Followers');
@@ -53,26 +55,20 @@ router.get('/profile/:username', optionalAuth, async (req, res) => {
 router.put('/profile', authenticateToken, uploadSingle('profilePicture'), async (req, res) => {
   try {
     const userId = req.user._id;
-    // req.body contains text fields from FormData
     const updates = { ...req.body };
 
-    // Handle nested location fields from FormData (e.g., location[city])
     if (updates['location[city]'] || updates['location[district]'] || updates['location[province]']) {
       updates.location = {
         city: updates['location[city]'] || '',
         district: updates['location[district]'] || '',
         province: updates['location[province]'] || ''
       };
-      // Remove flat keys to clean up
       delete updates['location[city]'];
       delete updates['location[district]'];
       delete updates['location[province]'];
     }
 
-    // Handle profile picture upload
     if (req.file) {
-      // Construct URL: /uploads/filename
-      // Note: This relies on server.js serving /uploads statically
       updates.profilePicture = `/uploads/${req.file.filename}`;
     }
 
@@ -132,12 +128,10 @@ router.put('/profile', authenticateToken, uploadSingle('profilePicture'), async 
     }
 
     if (updates.interests) {
-      // Parse interests if it comes as a JSON string (common in FormData)
       if (typeof updates.interests === 'string') {
         try {
           updates.interests = JSON.parse(updates.interests);
         } catch (e) {
-          // If comma separated
           updates.interests = updates.interests.split(',').map(i => i.trim());
         }
       }
@@ -163,13 +157,10 @@ router.put('/profile', authenticateToken, uploadSingle('profilePicture'), async 
       }
     }
 
-    // Privacy settings usually come as JSON string in FormData if sent as object, or flattened keys
-    // For now assuming it might be handled like location if flattened, but let's see if we need to parse JSON
     if (typeof updates.privacySettings === 'string') {
       try {
         updates.privacySettings = JSON.parse(updates.privacySettings);
       } catch (e) {
-        // ignore or handle error
       }
     }
 
@@ -210,7 +201,6 @@ router.put('/profile', authenticateToken, uploadSingle('profilePicture'), async 
 
     await user.save();
 
-    // If profile picture was updated, create a new post
     if (updates.profilePicture) {
       try {
         let pronoun = 'their';
@@ -231,7 +221,6 @@ router.put('/profile', authenticateToken, uploadSingle('profilePicture'), async 
         await newPost.save();
       } catch (postError) {
         console.error('Error auto-creating profile update post:', postError);
-        // Don't fail the profile update if post creation fails
       }
     }
 
@@ -266,7 +255,6 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if already following using Following model
     const followingDoc = await Following.findOne({ user: currentUserId }).select('following');
     const isAlreadyFollowing = followingDoc && followingDoc.following.includes(userIdToFollow);
 
@@ -277,7 +265,6 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       });
     }
 
-    // Update Following model
     await Following.findOneAndUpdate(
       { user: currentUserId },
       { $addToSet: { following: userIdToFollow } },
@@ -291,7 +278,6 @@ router.post('/:userId/follow', authenticateToken, async (req, res) => {
       { upsert: true }
     );
 
-    // Update user counts
     await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: 1 } });
     await User.findByIdAndUpdate(userIdToFollow, { $inc: { followersCount: 1 } });
 
@@ -360,7 +346,6 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if following using Following model
     const followingDoc = await Following.findOne({ user: currentUserId }).select('following');
     const isFollowing = followingDoc && followingDoc.following.includes(userIdToUnfollow);
 
@@ -371,19 +356,16 @@ router.post('/:userId/unfollow', authenticateToken, async (req, res) => {
       });
     }
 
-    // Update Following model
     await Following.findOneAndUpdate(
       { user: currentUserId },
       { $pull: { following: userIdToUnfollow } }
     );
 
-    // Update Followers model
     await Followers.findOneAndUpdate(
       { user: userIdToUnfollow },
       { $pull: { followers: currentUserId } }
     );
 
-    // Update user counts
     await User.findByIdAndUpdate(currentUserId, { $inc: { followingCount: -1 } });
     await User.findByIdAndUpdate(userIdToUnfollow, { $inc: { followersCount: -1 } });
 
@@ -709,4 +691,95 @@ router.get('/suggestions', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   POST /api/users/keys
+// @desc    Update user E2EE keys
+// @access  Private
+router.post('/keys', authenticateToken, async (req, res) => {
+  try {
+    const { publicKey, privateKeyEncrypted, salt } = req.body;
+    const userId = req.user._id;
+
+    if (!publicKey || !privateKeyEncrypted) {
+      return res.status(400).json({ message: 'Public and private keys are required' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.encryption = {
+      publicKey,
+      privateKeyEncrypted,
+      salt
+    };
+
+    await user.save();
+    res.json({ message: 'Encryption keys updated successfully' });
+  } catch (error) {
+    console.error('Update keys error:', error);
+    res.status(500).json({ message: 'Server error updating encryption keys' });
+  }
+});
+
+// @route   DELETE /api/users/profile
+// @desc    Delete user account
+// @access  Private
+router.delete('/profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+
+    const timestamp = Date.now();
+    user.username = `deleted_user_${timestamp}`;
+    user.email = `deleted_${timestamp}@deleted.com`;
+    user.fullName = 'Deleted User';
+    user.bio = '';
+    user.profilePicture = '';
+    user.password = `DELETED_${timestamp}_${Math.random()}`; // Scramble password
+    user.refreshTokens = []; // Log out from all devices
+
+    await user.save();
+
+    const contentDeletedAt = new Date();
+
+    await Post.updateMany(
+      { author: userId },
+      { isDeleted: true, deletedAt: contentDeletedAt }
+    );
+
+    await Reel.updateMany(
+      { author: userId },
+      { isDeleted: true, deletedAt: contentDeletedAt }
+    );
+
+    await Story.updateMany(
+      { author: userId },
+      { isDeleted: true, deletedAt: contentDeletedAt }
+    );
+
+    res.json({
+      message: 'Account deleted successfully and all content has been hidden'
+    });
+
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({
+      message: 'Server error deleting account',
+      code: 'ACCOUNT_DELETE_ERROR'
+    });
+  }
+});
+
 module.exports = router;
+

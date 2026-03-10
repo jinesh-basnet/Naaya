@@ -10,18 +10,9 @@
   margin-bottom: 20px;
 }
 
-.back-button {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  margin-right: 15px;
-  color: #333;
-}
-
 .follow-list-header h1 {
   margin: 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .follow-list-content {
@@ -37,8 +28,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 15px;
-  border-bottom: 1px solid #eee;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: 12px;
+  border: 1px solid var(--glass-border);
+  transition: var(--transition-bounce);
+}
+
+.follow-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
 }
 
 .user-info {
@@ -70,22 +72,30 @@
 }
 
 .follow-button {
-  padding: 8px 16px;
+  padding: 10px 24px;
   border: none;
-  border-radius: 20px;
+  border-radius: 100px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: var(--transition-bounce);
 }
 
 .follow-button.not-following {
-  background: #007bff;
+  background: var(--primary-main);
   color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .follow-button.following {
-  background: #28a745;
-  color: white;
+  background: var(--background-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.follow-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
 }
 
 .follow-button:disabled {
@@ -128,6 +138,7 @@
   text-align: center;
   margin-top: 40px;
 }
+
 .loading-spinner {
   margin-top: 32px;
 }

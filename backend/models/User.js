@@ -260,6 +260,22 @@ const userSchema = new mongoose.Schema({
       default: true
     }
   },
+  encryption: {
+    publicKey: {
+      type: String,
+      default: null,
+      index: true
+    },
+    privateKeyEncrypted: {
+      type: String,
+      default: null,
+      select: false 
+    },
+    salt: {
+      type: String,
+      default: null
+    }
+  },
   isDeleted: {
     type: Boolean,
     default: false
