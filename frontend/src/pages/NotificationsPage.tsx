@@ -107,7 +107,7 @@ const NotificationsPage: React.FC = () => {
               }
             }}
             style={{
-              background: 'var(--primary-main, #6366f1)',
+              background: 'var(--primary-main)',
               color: 'white',
               border: 'none',
               padding: '4px 8px',
