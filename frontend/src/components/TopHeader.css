@@ -23,7 +23,7 @@
 .top-header:hover {
     min-width: 400px;
     background: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 15px 40px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 15px 40px rgba(59, 130, 246, 0.2);
 }
 
 .top-header-left {
@@ -83,7 +83,7 @@
 .nav-action-btn:hover {
     background: var(--primary-main);
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 @media (max-width: 768px) {

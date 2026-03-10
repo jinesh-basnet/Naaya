@@ -1,5 +1,6 @@
 import React from 'react';
-import { MdAdd, MdFavoriteBorder, MdSend, MdSearch } from 'react-icons/md';
+import { MdAdd, MdSend, MdSearch } from 'react-icons/md';
+import { FaBell } from 'react-icons/fa';
 import { HiMenuAlt4 } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { useCreatePost } from '../contexts/CreatePostContext';
@@ -73,7 +74,7 @@ const TopHeader: React.FC<TopHeaderProps> = ({
           className="nav-action-btn"
           onClick={() => navigate('/notifications')}
         >
-          <MdFavoriteBorder />
+          <FaBell />
         </button>
         <button
           aria-label="Direct messages"
