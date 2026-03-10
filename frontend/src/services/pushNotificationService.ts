@@ -60,10 +60,16 @@ class PushNotificationService {
       return null;
     }
 
+    const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
+    if (!isSecure && window.location.protocol !== 'https:') {
+      console.warn('Push notifications require a secure context (HTTPS or localhost)');
+      return null;
+    }
+
     try {
       const API_BASE_URL = process.env.REACT_APP_API_URL ? `${process.env.REACT_APP_API_URL}/api` : '/api';
 
-      console.log('Fetching VAPID public key...');
+      console.log('Fetching VAPID public key from:', `${API_BASE_URL}/notifications/subscribe`);
       const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
         method: 'POST',
         headers: {
@@ -76,8 +82,8 @@ class PushNotificationService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to get VAPID keys:', response.status, errorData);
+        const errorText = await response.text();
+        console.error(`Failed to get VAPID keys: ${response.status} ${response.statusText}`, errorText);
         return null;
       }
 
@@ -88,10 +94,11 @@ class PushNotificationService {
         return null;
       }
 
-      console.log('Got VAPID key, subscribing...');
+      console.log('Got VAPID key samples:', publicKey.substring(0, 10) + '...');
 
       const serverKey = this.urlBase64ToUint8Array(publicKey);
 
+      console.log('Registering subscription with browser push manager...');
       const subscription = await this.swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: serverKey as any
@@ -109,22 +116,22 @@ class PushNotificationService {
       });
 
       if (!subResponse.ok) {
-        const subError = await subResponse.json().catch(() => ({}));
-        console.error('Failed to save subscription to server:', subResponse.status, subError);
+        const subError = await subResponse.text();
+        console.error(`Failed to save subscription: ${subResponse.status}`, subError);
         return null;
       }
 
-      console.log('Push subscription fully established');
+      console.log('Push subscription fully established and synced with server');
       return subscription;
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.error('Push subscription aborted: Use HTTPS OR check if permissions are blocked on localhost. Error details:', error);
+        console.error('Push subscription aborted. This often happens on insecure origins or if the user blocks the prompt. Error details:', error);
       } else if (error.name === 'NotAllowedError') {
         console.warn('Push notifications permission denied by user');
       } else if (error.name === 'InvalidStateError') {
         console.warn('Push manager state error - maybe already subscribed or SW not active');
       } else {
-        console.error('Push subscription failed with unexpected error:', error.name, error.message);
+        console.error('Push subscription failed with unexpected error:', error.name, error.message, error);
       }
       return null;
     }
