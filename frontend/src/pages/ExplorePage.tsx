@@ -16,7 +16,6 @@ import {
   IoImages,
   IoGrid,
   IoList,
-  IoFilter
 } from 'react-icons/io5';
 import Suggestions from '../components/Suggestions';
 import Avatar from '../components/Avatar';
@@ -76,7 +75,6 @@ const ExplorePage: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
     return () => clearTimeout(timer);
@@ -110,7 +108,6 @@ const ExplorePage: React.FC = () => {
     enabled: debouncedSearch.length > 1,
   });
 
-  const isSearchActive = searchQuery.length > 0;
   const isActuallySearching = debouncedSearch.length > 1;
 
   let posts = isActuallySearching

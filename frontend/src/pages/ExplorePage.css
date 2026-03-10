@@ -2,8 +2,8 @@
   --explore-bg: #0f172a;
   --explore-card-bg: rgba(30, 41, 59, 0.5);
   --explore-border: rgba(255, 255, 255, 0.08);
-  --explore-accent: #6366f1;
-  --explore-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --explore-accent: var(--primary-main);
+  --explore-gradient: var(--primary-gradient);
 }
 
 .explore-page {
@@ -57,7 +57,6 @@
   font-weight: 500;
 }
 
-/* Search Box Styling */
 .search-container {
   width: 100%;
   max-width: 800px;
@@ -82,7 +81,7 @@
 .search-box.focused {
   border-color: var(--primary-main);
   background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 15px 40px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 15px 40px rgba(59, 130, 246, 0.15);
   transform: translateY(-2px) scale(1.01);
 }
 
@@ -97,7 +96,7 @@
 .search-loading-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(99, 102, 241, 0.1);
+  border: 2px solid rgba(59, 130, 246, 0.1);
   border-top-color: var(--primary-main);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -221,7 +220,6 @@
   color: var(--text-primary);
 }
 
-/* Navigation Sections */
 .tabs-section {
   display: flex;
   align-items: center;
@@ -277,7 +275,7 @@
   inset: 0;
   background: var(--primary-gradient);
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
   animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -293,7 +291,6 @@
   }
 }
 
-/* Category Filters */
 .controls-section {
   display: flex;
   justify-content: space-between;
@@ -369,7 +366,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Post Grid Styling */
 .posts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -378,10 +374,8 @@
   margin-top: 24px;
 }
 
-/* Dynamic Grid Item Heights for Masonry feel */
 .post-card {
   grid-row-end: span 20;
-  /* Default */
   border-radius: 20px;
   overflow: hidden;
   background: var(--explore-card-bg);
@@ -410,7 +404,6 @@
   z-index: 5;
 }
 
-/* List View Specifics */
 .posts-list {
   display: flex;
   flex-direction: column;
@@ -467,7 +460,6 @@
   opacity: 0.9;
 }
 
-/* Empty State */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -583,7 +575,6 @@
   border-radius: 50%;
 }
 
-/* Modal Styling */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -729,7 +720,6 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Skeleton Loading */
 .skeleton-card {
   border-radius: 20px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 75%);
