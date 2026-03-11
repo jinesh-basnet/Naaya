@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
-import PostCommentsModal from './PostCommentsModal';
+import PostViewerModal from './PostViewerModal';
 import Avatar from './Avatar';
 import './PostCard.css';
 
@@ -55,7 +55,8 @@ interface Post {
   isReel?: boolean;
 }
 
-const BACKEND_BASE_URL = 'http://localhost:5000';
+const BACKEND_BASE_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
 
 interface PostCardProps {
   post: Post;
@@ -88,7 +89,6 @@ const PostCard: React.FC<PostCardProps> = ({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
-  const [selectedPostForComments, setSelectedPostForComments] = useState<{ id: string; authorId: string; commentsCount: number } | null>(null);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -163,6 +163,10 @@ const PostCard: React.FC<PostCardProps> = ({
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       queryClient.invalidateQueries({ queryKey: ['userPosts'] });
       setShowDeleteModal(false);
+
+      if (user?.username) {
+        navigate(`/profile/${user.username}`);
+      }
     } catch (error) {
       toast.error('Failed to delete post');
     } finally {
@@ -225,11 +229,6 @@ const PostCard: React.FC<PostCardProps> = ({
               <button
                 className="blade-btn"
                 onClick={() => {
-                  setSelectedPostForComments({
-                    id: post._id,
-                    authorId: post.author?._id || '',
-                    commentsCount: post.commentsCount || 0
-                  });
                   setCommentsModalOpen(true);
                 }}
               >
@@ -342,16 +341,16 @@ const PostCard: React.FC<PostCardProps> = ({
         </div>
       </div>
 
-      {commentsModalOpen && selectedPostForComments && (
-        <PostCommentsModal
+      {commentsModalOpen && (
+        <PostViewerModal
           isOpen={commentsModalOpen}
           onClose={() => {
             setCommentsModalOpen(false);
-            setSelectedPostForComments(null);
           }}
-          postId={selectedPostForComments.id}
-          postAuthorId={selectedPostForComments.authorId}
-          initialCommentsCount={selectedPostForComments.commentsCount}
+          username={post.author.username}
+          userId={post.author._id}
+          initialPostId={post._id}
+          contentType={post.isReel ? 'reel' : 'post'}
         />
       )}
 
