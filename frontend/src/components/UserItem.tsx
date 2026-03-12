@@ -29,10 +29,6 @@ const UserItem: React.FC<UserItemProps> = ({ user, onFollowToggle, loadingUserId
     navigate(`/profile/${user.username}`);
   };
 
-  const handleMessageClick = () => {
-    navigate(`/messages/${user._id}`);
-  };
-
   return (
     <li className="follow-item">
       <div

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import './BottomNavigation.css';
 import { useAuth } from '../contexts/AuthContext';
 import { useCreatePost } from '../contexts/CreatePostContext';
-import { getNavItems } from '../utils/navItems';
+import { getBottomNavItems } from '../utils/navItems';
 
 interface BottomNavigationProps {
   isMobile?: boolean;
@@ -20,7 +20,7 @@ const BottomNavigation: React.FC<BottomNavigationProps> = () => {
   const { openModal } = useCreatePost();
   const { t } = useTranslation();
 
-  const navItems = getNavItems(t);
+  const navItems = getBottomNavItems(t);
 
   const handleNavigation = (path: string) => {
     if (path === '/profile' && user) {
