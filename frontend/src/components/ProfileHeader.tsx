@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FaEdit, FaMapMarkerAlt } from 'react-icons/fa';
 import { MdChat } from 'react-icons/md';
 import { FiCheck, FiUserPlus, FiUserCheck } from 'react-icons/fi';
+import { IoPersonRemove } from 'react-icons/io5';
 import { useNavigate } from 'react-router-dom';
 import Avatar from './Avatar';
 import { safeString, formatLocation } from '../utils/locationUtils';
+import BlockUserModal from './BlockUserModal';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 interface User {
   _id: string;
@@ -21,6 +25,8 @@ interface User {
   followingCount: number;
   postsCount?: number;
   isFollowing?: boolean;
+  isBlocked?: boolean;
+  hasBlockedMe?: boolean;
 }
 
 interface ProfileHeaderProps {
@@ -29,6 +35,7 @@ interface ProfileHeaderProps {
   onEdit: () => void;
   onFollowToggle: () => void;
   isPending: boolean;
+  onBlockSuccess?: () => void;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -37,13 +44,30 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onEdit,
   onFollowToggle,
   isPending,
+  onBlockSuccess,
 }) => {
   const navigate = useNavigate();
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  
+  const { data: blockStatus } = useQuery({
+    queryKey: ['blockStatus', profile._id],
+    queryFn: async () => {
+      if (isCurrentUser) return null;
+      const response = await axios.get(`/api/blocks/check/${profile._id}`);
+      return response.data;
+    },
+    enabled: !isCurrentUser && !!profile._id,
+    staleTime: 60000,
+  });
+
+  const isBlocked = blockStatus?.isBlocked ?? profile.isBlocked ?? false;
+  const hasBlockedMe = blockStatus?.hasBlockedMe ?? profile.hasBlockedMe ?? false;
 
   return (
     <div className="profile-hero-section">
       <div className="profile-cover-area">
         <div className="cover-pattern" />
+        <div className="bg-name-watermark">{profile.fullName}</div>
         <div className="cover-overlay" />
       </div>
 
@@ -78,13 +102,23 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                   <FaEdit />
                   <span>Edit Profile</span>
                 </button>
+              ) : isBlocked ? (
+                <button
+                  id="unblock-user-btn"
+                  className="premium-action-btn unblock"
+                  onClick={() => setShowBlockModal(true)}
+                >
+                  <IoPersonRemove />
+                  <span>Unblock</span>
+                </button>
               ) : (
                 <>
                   <button
                     id="follow-toggle-btn"
                     className={`premium-action-btn ${profile.isFollowing ? 'unfollow' : 'follow'}`}
                     onClick={onFollowToggle}
-                    disabled={isPending}
+                    disabled={isPending || hasBlockedMe}
+                    title={hasBlockedMe ? 'This user has blocked you' : undefined}
                   >
                     {profile.isFollowing ? (
                       <><FiUserCheck /> Following</>
@@ -92,16 +126,25 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                       <><FiUserPlus /> Follow</>
                     )}
                   </button>
-                  {profile.isFollowing && (
+                  {(profile.isFollowing || !hasBlockedMe) && (
                     <button
                       id="message-user-btn"
                       className="premium-action-btn message"
                       onClick={() => navigate(`/messages/${profile._id}`)}
                       title="Send message"
+                      disabled={hasBlockedMe}
                     >
                       <MdChat />
                     </button>
                   )}
+                  <button
+                    id="block-user-btn"
+                    className="premium-action-btn block"
+                    onClick={() => setShowBlockModal(true)}
+                    title="Block user"
+                  >
+                    <IoPersonRemove />
+                  </button>
                 </>
               )}
             </div>
@@ -163,8 +206,25 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </div>
         </div>
       </div>
+
+      {!isCurrentUser && (
+        <BlockUserModal
+          isOpen={showBlockModal}
+          onClose={() => setShowBlockModal(false)}
+          user={{
+            _id: profile._id,
+            username: profile.username,
+            fullName: profile.fullName,
+            profilePicture: profile.profilePicture,
+          }}
+          onBlockSuccess={() => {
+            onBlockSuccess?.();
+          }}
+        />
+      )}
     </div>
   );
 };
 
 export default ProfileHeader;
+
