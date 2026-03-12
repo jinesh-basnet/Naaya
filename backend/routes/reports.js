@@ -4,7 +4,7 @@ const Report = require('../models/Report');
 const Post = require('../models/Post');
 const Story = require('../models/Story');
 const User = require('../models/User');
-const { authenticateToken, requireOffice } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -307,7 +307,7 @@ router.get('/my', authenticateToken, async (req, res) => {
   }
 });
 
-const adminAuth = [authenticateToken, requireOffice];
+const adminAuth = [authenticateToken];
 
 // @route   GET /api/reports
 // @desc    Get all reports (Admin only)
