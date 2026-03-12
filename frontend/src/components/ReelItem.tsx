@@ -173,6 +173,11 @@ const ReelItem: React.FC<ReelItemProps> = ({
       queryClient.invalidateQueries({ queryKey: ['reelsFeed'] });
       queryClient.invalidateQueries({ queryKey: ['userReels', reel.author?.username] });
       setShowDeleteModal(false);
+
+      // Navigate to profile page after deletion
+      if (user?.username) {
+        navigate(`/profile/${user.username}`);
+      }
     } catch (error) {
       toast.error('Failed to delete reel');
     } finally {
@@ -362,7 +367,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
             />
             <span className="user-name-v2">
               {reel.author?.username}
-              {reel.author?.isVerified && <HiCheckCircle size={14} color="#0095f6" />}
+              {reel.author?.isVerified && <HiCheckCircle size={14} color="var(--primary-main)" />}
             </span>
             <button className="follow-btn-v2" onClick={(e) => e.stopPropagation()}>
               Follow

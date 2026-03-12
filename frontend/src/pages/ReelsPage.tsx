@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './ReelsPage.css';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -9,68 +9,17 @@ import ReelCommentsModal from '../components/ReelCommentsModal';
 import ReelItem from '../components/ReelItem';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface Reel {
-  _id: string;
-  caption: string;
-  video: {
-    url: string;
-    thumbnail?: string;
-    duration?: number;
-    size?: number;
-    width?: number;
-    height?: number;
-    format?: string;
-  };
-  audio?: {
-    title: string;
-    artist: string;
-    url: string;
-    startTime: number;
-    duration: number;
-    isOriginal: boolean;
-  };
-  author?: {
-    _id: string;
-    username: string;
-    fullName: string;
-    profilePicture: string;
-    isVerified: boolean;
-  };
-  location: {
-    city: string;
-    district: string;
-  };
-  language: string;
-  likes: Array<{ user: string }>;
-  comments: Array<{
-    _id: string;
-    author: {
-      username: string;
-      fullName: string;
-      profilePicture: string;
-    };
-    content: string;
-    createdAt: string;
-  }>;
-  createdAt: string;
-  likesCount: number;
-  commentsCount: number;
-  viewsCount: number;
-}
-
 const ReelsPage: React.FC = () => {
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [pendingAdvance, setPendingAdvance] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const previousReelsLength = useRef(0);
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const { onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved } = useSocket();
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
-  const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
+  const [savedReels] = useState<Set<string>>(new Set());
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
   const [selectedReelId, setSelectedReelId] = useState<string>('');
   const [selectedReelAuthorId, setSelectedReelAuthorId] = useState<string>('');
@@ -96,7 +45,6 @@ const ReelsPage: React.FC = () => {
     previousReelsLength.current = reels.length;
   }, [isFetchingNextPage, reels.length, pendingAdvance]);
 
-  // Handle Socket Events
   useEffect(() => {
     const handleLiked = (data: any) => { /* Update Cache */ };
     const handleSaved = (data: any) => { /* Update State */ };
@@ -108,7 +56,7 @@ const ReelsPage: React.FC = () => {
     };
   }, [onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentReelIndex < reels.length - 1) {
       setScrollDirection('down');
       setCurrentReelIndex(prev => prev + 1);
@@ -119,25 +67,24 @@ const ReelsPage: React.FC = () => {
       return true;
     }
     return false;
-  };
+  }, [currentReelIndex, reels.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (currentReelIndex > 0) {
       setScrollDirection('up');
       setCurrentReelIndex(prev => prev - 1);
       return true;
     }
     return false;
-  };
+  }, [currentReelIndex]);
 
-  // Keyboard and Wheel Controls (Throttled)
   const lastScrollTime = useRef(0);
   useEffect(() => {
     const handleScroll = (e: WheelEvent) => {
       if (commentsModalOpen) return;
 
       const now = Date.now();
-      if (now - lastScrollTime.current < 800) return; // 800ms throttle
+      if (now - lastScrollTime.current < 800) return;
 
       if (Math.abs(e.deltaY) > 80) {
         if (e.deltaY > 0) handleNext();
@@ -158,7 +105,7 @@ const ReelsPage: React.FC = () => {
       window.removeEventListener('wheel', handleScroll);
       window.removeEventListener('keydown', handleKey);
     };
-  }, [currentReelIndex, reels.length, hasNextPage, isFetchingNextPage, commentsModalOpen]);
+  }, [commentsModalOpen, handleNext, handlePrev]);
 
   const handleVideoProgress = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = e.currentTarget;
@@ -213,7 +160,7 @@ const ReelsPage: React.FC = () => {
               index={currentReelIndex}
               isActive={true}
               isPlaying={isPlaying}
-              isMuted={isMuted}
+              isMuted={true}
               progress={progress}
               user={user}
               savedReels={savedReels}
@@ -224,7 +171,7 @@ const ReelsPage: React.FC = () => {
               handleSave={(id) => reelsAPI.saveReel(id).catch(() => toast.error('Failed to save'))}
               handleVideoProgress={handleVideoProgress}
               handleVideoClick={() => setIsPlaying(!isPlaying)}
-              handleVideoEnd={() => { }} // Disabled auto-advance
+              handleVideoEnd={() => { }}
               setCommentsModalOpen={setCommentsModalOpen}
               setSelectedReelId={setSelectedReelId}
               setSelectedReelAuthorId={setSelectedReelAuthorId}
