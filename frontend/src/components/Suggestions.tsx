@@ -3,12 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
-import { useAuth } from '../contexts/AuthContext';
 import Avatar from './Avatar';
 import './Suggestions.css';
 
 const Suggestions: React.FC<{ limit?: number }> = ({ limit = 6 }) => {
-  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const [loadingUserIds, setLoadingUserIds] = useState<string[]>([]);
   const queryClient = useQueryClient();

@@ -59,7 +59,7 @@
 .toggle-btn {
   background: none;
   border: none;
-  color: #0095f6;
+  color: var(--primary-main);
   font-weight: 700;
   font-size: 0.82rem;
   cursor: pointer;
@@ -69,7 +69,7 @@
 
 .follow-btn:hover,
 .toggle-btn:hover {
-  color: #00376b;
+  color: var(--primary-dark);
   transform: scale(1.05);
 }
 
@@ -79,7 +79,6 @@
   opacity: 0.6;
 }
 
-/* Profiles Sidebar Specific */
 .suggestion-card {
   display: flex;
   align-items: center;
