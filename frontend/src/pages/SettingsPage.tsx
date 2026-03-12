@@ -17,8 +17,9 @@ import {
   IoLockClosed,
   IoCheckmark
 } from 'react-icons/io5';
-import { notificationsAPI } from '../services/api';
+import { notificationsAPI, usersAPI } from '../services/api';
 import { pushNotificationService } from '../services/pushNotificationService';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 type SettingsTab = 'appearance' | 'account' | 'privacy' | 'notifications';
 
@@ -33,6 +34,8 @@ const SettingsPage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [preferences, setPreferences] = useState<NotificationPreferences>({
     emailNotifications: true,
@@ -78,7 +81,7 @@ const SettingsPage: React.FC = () => {
             await pushNotificationService.subscribeToPush();
           } else {
             toast.error('Notification permission denied');
-            setPreferences(preferences); 
+            setPreferences(preferences);
             return;
           }
         } else {
@@ -91,7 +94,7 @@ const SettingsPage: React.FC = () => {
     } catch (error) {
       console.error('Error updating preference:', error);
       toast.error('Failed to update preference');
-      setPreferences(preferences); 
+      setPreferences(preferences);
     }
   };
 
@@ -124,6 +127,22 @@ const SettingsPage: React.FC = () => {
     setTimeout(() => {
       navigate('/login');
     }, 1000);
+  };
+
+  const handleAccountDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await usersAPI.deleteAccount();
+      localStorage.removeItem('token');
+      toast.success('Account deleted successfully');
+      navigate('/login');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      toast.error('Failed to delete account');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
   };
 
   const navItems = [
@@ -237,6 +256,21 @@ const SettingsPage: React.FC = () => {
                 aria-label="Manage account privacy"
               >
                 Manage
+              </button>
+            </div>
+
+            <div className="settings-item danger-zone">
+              <div className="settings-item-info">
+                <h3 style={{ color: '#ff4d4f' }}>Delete Account</h3>
+                <p>Permanently remove your account and all data</p>
+              </div>
+              <button
+                className="danger-btn"
+                style={{ border: '2px solid #ff4d4f', color: '#ff4d4f' }}
+                onClick={() => setShowDeleteModal(true)}
+                aria-label="Delete account"
+              >
+                Delete
               </button>
             </div>
           </motion.div>
@@ -451,6 +485,15 @@ const SettingsPage: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleAccountDelete}
+        title="Delete Account"
+        message="Are you sure you want to delete your account? This action is permanent and cannot be undone. All your posts, reels, and stories will be permanently hidden."
+        isPending={isDeleting}
+      />
     </>
   );
 };
