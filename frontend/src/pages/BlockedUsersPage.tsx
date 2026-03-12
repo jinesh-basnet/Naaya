@@ -4,7 +4,7 @@ import { IoArrowBack, IoPersonRemove, IoCheckmarkCircle } from 'react-icons/io5'
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Avatar from '../components/Avatar';
-import axios from 'axios';
+import { blocksAPI } from '../services/api';
 import './BlockedUsersPage.css';
 
 interface BlockedUser {
@@ -34,7 +34,7 @@ const BlockedUsersPage: React.FC = () => {
     const fetchBlockedUsers = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('/api/blocks');
+            const response = await blocksAPI.getBlockedUsers();
             setBlockedUsers(response.data.blocks);
         } catch (error: any) {
             console.error('Error fetching blocked users:', error);
@@ -47,7 +47,7 @@ const BlockedUsersPage: React.FC = () => {
     const handleUnblock = async (userId: string, username: string) => {
         try {
             setUnblocking(userId);
-            await axios.delete(`/api/blocks/${userId}`);
+            await blocksAPI.unblockUser(userId);
 
             setBlockedUsers(prev => prev.filter(block => block.user._id !== userId));
 

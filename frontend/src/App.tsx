@@ -204,6 +204,14 @@ function InnerApp() {
             }
           />
           <Route
+            path="/messages/conversation/:conversationId"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/messages/group/:groupId"
             element={
               <ProtectedRoute>

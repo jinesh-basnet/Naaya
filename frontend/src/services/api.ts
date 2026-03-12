@@ -132,6 +132,12 @@ export const postsAPI = {
 
   searchPosts: (query: string, page: number = 1, limit: number = 20) =>
     api.get(`/posts/search?q=${query}&page=${page}&limit=${limit}`),
+
+  deleteComment: (postId: string, commentId: string) =>
+    api.delete(`/posts/${postId}/comments/${commentId}`),
+
+  deleteReply: (postId: string, replyId: string) =>
+    api.delete(`/posts/${postId}/replies/${replyId}`),
 };
 
 export const usersAPI = {
@@ -163,7 +169,13 @@ export const usersAPI = {
     api.get(`/users/search?q=${query}&page=${page}&limit=${limit}`),
 
   updatePrivacy: (privacySettings: any) =>
-    api.put('/users/privacy', { privacySettings }),
+    api.put('/privacy', privacySettings),
+
+  getPrivacySettings: () =>
+    api.get('/privacy'),
+
+  deleteAccount: () =>
+    api.delete('/users/profile'),
 };
 
 export const storiesAPI = {
@@ -267,17 +279,23 @@ export const reelsAPI = {
 
   deleteReel: (reelId: string) =>
     api.delete(`/reels/${reelId}`),
+
+  deleteComment: (reelId: string, commentId: string) =>
+    api.delete(`/reels/${reelId}/comments/${commentId}`),
+
+  deleteReply: (reelId: string, replyId: string) =>
+    api.delete(`/reels/${reelId}/replies/${replyId}`),
 };
 
 export const bookmarkCollectionsAPI = {
   getCollections: () =>
     api.get('/bookmark-collections'),
 
-  createCollection: (name: string) =>
-    api.post('/bookmark-collections', { name }),
+  createCollection: (data: { name: string; description?: string; isPublic?: boolean; coverImage?: string }) =>
+    api.post('/bookmark-collections', data),
 
-  updateCollection: (collectionId: string, name: string) =>
-    api.put(`/bookmark-collections/${collectionId}`, { name }),
+  updateCollection: (collectionId: string, data: { name?: string; description?: string; isPublic?: boolean; coverImage?: string }) =>
+    api.put(`/bookmark-collections/${collectionId}`, data),
 
   deleteCollection: (collectionId: string) =>
     api.delete(`/bookmark-collections/${collectionId}`),
@@ -307,6 +325,12 @@ export const notificationsAPI = {
 
   getUnreadCount: () =>
     api.get('/notifications/unread-count'),
+
+  clearAllNotifications: () =>
+    api.delete('/notifications/clear-all'),
+
+  deleteNotification: (notificationId: string) =>
+    api.delete(`/notifications/${notificationId}`),
 };
 
 export const messagesAPI = {
@@ -334,8 +358,8 @@ export const messagesAPI = {
   removeReaction: (messageId: string, emoji: string) =>
     api.delete(`/messages/${messageId}/reaction`),
 
-  editMessage: (messageId: string, content: string) =>
-    api.put(`/messages/${messageId}`, { content }),
+  editMessage: (messageId: string, content: string, iv?: string, isEncrypted?: boolean) =>
+    api.put(`/messages/${messageId}`, { content, iv, isEncrypted }),
 
   deleteMessage: (messageId: string) =>
     api.delete(`/messages/${messageId}`),
@@ -345,6 +369,12 @@ export const messagesAPI = {
 
   markMessageAsSeen: (messageId: string) =>
     api.put(`/messages/${messageId}/seen`),
+
+  markAllMessagesAsRead: (conversationId: string) =>
+    api.put(`/messages/conversation/${conversationId}/read-all`),
+
+  searchMessagesInConversation: (conversationId: string, query: string) =>
+    api.get(`/messages/conversation/${conversationId}/search?q=${query}`),
 
   forwardMessage: (messageId: string, receiverId: string) =>
     api.post(`/messages/${messageId}/forward`, { receiverId }),
@@ -366,6 +396,52 @@ export const messagesAPI = {
 
   updateParticipantRole: (conversationId: string, userId: string, role: 'admin' | 'member') =>
     api.put(`/messages/conversations/${conversationId}/participants/${userId}/role`, { role }),
+
+  deleteConversation: (conversationId: string) =>
+    api.delete(`/conversations/${conversationId}`),
+};
+
+export const blocksAPI = {
+  blockUser: (userId: string, data: { reason?: string; category?: string; blockedFromContext?: string }) =>
+    api.post(`/blocks/${userId}`, data),
+
+  unblockUser: (userId: string) =>
+    api.delete(`/blocks/${userId}`),
+
+  reactivateBlock: (userId: string) =>
+    api.put(`/blocks/${userId}/reactivate`),
+
+  getBlockedUsers: (page: number = 1, limit: number = 20, includeInactive?: boolean) =>
+    api.get(`/blocks?page=${page}&limit=${limit}&includeInactive=${includeInactive || false}`),
+
+  checkBlockStatus: (userId: string) =>
+    api.get(`/blocks/check/${userId}`),
+
+  getBlockStats: () =>
+    api.get('/blocks/stats'),
+
+  filterBlockedUsers: (userIds: string[]) =>
+    api.post('/blocks/filter', { userIds }),
+
+  bulkCheckBlocked: (targetUserIds: string[]) =>
+    api.post('/blocks/bulk-check', { targetUserIds }),
+};
+
+export const reportsAPI = {
+  reportPost: (postId: string, data: { reason: string; description?: string; evidence?: string[] }) =>
+    api.post(`/reports/post/${postId}`, data),
+
+  reportComment: (commentId: string, data: { reason: string; description?: string; evidence?: string[] }) =>
+    api.post(`/reports/comment/${commentId}`, data),
+
+  reportStory: (storyId: string, data: { reason: string; description?: string; evidence?: string[] }) =>
+    api.post(`/reports/story/${storyId}`, data),
+
+  reportUser: (userId: string, data: { reason: string; description?: string; evidence?: string[] }) =>
+    api.post(`/reports/user/${userId}`, data),
+
+  getMyReports: (page: number = 1, limit: number = 20, status?: string) =>
+    api.get(`/reports/my?page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`),
 };
 
 export default api;
