@@ -409,8 +409,8 @@ router.post('/:postId/replies/:replyId/reply', authenticateToken, [
           commentId: replyId,
           reply: newReply,
           replyCount: parentReply.replies.length,
-          commentCount: countTotalComments(post.comments) // Include total comment count including replies
-        });
+          commentCount: countTotalComments(post.comments) 
+                });
       } catch (notificationError) {
         console.error('Error sending reply to reply notification:', notificationError);
       }
@@ -445,4 +445,71 @@ router.post('/:postId/replies/:replyId/reply', authenticateToken, [
   }
 });
 
+// @route   DELETE /api/posts/:postId/comments/:commentId
+// @desc    Delete a comment or reply
+// @access  Private
+router.delete('/:postId/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const userId = req.user._id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        message: 'Post not found',
+        code: 'POST_NOT_FOUND'
+      });
+    }
+
+    const removeComment = (commentsArray, id) => {
+      for (let i = 0; i < commentsArray.length; i++) {
+        const comment = commentsArray[i];
+        if (comment._id.toString() === id.toString()) {
+          if (comment.author.toString() !== userId.toString() && post.author.toString() !== userId.toString()) {
+            return { error: 'Permission denied', status: 403 };
+          }
+          commentsArray.splice(i, 1);
+          return { success: true };
+        }
+        if (comment.replies && comment.replies.length > 0) {
+          const result = removeComment(comment.replies, id);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+
+    const result = removeComment(post.comments, commentId);
+
+    if (!result) {
+      return res.status(404).json({
+        message: 'Comment not found',
+        code: 'COMMENT_NOT_FOUND'
+      });
+    }
+
+    if (result.error) {
+      return res.status(result.status).json({
+        message: result.error,
+        code: 'DELETE_COMMENT_PERMISSION_DENIED'
+      });
+    }
+
+    await post.save();
+
+    res.json({
+      message: 'Comment deleted successfully',
+      commentCount: countTotalComments(post.comments)
+    });
+
+  } catch (error) {
+    console.error('Delete comment error:', error);
+    res.status(500).json({
+      message: 'Server error deleting comment',
+      code: 'DELETE_COMMENT_ERROR'
+    });
+  }
+});
+
 module.exports = router;
+
