@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaXmark, FaImages, FaEarthAmericas, FaUsers, FaLock, FaPaperPlane } from 'react-icons/fa6';
-import { motion, AnimatePresence } from 'framer-motion';
+import { FaXmark, FaImages, FaEarthAmericas, FaUsers, FaLock } from 'react-icons/fa6';
+import { motion } from 'framer-motion';
 import { storiesAPI, usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -58,53 +58,51 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
 
         setLoading(true);
         try {
-            let mediaObject = null;
+            let mediaData = undefined;
+
             if (media) {
-                const formData = new FormData();
-                formData.append('media', media);
-                const uploadResponse = await storiesAPI.uploadStoryMedia(formData);
-                mediaObject = uploadResponse.data.media;
+                const mediaFormData = new FormData();
+                mediaFormData.append('media', media);
+                const uploadRes = await storiesAPI.uploadStoryMedia(mediaFormData);
+                mediaData = uploadRes.data.media;
             }
 
             const storyData: any = {
                 content,
                 visibility,
             };
-            if (mediaObject) {
-                storyData.media = mediaObject;
+
+            if (mediaData) {
+                storyData.media = mediaData;
             }
-            if (visibility === 'close_friends') {
+
+            if (visibility === 'close_friends' && closeFriends.length > 0) {
                 storyData.closeFriends = closeFriends;
             }
 
             await storiesAPI.createStory(storyData);
-            toast.success('Story shared successfully!');
-            queryClient.invalidateQueries({ queryKey: ['storiesFeed'] });
-            handleClose();
+
+            toast.success('Story shared!');
+            queryClient.invalidateQueries({ queryKey: ['stories'] });
+            onClose();
         } catch (error: any) {
             console.error('Error sharing story:', error);
-            const errorMsg = error.response?.data?.message || error.response?.data?.errors?.[0]?.msg || 'Failed to share story';
-            toast.error(errorMsg);
+            const errorMessage = error.response?.data?.message || 'Failed to share story';
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleClose = () => {
-        setStep(1);
-        setContent('');
-        setMedia(null);
-        setPreviewUrl(null);
-        setVisibility('public');
-        setCloseFriends([]);
-        onClose();
-    };
-
     const toggleCloseFriend = (userId: string) => {
         setCloseFriends(prev =>
-            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+            prev.includes(userId)
+                ? prev.filter(id => id !== userId)
+                : [...prev, userId]
         );
     };
+
+    if (!isOpen) return null;
 
     return (
         <motion.div
@@ -112,60 +110,66 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleClose}
+            onClick={onClose}
         >
-            <div className="create-story-container" onClick={e => e.stopPropagation()}>
+            <motion.div
+                className="create-story-container"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <header className="create-story-header">
-                    <button className="back-btn" onClick={step === 1 ? handleClose : () => setStep(1)}>
-                        <FaXmark size={24} />
+                    <button className="back-btn" onClick={step === 2 ? () => setStep(1) : onClose}>
+                        {step === 2 ? 'Back' : <FaXmark size={20} />}
                     </button>
-                    <h2>{step === 1 ? 'New Story' : 'Preview & Edit'}</h2>
-                    {step === 2 && (
-                        <button
-                            className="share-btn-top"
-                            onClick={handleShare}
-                            disabled={loading}
-                        >
-                            {loading ? 'Posting...' : 'Share'}
-                            <FaPaperPlane size={18} />
+                    <h2>Create Story</h2>
+                    {step === 2 ? (
+                        <button className="share-btn-top" onClick={handleShare} disabled={loading}>
+                            {loading ? 'Sharing...' : 'Share'}
                         </button>
+                    ) : (
+                        <div style={{ width: '60px' }}></div>
                     )}
                 </header>
 
                 <main className="create-story-main">
-                    {step === 1 ? (
+                    {step === 1 && (
                         <div className="media-selector">
                             <div className="selector-content">
                                 <div className="icon-circle">
                                     <FaImages size={48} />
                                 </div>
-                                <h3>Select photos and videos</h3>
-                                <p>Share a moment with your followers</p>
-                                <label htmlFor="story-media" className="select-file-btn">
-                                    Select from device
-                                </label>
+                                <h3>Select Media</h3>
+                                <p>Photos and videos will be added to your story for 24 hours.</p>
                                 <input
                                     type="file"
-                                    id="story-media"
-                                    hidden
                                     accept="image/*,video/*"
                                     onChange={handleMediaChange}
+                                    id="story-media-input"
+                                    hidden
                                 />
+                                <label htmlFor="story-media-input" className="select-file-btn">
+                                    Select from computer
+                                </label>
                             </div>
                         </div>
-                    ) : (
+                    )}
+
+                    {step === 2 && previewUrl && (
                         <div className="story-editor">
                             <div className="preview-area">
-                                {media?.type.startsWith('video') ? (
-                                    <video src={previewUrl!} className="preview-media" autoPlay muted loop />
+                                {media?.type?.startsWith('video') ? (
+                                    <video src={previewUrl} controls autoPlay loop className="preview-media" />
                                 ) : (
-                                    <img src={previewUrl!} alt="Preview" className="preview-media" />
+                                    <img src={previewUrl} alt="Preview" className="preview-media" />
                                 )}
                                 <textarea
                                     className="story-caption-overlay"
-                                    placeholder="Type a caption..."
+                                    placeholder="Add a caption..."
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
+                                    maxLength={150}
                                 />
                             </div>
 
@@ -177,35 +181,28 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
                                             className={`visibility-opt ${visibility === 'public' ? 'active' : ''}`}
                                             onClick={() => setVisibility('public')}
                                         >
-                                            <FaEarthAmericas />
-                                            <span>Everyone</span>
-                                        </button>
-                                        <button
-                                            className={`visibility-opt ${visibility === 'followers' ? 'active' : ''}`}
-                                            onClick={() => setVisibility('followers')}
-                                        >
-                                            <FaUsers />
-                                            <span>Followers</span>
+                                            <FaEarthAmericas size={18} />
+                                            <span>Public</span>
                                         </button>
                                         <button
                                             className={`visibility-opt ${visibility === 'close_friends' ? 'active' : ''}`}
                                             onClick={() => setVisibility('close_friends')}
                                         >
-                                            <FaUsers />
+                                            <FaUsers size={18} />
                                             <span>Close Friends</span>
                                         </button>
                                         <button
                                             className={`visibility-opt ${visibility === 'private' ? 'active' : ''}`}
                                             onClick={() => setVisibility('private')}
                                         >
-                                            <FaLock />
+                                            <FaLock size={18} />
                                             <span>Private</span>
                                         </button>
                                     </div>
                                 </div>
 
                                 {visibility === 'close_friends' && (
-                                    <div className="friends-list-section">
+                                    <div className="settings-section friends-list-section">
                                         <h3>Select Friends</h3>
                                         <div className="friends-search-list">
                                             {userFollowers.length > 0 ? userFollowers.map(f => (
@@ -214,7 +211,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
                                                         src={f.profilePicture}
                                                         alt={f.username}
                                                         name={f.fullName}
-                                                        size={32}
+                                                        size={44}
                                                     />
                                                     <div className="friend-info">
                                                         <span className="name">{f.fullName}</span>
@@ -223,7 +220,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
                                                     <div className={`checkbox ${closeFriends.includes(f._id) ? 'checked' : ''}`} />
                                                 </div>
                                             )) : (
-                                                <p className="empty-msg">You aren't following anyone yet.</p>
+                                                <p className="empty-msg" style={{ color: 'var(--text-secondary)' }}>You aren't following anyone yet.</p>
                                             )}
                                         </div>
                                     </div>
@@ -232,7 +229,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
                         </div>
                     )}
                 </main>
-            </div>
+            </motion.div>
         </motion.div>
     );
 };

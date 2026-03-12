@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaTimes, FaImages, FaMapMarkerAlt, FaUserPlus, FaPaperPlane, FaPlus, FaImage, FaVideo } from 'react-icons/fa';
+import { FaTimes, FaMapMarkerAlt, FaUserPlus, FaPaperPlane, FaImage } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import './CreatePostModal.css';
 
@@ -94,200 +94,139 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
   };
 
   const handlePost = () => {
-    let determinedPostType: 'post' | 'reel' = 'post';
-    if (media && media.type.startsWith('video/')) {
-      determinedPostType = 'reel';
-    } else if (!media && caption.trim() !== '') {
-      determinedPostType = 'post';
-    } else if (!media && caption.trim() === '') {
-      return;
-    } else {
-      determinedPostType = 'post';
-    }
-
-    if (!media && caption.trim() !== '') {
-      onPost({
-        postType: determinedPostType,
-        caption,
-        media: null,
-        tags,
-        location,
-        editMode,
-        editPost,
-      });
-    } else {
-      onPost({
-        postType: determinedPostType,
-        caption,
-        media,
-        tags,
-        location,
-        editMode,
-        editPost,
-      });
-    }
-    resetModal();
-    onClose();
-  };
-
-  const resetModal = () => {
-    if (videoRef.current) {
-      try {
-        videoRef.current.pause();
-      } catch (error) {
-      }
-    }
+    onPost({
+      postType: 'post',
+      caption,
+      media,
+      tags,
+      location,
+      editMode,
+      editPost
+    });
     setCaption('');
     setMedia(null);
     setMediaPreview('');
     setTags([]);
     setLocation('');
-  };
-
-  const handleClose = () => {
-    resetModal();
     onClose();
   };
 
   if (!open) return null;
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <header className="modal-header">
-          <h2>
-            {editMode ? 'Edit ' : 'Create '}
-            {media?.type.startsWith('video/') ? 'Reel' : 'Post'}
-          </h2>
-          <button className="icon-button" onClick={handleClose}>
+    <div className="modal-overlay" onClick={onClose}>
+      <motion.div
+        className="modal-content"
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 50 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2>{editMode ? 'Edit Post' : 'Create Post'}</h2>
+          <button className="icon-button" onClick={onClose}>
             <FaTimes />
           </button>
-        </header>
+        </div>
 
         <div className="modal-body">
           <div className="media-section">
-            {!mediaPreview ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="empty-media-state"
-              >
-                <div className="icon-group">
-                  <FaImage className="icon photo" />
-                  <FaVideo className="icon video" />
-                </div>
-                <h3>Start your masterpiece</h3>
-                <p>Drag and drop or click to upload photos and videos</p>
-                <button className="select-button" onClick={() => fileInputRef.current?.click()}>
-                  Upload from Device
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    hidden
-                    accept="image/*,video/*"
-                    onChange={handleMediaChange}
-                  />
-                </button>
-              </motion.div>
-            ) : (
+            {mediaPreview ? (
               <div className="media-preview">
-                {media?.type.startsWith('video/') ? (
-                  <video
-                    ref={videoRef}
-                    src={mediaPreview}
-                    controls
-                    muted
-                    playsInline
-                    onError={(e) => {
-                      console.error('Video load error:', e);
-                    }}
-                  />
+                {media?.type?.startsWith('video') || mediaPreview.startsWith('data:video') ? (
+                  <video ref={videoRef} src={mediaPreview} controls className="preview-video" />
                 ) : (
-                  <img
-                    src={mediaPreview}
-                    alt="Preview"
-                  />
+                  <img src={mediaPreview} alt="Preview" className="preview-image" />
                 )}
-                <button className="change-media" onClick={() => fileInputRef.current?.click()}>
-                  Change Media
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    hidden
-                    accept="image/*,video/*"
-                    onChange={handleMediaChange}
-                  />
+                <button className="change-media" onClick={() => { setMedia(null); setMediaPreview(''); }}>
+                  <FaTimes /> Remove Media
+                </button>
+              </div>
+            ) : (
+              <div className="media-upload-area">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleMediaChange}
+                  accept="image/*,video/*"
+                  hidden
+                />
+                <FaImage className="icon photo" size={48} />
+                <h3>Upload Media</h3>
+                <p>Drag and drop or click to select a photo or video</p>
+                <button className="select-button" onClick={() => fileInputRef.current?.click()}>
+                  Select from computer
                 </button>
               </div>
             )}
           </div>
 
           <div className="details-section">
-            <div className="caption-input">
+            <div className="content-section">
               <textarea
                 className="caption-textarea"
                 placeholder="Write a caption..."
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 maxLength={2200}
-                rows={3}
               />
               <div className="caption-count">{caption.length}/2200</div>
             </div>
+            <div className="options-section">
+              <motion.div
+                className="input-group"
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+              >
+                <label>Location</label>
+                <div className="input-with-icon">
+                  <FaMapMarkerAlt className="icon" />
+                  <input
+                    type="text"
+                    placeholder="Where was this taken?"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                  />
+                </div>
+              </motion.div>
 
-            <motion.div
-              className="input-group"
-              initial={{ x: -10, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              <label>Location</label>
-              <div className="input-with-icon">
-                <FaMapMarkerAlt className="icon" />
-                <input
-                  type="text"
-                  placeholder="Where was this taken?"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                />
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="input-group"
-              initial={{ x: -10, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <label>Collaborators</label>
-              <div className="input-with-icon">
-                <FaUserPlus className="icon" />
-                <input
-                  type="text"
-                  placeholder="Who are you with?"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
-                />
-              </div>
-              <div className="tags-container">
-                <AnimatePresence mode="popLayout">
-                  {tags.map((tag) => (
-                    <motion.span
-                      key={tag}
-                      className="tag"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      layout
-                    >
-                      {tag}
-                      <span className="tag-delete" onClick={() => handleDeleteTag(tag)}>×</span>
-                    </motion.span>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </motion.div>
+              <motion.div
+                className="input-group"
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <label>Collaborators</label>
+                <div className="input-with-icon">
+                  <FaUserPlus className="icon" />
+                  <input
+                    type="text"
+                    placeholder="Who are you with?"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
+                  />
+                </div>
+                <div className="tags-container">
+                  <AnimatePresence mode="popLayout">
+                    {tags.map((tag) => (
+                      <motion.span
+                        key={tag}
+                        className="tag"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        layout
+                      >
+                        {tag}
+                        <span className="tag-delete" onClick={() => handleDeleteTag(tag)}>×</span>
+                      </motion.span>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </div>
 
@@ -301,7 +240,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
             {editMode ? 'Update' : 'Share'}
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
