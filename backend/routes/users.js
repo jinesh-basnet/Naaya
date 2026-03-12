@@ -30,6 +30,12 @@ router.get('/profile/:username', optionalAuth, async (req, res) => {
 
     const profile = user.toObject();
 
+    const postsCount = await Post.countDocuments({ 
+      author: user._id, 
+      isDeleted: false 
+    });
+    profile.postsCount = postsCount;
+
     if (req.user) {
       const followingDoc = await Following.findOne({ user: req.user._id }).select('following').lean();
       profile.isFollowing = followingDoc ? followingDoc.following.includes(user._id) : false;
