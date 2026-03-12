@@ -59,11 +59,13 @@ const UserHighlights: React.FC<UserHighlightsProps> = ({ userId, onHighlightClic
             }
           }}
         >
-          <img
-            src={highlight.coverStory?.media?.url || '/default-highlight-cover.svg'}
-            alt={highlight.title}
-            className="highlight-cover"
-          />
+          <div className="highlight-cover-ring">
+            <img
+              src={highlight.coverStory?.media?.url || '/default-highlight-cover.svg'}
+              alt={highlight.title}
+              className="highlight-cover"
+            />
+          </div>
           <div className="highlight-title">{highlight.title}</div>
           <button
             className="edit-highlight-button"
