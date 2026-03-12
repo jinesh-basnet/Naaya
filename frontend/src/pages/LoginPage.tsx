@@ -22,7 +22,6 @@ const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors },
   } = useForm<LoginFormData>();
 
   const onSubmit = async (data: LoginFormData) => {
@@ -47,7 +46,6 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="login-page">
-      {/* Left Visual Side (Desktop) */}
       <div className="login-visual-side">
         <div className="visual-content">
           <h1 className="visual-title">Connect. Share. Engage.</h1>
@@ -57,7 +55,6 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Form Side */}
       <div className="login-form-side">
         <div className="login-form-container">
           <div className="login-header">
