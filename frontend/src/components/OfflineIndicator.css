@@ -15,7 +15,7 @@
 }
 
 .offline-indicator.online {
-  background-color: #10b981;
+  background-color: #3b82f6;
   color: white;
 }
 
@@ -42,6 +42,7 @@
     transform: translateX(-50%) translateY(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(-50%) translateY(0);
     opacity: 1;
