@@ -19,6 +19,8 @@ interface User {
   isBusiness: boolean;
   followers: string[];
   following: string[];
+  followersCount: number;
+  followingCount: number;
   createdAt: string;
 }
 
