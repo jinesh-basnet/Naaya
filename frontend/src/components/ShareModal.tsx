@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MdClose, MdSend, MdSearch, MdImage } from 'react-icons/md';
 import { useAuth } from '../contexts/AuthContext';
-import { usersAPI } from '../services/api';
+import { usersAPI, api } from '../services/api';
 import toast from 'react-hot-toast';
 import Avatar from './Avatar';
 
@@ -143,8 +143,10 @@ const ShareModal: React.FC<ShareModalProps> = ({
     setIsSharing(true);
     try {
       const sharePromises = Array.from(selectedUsers).map(async (userId) => {
+        const conversationId = `direct_${[user?._id, userId].sort().join('_')}`;
+
         const messageData = {
-          receiver: userId,
+          conversationId,
           content: shareMessage.trim() || `Shared a ${contentType}`,
           messageType: contentType === 'post' ? 'shared_post' : 'shared_reel',
           sharedContent: {
@@ -160,20 +162,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
           }
         };
 
-        const response = await fetch('/api/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify(messageData)
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to send message');
-        }
-
-        return response.json();
+        return api.post('/messages', messageData);
       });
 
       await Promise.all(sharePromises);

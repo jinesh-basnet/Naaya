@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaXmark, FaPlay, FaPause, FaHeart, FaPaperPlane, FaUsers, FaLock, FaPlus, FaVolumeHigh, FaVolumeLow, FaVolumeXmark } from 'react-icons/fa6';
+import { FaXmark, FaPlay, FaPause, FaHeart, FaPaperPlane, FaUsers, FaPlus, FaVolumeHigh, FaVolumeXmark } from 'react-icons/fa6';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStoryView } from '../contexts/StoryViewContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,7 +58,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
   const { user } = useAuth();
 
   const currentStory = stories[currentIdx];
-  const DEFAULT_DURATION = 5000; // 5 seconds for images
+  const DEFAULT_DURATION = 5000;
 
   const handleNext = useCallback(() => {
     if (currentIdx < stories.length - 1) {
@@ -78,7 +78,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     }
   }, [currentIdx]);
 
-  // Progress logic
   useEffect(() => {
     if (!isOpen || !isPlaying || !currentStory) return;
 
@@ -87,7 +86,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
       ? videoRef.current.duration * 1000
       : DEFAULT_DURATION;
 
-    const step = 100 / (duration / 30); // update every 30ms
+    const step = 100 / (duration / 30);
 
     progressTimerRef.current = setInterval(() => {
       setProgress(prev => {
@@ -105,7 +104,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
     };
   }, [currentIdx, isPlaying, isOpen, currentStory, handleNext]);
 
-  // Video sync
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -123,7 +121,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
       setIsPlaying(true);
       setIsLiked(currentStory.reactions?.some(r => r.user === user?._id && r.type === 'love') || false);
     }
-  }, [currentIdx, isOpen, currentStory?._id]);
+  }, [isOpen, currentStory, markStoryAsViewed, user?._id]);
 
   const handleReaction = async (emoji: string) => {
     const reactionMap: { [key: string]: string } = {
@@ -183,7 +181,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
       >
-        {/* Progress Bars */}
         <div className="story-progress-container">
           {stories.map((_, idx) => (
             <div key={idx} className="story-progress-track">
@@ -198,7 +195,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
           ))}
         </div>
 
-        {/* Header */}
         <div className="story-header">
           <div
             className="story-author"
@@ -242,7 +238,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
           </div>
         </div>
 
-        {/* Media Content */}
         <div
           className="story-media-container"
           onMouseDown={() => setIsPlaying(false)}
@@ -292,7 +287,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
           )}
         </div>
 
-        {/* Interaction Bar */}
         <div className="story-footer">
           <div className="footer-main">
             <div className="reply-input-wrapper">
@@ -329,7 +323,6 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
         </div>
       </motion.div>
 
-      {/* Side Navigation Buttons (Desktop) */}
       <div className="desktop-story-nav" onClick={e => e.stopPropagation()}>
         <button className="nav-btn prev" onClick={handlePrev} disabled={currentIdx === 0}>
           ‹

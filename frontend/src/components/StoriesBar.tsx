@@ -1,25 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MdAdd, MdClose } from 'react-icons/md';
+import { MdAdd } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { storiesAPI, usersAPI } from '../services/api';
-import toast from 'react-hot-toast';
+import { storiesAPI } from '../services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import StoryViewer from './StoryViewer';
 import CreateStoryModal from './CreateStoryModal';
 import { Story, DisplayStoryItem } from '../types/stories';
-import { organizeStories } from '../utils/storyOrganizer';
 import Avatar from './Avatar';
-import { getProfileImageUrl } from '../utils/imageUtils';
 import './StoriesBar.css';
-import './StoryViewer.css'; // Added for consistency, though typically component-specific CSS is imported in the component itself.
+import './StoryViewer.css';
 
 const BACKEND_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-// This utility function should ideally be in a shared utility file or within the components that use it.
-// Placing it here as per the provided diff.
 const getMediaUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) {
@@ -51,7 +46,6 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
 
   const queryClient = useQueryClient();
 
-  // Backend already groups and sorts these!
   const displayStories: DisplayStoryItem[] = useMemo(() => {
     const backendGroups = (storiesData?.data?.stories || []) as DisplayStoryItem[];
 
@@ -70,7 +64,6 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
     return [addStoryItem, ...backendGroups];
   }, [storiesData?.data?.stories, user]);
 
-  // Flatten for the viewer
   const allStoriesFlat = useMemo(() => {
     const backendGroups = (storiesData?.data?.stories || []) as DisplayStoryItem[];
     return backendGroups.flatMap(group => group.stories || []);
@@ -79,10 +72,8 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
   const handleViewStory = (displayItem: DisplayStoryItem) => {
     if (!displayItem.stories || displayItem.stories.length === 0) return;
 
-    // Find the first story of this author in the flat list
     const authorId = displayItem.author._id;
 
-    // Find first unseen story or just the first story
     const firstUnseenIndex = allStoriesFlat.findIndex(s => s.author._id === authorId && !s.hasViewed);
     const firstAuthorIndex = allStoriesFlat.findIndex(s => s.author._id === authorId);
 

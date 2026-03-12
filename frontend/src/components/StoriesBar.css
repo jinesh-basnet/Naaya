@@ -47,8 +47,8 @@
 }
 
 .story-avatar-container.has-unseen {
-  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-  box-shadow: 0 0 10px rgba(220, 39, 67, 0.2);
+  background: var(--story-gradient);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
 }
 
 .story-avatar-container.viewed {
@@ -83,7 +83,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background-color: #0095f6;
+  background-color: var(--primary-main);
   border: 2px solid var(--background-paper);
   display: flex;
   align-items: center;
@@ -104,7 +104,6 @@
   white-space: nowrap;
 }
 
-/* Animations */
 .story-item:active {
   transform: scale(0.95);
 }
