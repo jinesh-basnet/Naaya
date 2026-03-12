@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const Following = require('../models/Following');
+const Follow = require('../models/Follow');
 const UserInteraction = require('../models/UserInteraction');
 
 class RichGetRicherAlgorithm {
@@ -23,31 +23,34 @@ class RichGetRicherAlgorithm {
   async getSuggestions(currentUserId, limit = 10) {
     try {
       // Get current user's profile and following list
-      const [currentUser, followingDoc] = await Promise.all([
-        User.findById(currentUserId).select('interests location followersCount followingCount lastActive').lean(),
-        Following.findOne({ user: currentUserId }).select('following').lean()
-      ]);
+      const currentUser = await User.findById(currentUserId).select('interests location followersCount followingCount lastActive').lean();
+      
+      const followingDocs = await Follow.find({ follower: currentUserId }).select('following').lean();
+      const followingIds = followingDocs.map(f => f.following.toString());
+      
+      // Get blocked users to exclude
+      const Block = require('../models/Block');
+      const blockedUserIds = await Block.getBlockedUserIds(currentUserId);
+      const blockerUserIds = await Block.getBlockerUserIds(currentUserId);
+      const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
 
-      const followingIds = followingDoc ? followingDoc.following.map(id => id.toString()) : [];
-      const excludeIds = [currentUserId.toString(), ...followingIds];
+      const excludeIds = [currentUserId.toString(), ...followingIds, ...allBlockedIds];
 
       // 1. Get mutual friends (Friends of Friends)
-      // Find all users that the current user follows
-      const friendsDocs = await Following.find({ user: { $in: followingIds } })
+      // Find all follow documents where the follower is someone the current user follows
+      const friendsDocs = await Follow.find({ follower: { $in: followingIds } })
         .select('following')
         .lean();
 
       // Calculate mutual friend frequency
       const mutualFrequency = {};
       friendsDocs.forEach(doc => {
-        if (doc.following && Array.isArray(doc.following)) {
-          doc.following.forEach(friendId => {
-            const idStr = friendId.toString();
-            // Only count if not already followed and not self
-            if (!excludeIds.includes(idStr)) {
-              mutualFrequency[idStr] = (mutualFrequency[idStr] || 0) + 1;
-            }
-          });
+        if (doc.following) {
+          const idStr = doc.following.toString();
+          // Only count if not already followed and not self
+          if (!excludeIds.includes(idStr)) {
+            mutualFrequency[idStr] = (mutualFrequency[idStr] || 0) + 1;
+          }
         }
       });
 
