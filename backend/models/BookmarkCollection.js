@@ -41,11 +41,11 @@ bookmarkCollectionSchema.index({ user: 1, name: 1 });
 bookmarkCollectionSchema.index({ user: 1, createdAt: -1 });
 
 bookmarkCollectionSchema.virtual('postCount').get(function () {
-  return this.posts.length + (this.reels ? this.reels.length : 0);
+  return (this.posts?.length || 0) + (this.reels?.length || 0);
 });
 
 bookmarkCollectionSchema.virtual('itemCount').get(function () {
-  return this.posts.length + (this.reels ? this.reels.length : 0);
+  return (this.posts?.length || 0) + (this.reels?.length || 0);
 });
 
 bookmarkCollectionSchema.set('toJSON', { virtuals: true });
