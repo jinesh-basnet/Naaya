@@ -1,36 +1,63 @@
 const express = require('express');
 const Post = require('../../models/Post');
 const User = require('../../models/User');
+const BookmarkCollection = require('../../models/BookmarkCollection');
 const { authenticateToken, optionalAuth } = require('../../middleware/auth');
 const { findCommentById, countTotalComments } = require('../../utils/postHelpers');
 
 const router = express.Router();
 
 // @route   GET /api/posts/saved
-// @desc    Get user's saved posts
+// @desc    Get user's saved posts from BookmarkCollection
 // @access  Private
 router.get('/saved', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const userId = req.user._id;
 
+    const defaultCollection = await BookmarkCollection.findOne({
+      user: userId,
+      name: 'Saved Posts'
+    });
+
+    if (!defaultCollection || defaultCollection.posts.length === 0) {
+      return res.json({
+        message: 'Saved posts retrieved successfully',
+        posts: [],
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0,
+          pages: 0
+        }
+      });
+    }
+
+    const total = defaultCollection.posts.length;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const postIdsPage = defaultCollection.posts.slice(skip, skip + parseInt(limit));
+
     const posts = await Post.find({
-      'saves.user': userId,
+      _id: { $in: postIdsPage },
       isDeleted: false,
       isArchived: false
     })
-      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-      .sort({})
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference');
+
+    const postsMap = new Map(posts.map(p => [p._id.toString(), p]));
+    const sortedPosts = postIdsPage
+      .map(id => postsMap.get(id.toString()))
+      .filter(Boolean);
 
     res.json({
       message: 'Saved posts retrieved successfully',
-      posts,
+      posts: sortedPosts,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: posts.length
+        total,
+        pages: Math.ceil(total / limit)
       }
     });
 

@@ -680,9 +680,6 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
       });
     }
 
-    const wasSaved = reel.addSave(userId);
-    await reel.save();
-
     let defaultCollection = await BookmarkCollection.findOne({
       user: userId,
       name: 'Saved Posts'
@@ -697,20 +694,37 @@ router.post('/:reelId/save', authenticateToken, async (req, res) => {
         posts: [],
         reels: []
       });
+      await defaultCollection.save();
     }
 
-    if (wasSaved) {
-      if (!defaultCollection.reels) defaultCollection.reels = [];
-      if (!defaultCollection.reels.includes(reelId)) {
-        defaultCollection.reels.push(reelId);
-        await defaultCollection.save();
-      }
-    } else {
-      if (defaultCollection.reels) {
-        defaultCollection.reels = defaultCollection.reels.filter(id => id.toString() !== reelId);
-        await defaultCollection.save();
-      }
+    if (!defaultCollection.reels) {
+      defaultCollection.reels = [];
     }
+
+    const isInCollection = defaultCollection.reels.some(
+      id => id.toString() === reelId
+    );
+
+    let wasSaved;
+    if (isInCollection) {
+      defaultCollection.reels = defaultCollection.reels.filter(
+        id => id.toString() !== reelId
+      );
+      const existingSave = reel.saves.find(save => save.user.toString() === userId.toString());
+      if (existingSave) {
+        reel.saves.pull(existingSave._id);
+        reel.savesCount = Math.max(0, reel.savesCount - 1);
+      }
+      wasSaved = false;
+    } else {
+      defaultCollection.reels.push(reelId);
+      reel.saves.push({ user: userId });
+      reel.savesCount += 1;
+      wasSaved = true;
+    }
+
+    await defaultCollection.save();
+    await reel.save();
 
     if (global.io) {
       try {
@@ -1172,4 +1186,58 @@ router.post('/:reelId/replies/:replyId/reply', authenticateToken, [
   }
 });
 
+// @route   DELETE /api/reels/:reelId/comments/:commentId
+// @desc    Delete a reel comment
+// @access  Private
+router.delete('/:reelId/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { reelId, commentId } = req.params;
+    const userId = req.user._id;
+
+    const reel = await Reel.findById(reelId);
+    if (!reel) {
+      return res.status(404).json({
+        message: 'Reel not found',
+        code: 'REEL_NOT_FOUND'
+      });
+    }
+
+    const comment = reel.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({
+        message: 'Comment not found',
+        code: 'COMMENT_NOT_FOUND'
+      });
+    }
+
+    if (comment.author.toString() !== userId.toString() && reel.author.toString() !== userId.toString()) {
+      return res.status(403).json({
+        message: 'You can only delete your own comments or comments on your reels',
+        code: 'DELETE_COMMENT_PERMISSION_DENIED'
+      });
+    }
+
+    reel.comments.pull(commentId);
+
+    reel.comments = reel.comments.filter(c => c.replyTo?.toString() !== commentId.toString());
+
+    reel.commentsCount = reel.comments.length;
+
+    await reel.save();
+
+    res.json({
+      message: 'Comment deleted successfully',
+      commentsCount: reel.commentsCount
+    });
+
+  } catch (error) {
+    console.error('Delete reel comment error:', error);
+    res.status(500).json({
+      message: 'Server error deleting comment',
+      code: 'DELETE_COMMENT_ERROR'
+    });
+  }
+});
+
 module.exports = router;
+

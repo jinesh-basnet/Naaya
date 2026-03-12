@@ -3,14 +3,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookmarkCollectionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 import './BookmarkCollectionsModal.css';
 
 interface BookmarkCollection {
   _id: string;
   name: string;
   description: string;
+  isPublic: boolean;
+  coverImage: string | null;
   posts: string[];
+  reels: string[];
   postCount: number;
+  itemCount: number;
   createdAt: string;
 }
 
@@ -32,6 +37,8 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   const [newCollectionName, setNewCollectionName] = useState('');
   const [editingCollection, setEditingCollection] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
 
   const {
     data: collectionsData,
@@ -44,7 +51,8 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   });
 
   const createCollectionMutation = useMutation({
-    mutationFn: (data: { name: string }) => bookmarkCollectionsAPI.createCollection(data.name),
+    mutationFn: (data: { name: string; description?: string; isPublic?: boolean; coverImage?: string }) => 
+      bookmarkCollectionsAPI.createCollection(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookmarkCollections'] });
       setNewCollectionName('');
@@ -60,6 +68,8 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookmarkCollections'] });
       toast.success('Collection deleted successfully');
+      setShowDeleteModal(false);
+      setCollectionToDelete(null);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to delete collection');
@@ -68,7 +78,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
 
   const updateCollectionMutation = useMutation({
     mutationFn: ({ collectionId, name }: { collectionId: string; name: string }) =>
-      bookmarkCollectionsAPI.updateCollection(collectionId, name),
+      bookmarkCollectionsAPI.updateCollection(collectionId, { name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookmarkCollections'] });
       setEditingCollection(null);
@@ -90,6 +100,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookmarkCollections'] });
+      queryClient.invalidateQueries({ queryKey: ['userBookmarks'] });
       toast.success('Post updated in collection');
     },
     onError: (error: any) => {
@@ -104,9 +115,8 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   };
 
   const handleDeleteCollection = (collectionId: string) => {
-    if (window.confirm('Are you sure you want to delete this collection?')) {
-      deleteCollectionMutation.mutate(collectionId);
-    }
+    setCollectionToDelete(collectionId);
+    setShowDeleteModal(true);
   };
 
   const handleTogglePostInCollection = (collectionId: string, isInCollection: boolean) => {
@@ -271,6 +281,18 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
           </button>
         </div>
       </div>
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setCollectionToDelete(null);
+        }}
+        onConfirm={() => collectionToDelete && deleteCollectionMutation.mutate(collectionToDelete)}
+        title="Delete Collection?"
+        message="Are you sure you want to delete this collection? All saved posts in this collection will be removed from it. This action cannot be undone."
+        isPending={deleteCollectionMutation.isPending}
+      />
     </div>
   );
 };

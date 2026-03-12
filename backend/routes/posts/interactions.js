@@ -87,7 +87,7 @@ router.post('/:postId/like', authenticateToken, async (req, res) => {
 });
 
 // @route   POST /api/posts/:postId/save
-// @desc    Save/unsave a post
+// @desc    Save/unsave a post 
 // @access  Private
 router.post('/:postId/save', authenticateToken, async (req, res) => {
   try {
@@ -102,8 +102,6 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
       });
     }
 
-    const existingSave = post.saves.find(save => save.user.toString() === userId.toString());
-
     let defaultCollection = await BookmarkCollection.findOne({
       user: userId,
       name: 'Saved Posts'
@@ -115,27 +113,43 @@ router.post('/:postId/save', authenticateToken, async (req, res) => {
         description: 'Posts saved by you',
         isPublic: false,
         user: userId,
-        posts: []
+        posts: [],
+        reels: []
       });
+      await defaultCollection.save();
     }
 
-    const wasSaved = post.addSave(userId);
+    const isInCollection = defaultCollection.posts.some(
+      id => id.toString() === postId
+    );
+
+    let wasSaved;
+    if (isInCollection) {
+      defaultCollection.posts = defaultCollection.posts.filter(
+        id => id.toString() !== postId
+      );
+      const existingSave = post.saves.find(save => save.user.toString() === userId.toString());
+      if (existingSave) {
+        post.saves.pull(existingSave._id);
+        post.savesCount = Math.max(0, post.savesCount - 1);
+      }
+      wasSaved = false;
+    } else {
+      defaultCollection.posts.push(postId);
+      post.saves.push({ user: userId });
+      post.savesCount += 1;
+      wasSaved = true;
+    }
+
+    await defaultCollection.save();
     await post.save();
 
     if (wasSaved) {
-      if (!defaultCollection.posts.includes(postId)) {
-        defaultCollection.posts.push(postId);
-        await defaultCollection.save();
-      }
-
       try {
         await updateInteractionHistory(userId, post.author._id, 'save', post.media.length > 0 ? post.media[0].type : 'text', post.language, [...(post.hashtags || []), ...(post.tags || [])]);
       } catch (interactionError) {
         console.error('Error updating interaction history:', interactionError);
       }
-    } else {
-      defaultCollection.posts = defaultCollection.posts.filter(id => id.toString() !== postId);
-      await defaultCollection.save();
     }
 
     if (global.io) {

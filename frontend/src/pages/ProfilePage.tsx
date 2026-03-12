@@ -31,6 +31,7 @@ const ProfilePage: React.FC = () => {
   const [isHighlightManagerOpen, setIsHighlightManagerOpen] = useState(false);
   const [isPostViewerOpen, setIsPostViewerOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | undefined>(undefined);
+  const [selectedPostType, setSelectedPostType] = useState<'post' | 'reel' | 'saved'>('post');
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   const {
@@ -205,8 +206,9 @@ const ProfilePage: React.FC = () => {
             videoErrors={videoErrors}
             setVideoErrors={setVideoErrors}
             isCurrentUser={isCurrentUser}
-            onPostClick={(postId) => {
+            onPostClick={(postId, type) => {
               setSelectedPostId(postId);
+              setSelectedPostType(activeTab === 'bookmarks' ? 'saved' : type);
               setIsPostViewerOpen(true);
             }}
           />
@@ -219,7 +221,7 @@ const ProfilePage: React.FC = () => {
             username={profile.username}
             userId={profile._id}
             initialPostId={selectedPostId}
-            contentType={activeTab === 'reels' || activeTab === 'savedReels' ? 'reel' : 'post'}
+            contentType={selectedPostType}
           />
         )}
 
