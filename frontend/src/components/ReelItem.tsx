@@ -174,7 +174,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
       queryClient.invalidateQueries({ queryKey: ['userReels', reel.author?.username] });
       setShowDeleteModal(false);
 
-      // Navigate to profile page after deletion
       if (user?.username) {
         navigate(`/profile/${user.username}`);
       }
@@ -224,11 +223,9 @@ const ReelItem: React.FC<ReelItemProps> = ({
           </div>
         )}
 
-        {/* Gradients */}
         <div className="top-gradient-overlay" />
         <div className="bottom-gradient-overlay" />
 
-        {/* Interaction Overlays */}
         <AnimatePresence>
           {showHeart && (
             <motion.div
@@ -246,7 +243,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
           <MdPlayArrow size={60} />
         </div>
 
-        {/* UI Controls Row (Top) */}
         <div className="top-actions-row">
           <span className="top-title">Reels</span>
           <button
@@ -288,7 +284,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
           </AnimatePresence>
         </div>
 
-        {/* Side Actions (Right) */}
         <div className="side-actions-v2">
           <div className="action-item-v2">
             <motion.button
@@ -344,7 +339,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
             </button>
           </div>
 
-          {/* Music Disk Animation */}
           <div className="music-disk-container">
             <div className="music-disk">
               <div className="music-disk-inner" />
@@ -352,7 +346,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
           </div>
         </div>
 
-        {/* Bottom Content (Left) */}
         <div className="content-section-v2">
           <div className="user-row-v2" onClick={(e) => {
             e.stopPropagation();
@@ -388,7 +381,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="progress-bar-v2">
           <div className="progress-fill-v2" style={{ width: `${isActive ? progress : 0}%` }} />
         </div>
