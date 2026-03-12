@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiTrash2 } from 'react-icons/fi';
-import { HiXMark } from 'react-icons/hi2';
 import './DeleteConfirmationModal.css';
 
 interface DeleteConfirmationModalProps {
@@ -45,7 +44,6 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                             </div>
                             <h3>{title}</h3>
                             <button className="close-btn-minimal" onClick={onClose}>
-                                {/* Close icon would go here if needed, but the UI is cleaner without it if it's a focus modal */}
                             </button>
                         </div>
 

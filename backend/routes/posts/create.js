@@ -205,4 +205,41 @@ router.put('/:postId', authenticateToken, uploadMultiple('media'), [
   }
 });
 
+// @route   DELETE /api/posts/:postId
+// @desc    Delete a post
+// @access  Private
+router.delete('/:postId', authenticateToken, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user._id;
+
+    const post = await Post.findOne({
+      _id: postId,
+      author: userId
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        message: req.t('posts:postNotFound', { defaultValue: 'Post not found or you do not have permission to delete it' }),
+        code: 'POST_NOT_FOUND'
+      });
+    }
+
+    post.isDeleted = true;
+    post.deletedAt = new Date();
+    await post.save();
+
+    res.json({
+      message: req.t('posts:postDeleted', { defaultValue: 'Post deleted successfully' })
+    });
+
+  } catch (error) {
+    console.error('Delete post error:', error);
+    res.status(500).json({
+      message: 'Server error deleting post',
+      code: 'DELETE_POST_ERROR'
+    });
+  }
+});
+
 module.exports = router;
