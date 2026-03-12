@@ -1,50 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { FaHeart, FaComment } from 'react-icons/fa';
+import { BsFilm, BsImages, BsGrid3X3, BsBookmarkFill, BsCameraVideo } from 'react-icons/bs';
 import { useAuth } from '../contexts/AuthContext';
-import { BsGrid3X3, BsFilm, BsBookmark, BsPlayFill, BsImages } from 'react-icons/bs';
-
-interface Post {
-  _id: string;
-  content: string;
-  media: Array<{
-    type: string;
-    url: string;
-    thumbnail?: string;
-    width?: number;
-    height?: number;
-  }>;
-  author: {
-    _id: string;
-    username: string;
-    fullName: string;
-    profilePicture: string;
-    isVerified: boolean;
-  };
-  location: {
-    city: string;
-    district: string;
-    province: string;
-  };
-  language: string;
-  likes: Array<{ user: string }>;
-  saves: Array<{ user: string }>;
-  comments: Array<{
-    _id: string;
-    author: {
-      username: string;
-      fullName: string;
-      profilePicture: string;
-    };
-    content: string;
-    createdAt: string;
-  }>;
-  createdAt: string;
-  likesCount: number;
-  commentsCount: number;
-  savesCount: number;
-  postType: string;
-  isReel?: boolean;
-}
 
 interface ContentTabsProps {
   activeTab: 'posts' | 'reels' | 'bookmarks' | 'savedReels';
@@ -69,9 +26,156 @@ interface ContentTabsProps {
   videoErrors: Record<string, boolean>;
   setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   isCurrentUser: boolean;
-  onPostClick?: (postId: string) => void;
+  onPostClick?: (postId: string, type: 'post' | 'reel') => void;
 }
 
+const BACKEND_BASE_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
+const getMediaUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  const normalizedUrl = url.replace(/\\/g, '/').replace(/^\/?/, '/');
+  return `${BACKEND_BASE_URL}${normalizedUrl}`;
+};
+
+/* ── Empty State Component ─────────────────────────── */
+const EmptyState: React.FC<{ icon: React.ReactNode; message: string; subtext?: string }> = ({
+  icon,
+  message,
+  subtext,
+}) => (
+  <div className="empty-state">
+    <div className="empty-state-icon">{icon}</div>
+    <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-secondary)', fontSize: '1rem' }}>{message}</p>
+    {subtext && (
+      <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+        {subtext}
+      </p>
+    )}
+  </div>
+);
+
+/* ── Single Grid Item ──────────────────────────────── */
+const ContentItem: React.FC<{
+  post: any;
+  isReel: boolean;
+  videoErrors: Record<string, boolean>;
+  setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  onClick: () => void;
+  index: number;
+}> = ({ post, isReel, videoErrors, setVideoErrors, onClick, index }) => {
+  const mediaUrl = getMediaUrl(isReel ? (post.video?.url || post.media?.[0]?.url) : (post.media?.[0]?.url || post.video?.url));
+  const isVideo = (post.media?.[0]?.type === 'video') || (isReel && !!(post.video?.url || post.media?.[0]?.url));
+  const hasError = videoErrors[post._id];
+
+  return (
+    <div
+      className="content-item"
+      onClick={onClick}
+      style={{ animationDelay: `${index * 0.04}s` }}
+    >
+      <div className="media-wrapper">
+        {isVideo && !hasError ? (
+          <video
+            src={mediaUrl}
+            className="media-element"
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            onMouseOver={e => (e.target as HTMLVideoElement).play().catch(() => { })}
+            onMouseOut={e => {
+              const v = e.target as HTMLVideoElement;
+              v.pause();
+              v.currentTime = 0;
+            }}
+            onError={() => setVideoErrors(prev => ({ ...prev, [post._id]: true }))}
+          />
+        ) : (
+          <img
+            src={hasError ? '/default-media-placeholder.svg' : mediaUrl}
+            alt={post.content || 'Post'}
+            className="media-element"
+            loading="lazy"
+            onError={() => setVideoErrors(prev => ({ ...prev, [post._id]: true }))}
+          />
+        )}
+
+        {/* Hover Overlay */}
+        <div className="card-overlay">
+          <div className="overlay-content">
+            <div className="overlay-stat">
+              <FaHeart />
+              <span>{post.likesCount || 0}</span>
+            </div>
+            <div className="overlay-stat">
+              <FaComment />
+              <span>{post.commentsCount || 0}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Type Badge */}
+        <div className="item-badge">
+          {isReel ? (
+            <BsFilm />
+          ) : post.media?.length > 1 ? (
+            <BsImages />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Grid Renderer ─────────────────────────────────── */
+const ContentGrid: React.FC<{
+  items: any[];
+  loading: boolean;
+  error: any;
+  isReel: boolean;
+  videoErrors: Record<string, boolean>;
+  setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  onPostClick?: (id: string, type: 'post' | 'reel') => void;
+  emptyIcon: React.ReactNode;
+  emptyMessage: string;
+  emptySubtext?: string;
+}> = ({ items, loading, error, isReel, videoErrors, setVideoErrors, onPostClick, emptyIcon, emptyMessage, emptySubtext }) => {
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="spinner-glow" />
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="error-message">Failed to load content. Please try again.</div>;
+  }
+  if (!items || items.length === 0) {
+    return <EmptyState icon={emptyIcon} message={emptyMessage} subtext={emptySubtext} />;
+  }
+
+  return (
+    <div className="content-grid">
+      {items.map((post: any, index: number) => {
+        const itemIsReel = post.isReel !== undefined ? post.isReel : isReel;
+        return (
+          <ContentItem
+            key={post._id || index}
+            post={post}
+            isReel={itemIsReel}
+            videoErrors={videoErrors}
+            setVideoErrors={setVideoErrors}
+            onClick={() => onPostClick?.(post._id, itemIsReel ? 'reel' : 'post')}
+            index={index}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+/* ── Main ContentTabs ──────────────────────────────── */
 const ContentTabs: React.FC<ContentTabsProps> = ({
   activeTab,
   postsData,
@@ -99,152 +203,137 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
 }) => {
   const { user } = useAuth();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const BACKEND_BASE_URL = 'http://localhost:5000';
-
-  const getMediaUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    const normalizedUrl = url.replace(/\\/g, '/').replace(/^\/?/, '/');
-    return `${BACKEND_BASE_URL}${normalizedUrl}`;
-  };
 
   useEffect(() => {
-    const sentinel = loadMoreRef.current;
-    if (!sentinel) return;
+    if (!loadMoreRef.current) return;
+    if (!fetchNextPosts && !fetchNextReels) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-
-          if (activeTab === 'posts') {
-            if (hasNextPosts && !isFetchingNextPosts) {
-              fetchNextPosts && fetchNextPosts();
-            }
-          } else if (activeTab === 'reels') {
-            if (hasNextReels && !isFetchingNextReels) {
-              fetchNextReels && fetchNextReels();
-            }
-          }
-        });
+      entries => {
+        if (entries[0].isIntersecting) {
+          if (activeTab === 'posts' && hasNextPosts && fetchNextPosts && !isFetchingNextPosts)
+            fetchNextPosts();
+          if ((activeTab === 'reels' || activeTab === 'savedReels') && hasNextReels && fetchNextReels && !isFetchingNextReels)
+            fetchNextReels();
+        }
       },
-      { root: null, rootMargin: '500px', threshold: 0.1 }
+      { threshold: 0.1 }
     );
 
-    observer.observe(sentinel);
+    observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [activeTab, hasNextPosts, isFetchingNextPosts, hasNextReels, isFetchingNextReels, fetchNextPosts, fetchNextReels]);
-
-  const renderContent = (data: Post[], loading: boolean, error: any, isReelTab: boolean = false) => {
-    if (loading) {
-      return <div className="loading-spinner"></div>;
-    }
-    if (error) {
-      return <div className="error-alert">Failed to load content.</div>;
-    }
-    if (!data || data.length === 0) {
-      return (
-        <div className="no-posts">
-          <div className="no-posts-icon">
-            {isReelTab ? <BsFilm /> : <BsGrid3X3 />}
-          </div>
-          <h3>{isReelTab ? 'No Reels Yet' : 'No Posts Yet'}</h3>
-          <p>When {isCurrentUser ? 'you share' : 'this user shares'} {isReelTab ? 'reels' : 'posts'}, they will appear here.</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="posts-grid">
-        {data.map((post, index) => {
-          const isReel = isReelTab || post.isReel || post.postType === 'reel';
-          const mediaItem = post.media && post.media.length > 0 ? post.media[0] : null;
-
-          if (!mediaItem) return null;
-
-          const mediaUrl = getMediaUrl(mediaItem.url);
-          const isVideo = mediaItem.type === 'video' || isReel;
-
-          return (
-            <div
-              key={post._id}
-              className={`profile-post-card ${isReel ? 'reel-card' : 'standard-card'}`}
-              onClick={() => onPostClick && onPostClick(post._id)}
-              style={{ animationDelay: `${index % 12 * 0.05}s` }}
-            >
-              <div className="media-wrapper">
-                {isVideo ? (
-                  <video
-                    src={mediaUrl}
-                    muted
-                    playsInline
-                    className="post-media"
-                    onMouseOver={e => e.currentTarget.play()}
-                    onMouseOut={e => {
-                      e.currentTarget.pause();
-                      e.currentTarget.currentTime = 0;
-                    }}
-                  />
-                ) : (
-                  <img src={mediaUrl} alt="Post" className="post-media" loading="lazy" />
-                )}
-
-                <div className="card-overlay">
-                  <div className="overlay-content">
-                    <div className="overlay-stat">
-                      <FaHeart /> <span>{post.likesCount || 0}</span>
-                    </div>
-                    <div className="overlay-stat">
-                      <FaComment /> <span>{post.commentsCount || 0}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="item-badge">
-                  {isReel ? <BsFilm /> : (post.media.length > 1 ? <BsImages /> : null)}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  }, [activeTab, fetchNextPosts, fetchNextReels, hasNextPosts, hasNextReels, isFetchingNextPosts, isFetchingNextReels]);
 
   switch (activeTab) {
-    case 'posts':
-      const postsArr = postsData?.pages ? postsData.pages.flatMap((p: any) => p.data?.posts || []) : (postsData?.data?.posts || []);
+    case 'posts': {
+      const postsArr = postsData?.pages
+        ? postsData.pages.flatMap((p: any) => p.data?.posts || [])
+        : postsData?.data?.posts || [];
       return (
         <>
-          {renderContent(postsArr, postsLoading, postsError, false)}
-          {hasNextPosts && <div ref={loadMoreRef} style={{ height: 20, width: '100%' }} />}
+          <ContentGrid
+            items={postsArr}
+            loading={postsLoading}
+            error={postsError}
+            isReel={false}
+            videoErrors={videoErrors}
+            setVideoErrors={setVideoErrors}
+            onPostClick={onPostClick}
+            emptyIcon={<BsGrid3X3 />}
+            emptyMessage="No posts yet"
+            emptySubtext={isCurrentUser ? 'Share your first post to get started' : undefined}
+          />
+          {hasNextPosts && <div ref={loadMoreRef} style={{ height: 24, width: '100%' }} />}
+          {isFetchingNextPosts && (
+            <div className="loading-container" style={{ padding: '24px 0' }}>
+              <div className="spinner-glow" style={{ width: 28, height: 28 }} />
+            </div>
+          )}
         </>
       );
-    case 'reels':
-      const reelsArr = reelsData?.pages ? reelsData.pages.flatMap((p: any) => p.data?.reels || []) : (reelsData?.data?.reels || []);
-      return (
-        <>
-          {renderContent(reelsArr, reelsLoading, reelsError, true)}
-          {hasNextReels && <div ref={loadMoreRef} style={{ height: 20, width: '100%' }} />}
-        </>
-      );
-    case 'bookmarks':
-      const savedPosts = (bookmarksData?.data?.bookmarks || []).map((post: any) => ({ ...post, isReel: false }));
-      const savedReels = (savedReelsData?.data?.savedReels || []).map((reel: any) => ({ ...reel, isReel: true }));
+    }
 
+    case 'reels': {
+      const reelsArr = reelsData?.pages
+        ? reelsData.pages.flatMap((p: any) => p.data?.reels || [])
+        : reelsData?.data?.reels || [];
+      return (
+        <>
+          <ContentGrid
+            items={reelsArr}
+            loading={reelsLoading}
+            error={reelsError}
+            isReel={true}
+            videoErrors={videoErrors}
+            setVideoErrors={setVideoErrors}
+            onPostClick={onPostClick}
+            emptyIcon={<BsCameraVideo />}
+            emptyMessage="No reels yet"
+            emptySubtext={isCurrentUser ? 'Create your first reel to share with the world' : undefined}
+          />
+          {hasNextReels && <div ref={loadMoreRef} style={{ height: 24, width: '100%' }} />}
+          {isFetchingNextReels && (
+            <div className="loading-container" style={{ padding: '24px 0' }}>
+              <div className="spinner-glow" style={{ width: 28, height: 28 }} />
+            </div>
+          )}
+        </>
+      );
+    }
+
+    case 'bookmarks': {
+      const savedPosts = (bookmarksData?.data?.posts || []).map((post: any) => ({
+        ...post,
+        isReel: false,
+      }));
+      const savedReels = (savedReelsData?.data?.reels || []).map((reel: any) => ({
+        ...reel,
+        isReel: true,
+      }));
       const combinedSaved = [...savedPosts, ...savedReels].sort((a, b) => {
-        const aSave = a.saves?.find((save: any) => save.user === user?._id);
-        const bSave = b.saves?.find((save: any) => save.user === user?._id);
+        const aSave = a.saves?.find((s: any) => s.user === user?._id);
+        const bSave = b.saves?.find((s: any) => s.user === user?._id);
         const aDate = aSave ? new Date(aSave.savedAt).getTime() : 0;
         const bDate = bSave ? new Date(bSave.savedAt).getTime() : 0;
         return bDate - aDate;
       });
 
-      return renderContent(combinedSaved, bookmarksLoading || savedReelsLoading, bookmarksError || savedReelsError, false);
-    case 'savedReels':
-      return renderContent(savedReelsData?.data?.savedReels || [], savedReelsLoading, savedReelsError, true);
+      return (
+        <ContentGrid
+          items={combinedSaved}
+          loading={bookmarksLoading || savedReelsLoading}
+          error={bookmarksError || savedReelsError}
+          isReel={false}
+          videoErrors={videoErrors}
+          setVideoErrors={setVideoErrors}
+          onPostClick={onPostClick}
+          emptyIcon={<BsBookmarkFill />}
+          emptyMessage="No saved content"
+          emptySubtext="Posts and reels you save will appear here"
+        />
+      );
+    }
+
+    case 'savedReels': {
+      const savedReelsArr = savedReelsData?.data?.reels || [];
+      return (
+        <ContentGrid
+          items={savedReelsArr}
+          loading={savedReelsLoading}
+          error={savedReelsError}
+          isReel={true}
+          videoErrors={videoErrors}
+          setVideoErrors={setVideoErrors}
+          onPostClick={onPostClick}
+          emptyIcon={<BsCameraVideo />}
+          emptyMessage="No saved reels"
+          emptySubtext="Reels you save will appear here"
+        />
+      );
+    }
+
     default:
-      return <div>Invalid tab</div>;
+      return <div className="error-message">Unknown tab.</div>;
   }
 };
 
