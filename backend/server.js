@@ -198,7 +198,6 @@ app.use('/api/conversations', require('./routes/conversations'));
 app.use('/api/password-reset', require('./routes/passwordReset'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/reports', require('./routes/reports'));
-app.use('/api/admin', require('./routes/admin'));
 app.use('/api/bookmark-collections', require('./routes/bookmarkCollections'));
 app.use('/api/blocks', require('./routes/blocks'));
 app.use('/api/privacy', require('./routes/privacy'));
@@ -294,7 +293,6 @@ app.use('*', (req, res) => {
       '/api/password-reset',
       '/api/notifications',
       '/api/reports',
-      '/api/admin',
       '/api/bookmark-collections'
     ]
   });
@@ -344,13 +342,11 @@ const startServer = async () => {
       });
     });
 
-    // Track online users
     const onlineUsers = new Map();
 
     io.on('connection', (socket) => {
       console.log(`📱 Socket connected: ${socket.id} (User: ${socket.userId})`);
 
-      // Mark user as online
       onlineUsers.set(socket.userId, {
         socketId: socket.id,
         lastSeen: new Date()
@@ -358,7 +354,6 @@ const startServer = async () => {
 
       socket.join(`user:${socket.userId}`);
 
-      // Broadcast online status
       socket.broadcast.emit('user_online', { userId: socket.userId });
 
       socket.on('join_room', (room) => {
@@ -413,7 +408,6 @@ const startServer = async () => {
       socket.on('disconnect', (reason) => {
         console.log(`📱 Socket disconnected: ${socket.id} (Reason: ${reason})`);
 
-        // Mark user as offline after a delay to handle reconnections
         setTimeout(() => {
           const userSockets = Array.from(io.sockets.sockets.values())
             .filter(s => s.userId === socket.userId);
@@ -422,7 +416,7 @@ const startServer = async () => {
             onlineUsers.delete(socket.userId);
             socket.broadcast.emit('user_offline', { userId: socket.userId });
           }
-        }, 5000); // 5 second grace period
+        }, 5000); 
       });
 
       socket.on('connect_error', (error) => {
