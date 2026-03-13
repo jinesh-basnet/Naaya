@@ -35,11 +35,10 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
-app.use(compression());
+const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000'];
 
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'development' ? true : function (origin, callback) {
-    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.101.2:3000', 'http://localhost:3001', 'http://127.0.0.1:3001'];
+  origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -73,7 +72,7 @@ app.use((req, res, next) => {
   const url = req.originalUrl;
   const ip = req.ip || req.connection.remoteAddress;
 
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}\n[${timestamp}] ${method} ${url} - IP: ${ip}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}\\n[${timestamp}] ${method} ${url} - IP: ${ip}`);
 
   if (['POST', 'PUT', 'PATCH'].includes(method) && req.body) {
     const logBody = { ...req.body };
@@ -101,8 +100,6 @@ app.use(express.urlencoded({
   extended: true,
   limit: '10mb'
 }));
-
-const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:3000';
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, filePath) => {
@@ -161,7 +158,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const gracefulShutdown = (signal) => {
-  console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+  console.log(`\\n🛑 Received ${signal}. Starting graceful shutdown...`);
 
   if (global.server) {
     global.server.close((err) => {
@@ -262,7 +259,7 @@ app.use((err, req, res, next) => {
   }
 
   if (err.code === 'CORS_ERROR') {
-    return res.status(403).json({
+    return res.status(400).json({
       message: 'CORS policy violation',
       code: 'CORS_ERROR'
     });
@@ -397,7 +394,6 @@ const startServer = async () => {
       });
 
       socket.on('mark_messages_read', (data) => {
-        // Broadcast to conversation that messages were read
         socket.to(`conversation:${data.conversationId}`).emit('messages_read', {
           conversationId: data.conversationId,
           userId: socket.userId,
