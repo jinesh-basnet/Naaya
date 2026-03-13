@@ -14,44 +14,49 @@ const bookmarkCollectionSchema = new mongoose.Schema({
   },
   posts: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post'
+    ref: 'Post',
+    default: []
   }],
   reels: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Reel'
+    ref: 'Reel',
+    default: []
   }],
   description: {
     type: String,
     maxlength: 200,
     default: ''
   },
-  isPublic: {
-    type: Boolean,
-    default: false
+  visibility: {
+    type: String,
+    enum: ['public', 'private'],
+    default: 'private'
   },
   coverImage: {
     type: String,
     default: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-bookmarkCollectionSchema.index({ user: 1, name: 1 });
+// Prevent duplicate collection names for the same user
+bookmarkCollectionSchema.index({ user: 1, name: 1 }, { unique: true });
 bookmarkCollectionSchema.index({ user: 1, createdAt: -1 });
-
-bookmarkCollectionSchema.virtual('postCount').get(function () {
-  return (this.posts?.length || 0) + (this.reels?.length || 0);
-});
 
 bookmarkCollectionSchema.virtual('itemCount').get(function () {
   return (this.posts?.length || 0) + (this.reels?.length || 0);
 });
 
-bookmarkCollectionSchema.set('toJSON', { virtuals: true });
-bookmarkCollectionSchema.set('toObject', { virtuals: true });
+bookmarkCollectionSchema.virtual('postCount').get(function () {
+  return this.posts?.length || 0;
+});
 
-
+bookmarkCollectionSchema.virtual('reelCount').get(function () {
+  return this.reels?.length || 0;
+});
 
 bookmarkCollectionSchema.statics.getUserCollections = function (userId) {
   return this.find({ user: userId })
@@ -61,3 +66,4 @@ bookmarkCollectionSchema.statics.getUserCollections = function (userId) {
 };
 
 module.exports = mongoose.model('BookmarkCollection', bookmarkCollectionSchema);
+

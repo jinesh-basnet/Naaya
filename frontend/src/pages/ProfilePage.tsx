@@ -57,6 +57,9 @@ const ProfilePage: React.FC = () => {
     savedReelsData,
     savedReelsLoading,
     savedReelsError,
+    collectionsData,
+    collectionsLoading,
+    collectionsError,
   } = useProfileData(username);
 
   const { followMutation, unfollowMutation, isPending } = useProfileFollow(username, profile);
@@ -203,6 +206,9 @@ const ProfilePage: React.FC = () => {
             savedReelsData={savedReelsData}
             savedReelsLoading={savedReelsLoading}
             savedReelsError={savedReelsError}
+            collectionsData={collectionsData}
+            collectionsLoading={collectionsLoading}
+            collectionsError={collectionsError}
             videoErrors={videoErrors}
             setVideoErrors={setVideoErrors}
             isCurrentUser={isCurrentUser}

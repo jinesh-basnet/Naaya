@@ -291,10 +291,10 @@ export const bookmarkCollectionsAPI = {
   getCollections: () =>
     api.get('/bookmark-collections'),
 
-  createCollection: (data: { name: string; description?: string; isPublic?: boolean; coverImage?: string }) =>
+  createCollection: (data: { name: string; description?: string; visibility?: string; coverImage?: string }) =>
     api.post('/bookmark-collections', data),
 
-  updateCollection: (collectionId: string, data: { name?: string; description?: string; isPublic?: boolean; coverImage?: string }) =>
+  updateCollection: (collectionId: string, data: { name?: string; description?: string; visibility?: string; coverImage?: string }) =>
     api.put(`/bookmark-collections/${collectionId}`, data),
 
   deleteCollection: (collectionId: string) =>
@@ -305,6 +305,12 @@ export const bookmarkCollectionsAPI = {
 
   removePostFromCollection: (collectionId: string, postId: string) =>
     api.delete(`/bookmark-collections/${collectionId}/posts/${postId}`),
+
+  addReelToCollection: (collectionId: string, reelId: string) =>
+    api.post(`/bookmark-collections/${collectionId}/reels/${reelId}`),
+
+  removeReelFromCollection: (collectionId: string, reelId: string) =>
+    api.delete(`/bookmark-collections/${collectionId}/reels/${reelId}`),
 };
 
 export const notificationsAPI = {

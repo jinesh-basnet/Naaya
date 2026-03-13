@@ -1,127 +1,119 @@
 .message-reactions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 10px;
   align-items: center;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .reaction-button {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid #e1e5e9;
-  border-radius: 16px;
-  background: #f8f9fa;
-  font-size: 14px;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 24px;
+  transition: var(--transition-normal);
+  color: var(--text-primary);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .reaction-button:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
 }
 
 .reaction-button.active {
-  background: #e3f2fd;
-  border-color: #2196f3;
-  color: #1976d2;
+  background: var(--primary-gradient);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 8px 15px rgba(59, 130, 246, 0.3);
 }
 
 .add-reaction-button {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
-  border: 1px solid #e1e5e9;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: #6c757d;
+  transition: var(--transition-normal);
+  color: var(--text-secondary);
 }
 
 .add-reaction-button:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
-  color: #495057;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary-main);
+  transform: scale(1.15) rotate(15deg);
 }
 
 .emoji-picker {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 12px);
   left: 0;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 8px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 12px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  gap: 8px;
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
-  margin-bottom: 8px;
+  animation: pickerEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pickerEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .emoji-option {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  background: none;
+  background: transparent;
   cursor: pointer;
-  border-radius: 4px;
-  font-size: 18px;
-  transition: background-color 0.2s ease;
+  border-radius: 10px;
+  font-size: 1.4rem;
+  transition: var(--transition-fast);
 }
 
 .emoji-option:hover {
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.2);
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .reaction-button {
-    background: #2d3748;
-    border-color: #4a5568;
-    color: #e2e8f0;
-  }
+/* Scrollbar Style for long reaction lists if any */
+.message-reactions::-webkit-scrollbar {
+  height: 4px;
+}
 
-  .reaction-button:hover {
-    background: #4a5568;
-    border-color: #718096;
-  }
-
-  .reaction-button.active {
-    background: #2b6cb0;
-    border-color: #3182ce;
-    color: #bee3f8;
-  }
-
-  .add-reaction-button {
-    background: #2d3748;
-    border-color: #4a5568;
-    color: #a0aec0;
-  }
-
-  .add-reaction-button:hover {
-    background: #4a5568;
-    border-color: #718096;
-    color: #e2e8f0;
-  }
-
-  .emoji-picker {
-    background: #2d3748;
-    border-color: #4a5568;
-  }
-
-  .emoji-option:hover {
-    background: #4a5568;
-  }
+.message-reactions::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 10px;
 }

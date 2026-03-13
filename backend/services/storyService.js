@@ -8,16 +8,22 @@ class StoryService {
       const { sort = 'createdAt', includeViewStatus = false } = options;
 
       // Get users that the current user is following
-      const following = await Follow.find({ follower: userId }).select('following');
-      const followingIds = following.map(f => f.following);
+      const followingDocs = await Follow.find({ follower: userId }).select('following');
+      const followingIds = followingDocs.map(f => f.following.toString());
+      
+      // Get blocked users to exclude
+      const Block = require('../models/Block');
+      const blockedUserIds = await Block.getBlockedUserIds(userId);
+      const blockerUserIds = await Block.getBlockerUserIds(userId);
+      const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
 
-      // Include the user's own stories
-      followingIds.push(userId);
+      // Filter out blocked users from the target IDs
+      const filteredAuthorIds = followingIds.filter(id => !allBlockedIds.includes(id.toString()));
 
       // Get active stories from followed users and self
       const now = new Date();
       const stories = await Story.find({
-        author: { $in: followingIds },
+        author: { $in: filteredAuthorIds },
         expiresAt: { $gt: now },
         isDeleted: false
       })

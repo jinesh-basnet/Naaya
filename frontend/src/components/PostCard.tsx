@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import PostViewerModal from './PostViewerModal';
 import Avatar from './Avatar';
+import BookmarkCollectionsModal from './BookmarkCollectionsModal';
 import './PostCard.css';
 
 interface Post {
@@ -92,6 +93,7 @@ const PostCard: React.FC<PostCardProps> = ({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCollectionsModalOpen, setIsCollectionsModalOpen] = useState(false);
 
   const isLiked = (post.likes || []).some(like => like.user === user?._id) ?? false;
   const isSaved = (post.saves || []).some(save => save.user === user?._id) ?? false;
@@ -247,6 +249,10 @@ const PostCard: React.FC<PostCardProps> = ({
               <button
                 className={`blade-btn ${isSaved ? 'active' : ''}`}
                 onClick={() => handleSave(post._id, post.isReel)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setIsCollectionsModalOpen(true);
+                }}
               >
                 {isSaved ? <BsBookmarkFill /> : <BsBookmark />}
               </button>
@@ -362,6 +368,15 @@ const PostCard: React.FC<PostCardProps> = ({
         message="This will permanently remove this post from your profile and the feed. This action cannot be undone."
         isPending={isDeleting}
       />
+
+      {isCollectionsModalOpen && (
+        <BookmarkCollectionsModal
+          open={isCollectionsModalOpen}
+          onClose={() => setIsCollectionsModalOpen(false)}
+          postId={post.isReel ? undefined : post._id}
+          reelId={post.isReel ? post._id : undefined}
+        />
+      )}
     </motion.div>
   );
 };

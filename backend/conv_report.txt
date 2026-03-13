@@ -1,0 +1,292 @@
+Conversation with null user populated: 69881d8b162751a30e9dc838, raw parts array: {
+  user: {
+    location: {
+      city: 'Those',
+      district: 'Ramechhap',
+      province: 'Province No. 3 '
+    },
+    privacySettings: {
+      profileVisibility: 'public',
+      showOnlineStatus: true,
+      allowMessagesFrom: 'everyone',
+      allowCommentsFrom: 'everyone',
+      allowMentions: true,
+      allowTagging: true
+    },
+    notificationPreferences: {
+      emailNotifications: true,
+      pushNotifications: false,
+      soundEffects: true
+    },
+    encryption: {
+      salt: null,
+      publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIk4bR/ninfKiQCXvC2yCsCU5mV8nP45G1pZBvTXsGWLYF1Bp+B9CIj4g9fT28b7gboG6w1BUsUljXDM1yAGjwA=='
+    },
+    lockUntil: null,
+    _id: new ObjectId("69102b79818d3b51d92f4dca"),
+    username: 'jineshbasnet002',
+    email: 'jineshbasnet6@gmail.com',
+    phone: '',
+    password: '$2a$12$65JWsoH6kt/ES0GF1k8s3O./oNPJFwUVEsgHZVAMA8pL5pmqI3aei',
+    fullName: 'jinesh basnet',
+    bio: 'its my bio\r\n',
+    profilePicture: '/uploads/1770709035377-602317012.jpg',
+    coverPicture: '',
+    languagePreference: 'both',
+    isVerified: false,
+    followersCount: 2,
+    followingCount: 2,
+    interests: [],
+    isActive: true,
+    role: 'user',
+    isBanned: false,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    otp: '495923',
+    otpExpires: 2026-02-08T05:32:38.421Z,
+    emailVerificationToken: null,
+    emailVerificationExpires: null,
+    closeFriends: [],
+    isDeleted: false,
+    deletedAt: null,
+    lastActive: 2026-03-12T06:09:01.918Z,
+    refreshTokens: [ [Object], [Object], [Object], [Object], [Object] ],
+    pushSubscriptions: [ [Object], [Object] ],
+    highlights: [ [Object], [Object] ],
+    createdAt: 2025-11-09T05:49:45.503Z,
+    updatedAt: 2026-03-12T06:09:01.963Z,
+    __v: 140,
+    isBusiness: false,
+    gender: 'male',
+    failedLoginAttempts: 0
+  },
+  role: 'member',
+  isActive: true,
+  _id: new ObjectId("69881d8b162751a30e9dc839"),
+  joinedAt: 2026-02-08T05:22:19.359Z
+},{
+  user: null,
+  role: 'member',
+  isActive: true,
+  _id: new ObjectId("69881d8b162751a30e9dc83a"),
+  joinedAt: 2026-02-08T05:22:19.360Z
+}
+Conversation with null user populated: 699e8ee00402e78fd7cd0c23, raw parts array: {
+  user: {
+    location: {
+      city: 'Those',
+      district: 'Ramechhap',
+      province: 'Province No. 3 '
+    },
+    privacySettings: {
+      profileVisibility: 'public',
+      showOnlineStatus: true,
+      allowMessagesFrom: 'everyone',
+      allowCommentsFrom: 'everyone',
+      allowMentions: true,
+      allowTagging: true
+    },
+    notificationPreferences: {
+      emailNotifications: true,
+      pushNotifications: false,
+      soundEffects: true
+    },
+    encryption: {
+      salt: null,
+      publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIk4bR/ninfKiQCXvC2yCsCU5mV8nP45G1pZBvTXsGWLYF1Bp+B9CIj4g9fT28b7gboG6w1BUsUljXDM1yAGjwA=='
+    },
+    lockUntil: null,
+    _id: new ObjectId("69102b79818d3b51d92f4dca"),
+    username: 'jineshbasnet002',
+    email: 'jineshbasnet6@gmail.com',
+    phone: '',
+    password: '$2a$12$65JWsoH6kt/ES0GF1k8s3O./oNPJFwUVEsgHZVAMA8pL5pmqI3aei',
+    fullName: 'jinesh basnet',
+    bio: 'its my bio\r\n',
+    profilePicture: '/uploads/1770709035377-602317012.jpg',
+    coverPicture: '',
+    languagePreference: 'both',
+    isVerified: false,
+    followersCount: 2,
+    followingCount: 2,
+    interests: [],
+    isActive: true,
+    role: 'user',
+    isBanned: false,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    otp: '495923',
+    otpExpires: 2026-02-08T05:32:38.421Z,
+    emailVerificationToken: null,
+    emailVerificationExpires: null,
+    closeFriends: [],
+    isDeleted: false,
+    deletedAt: null,
+    lastActive: 2026-03-12T06:09:01.918Z,
+    refreshTokens: [ [Object], [Object], [Object], [Object], [Object] ],
+    pushSubscriptions: [ [Object], [Object] ],
+    highlights: [ [Object], [Object] ],
+    createdAt: 2025-11-09T05:49:45.503Z,
+    updatedAt: 2026-03-12T06:09:01.963Z,
+    __v: 140,
+    isBusiness: false,
+    gender: 'male',
+    failedLoginAttempts: 0
+  },
+  joinedAt: 2026-02-25T05:55:44.477Z,
+  role: 'member',
+  isActive: false,
+  _id: new ObjectId("699e8ee00402e78fd7cd0c24")
+},{
+  user: null,
+  role: 'member',
+  isActive: true,
+  _id: new ObjectId("699e8ee00402e78fd7cd0c25"),
+  joinedAt: 2026-02-25T05:55:44.477Z
+}
+Conversation with null user populated: 699e901e0402e78fd7cd135f, raw parts array: {
+  user: {
+    location: {
+      city: 'Those',
+      district: 'Ramechhap',
+      province: 'Province No. 3 '
+    },
+    privacySettings: {
+      profileVisibility: 'public',
+      showOnlineStatus: true,
+      allowMessagesFrom: 'everyone',
+      allowCommentsFrom: 'everyone',
+      allowMentions: true,
+      allowTagging: true
+    },
+    notificationPreferences: {
+      emailNotifications: true,
+      pushNotifications: false,
+      soundEffects: true
+    },
+    encryption: {
+      salt: null,
+      publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIk4bR/ninfKiQCXvC2yCsCU5mV8nP45G1pZBvTXsGWLYF1Bp+B9CIj4g9fT28b7gboG6w1BUsUljXDM1yAGjwA=='
+    },
+    lockUntil: null,
+    _id: new ObjectId("69102b79818d3b51d92f4dca"),
+    username: 'jineshbasnet002',
+    email: 'jineshbasnet6@gmail.com',
+    phone: '',
+    password: '$2a$12$65JWsoH6kt/ES0GF1k8s3O./oNPJFwUVEsgHZVAMA8pL5pmqI3aei',
+    fullName: 'jinesh basnet',
+    bio: 'its my bio\r\n',
+    profilePicture: '/uploads/1770709035377-602317012.jpg',
+    coverPicture: '',
+    languagePreference: 'both',
+    isVerified: false,
+    followersCount: 2,
+    followingCount: 2,
+    interests: [],
+    isActive: true,
+    role: 'user',
+    isBanned: false,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    otp: '495923',
+    otpExpires: 2026-02-08T05:32:38.421Z,
+    emailVerificationToken: null,
+    emailVerificationExpires: null,
+    closeFriends: [],
+    isDeleted: false,
+    deletedAt: null,
+    lastActive: 2026-03-12T06:09:01.918Z,
+    refreshTokens: [ [Object], [Object], [Object], [Object], [Object] ],
+    pushSubscriptions: [ [Object], [Object] ],
+    highlights: [ [Object], [Object] ],
+    createdAt: 2025-11-09T05:49:45.503Z,
+    updatedAt: 2026-03-12T06:09:01.963Z,
+    __v: 140,
+    isBusiness: false,
+    gender: 'male',
+    failedLoginAttempts: 0
+  },
+  joinedAt: 2026-02-25T06:01:02.091Z,
+  role: 'member',
+  isActive: false,
+  _id: new ObjectId("699e901e0402e78fd7cd1360")
+},{
+  user: null,
+  role: 'member',
+  isActive: true,
+  _id: new ObjectId("699e901e0402e78fd7cd1361"),
+  joinedAt: 2026-02-25T06:01:02.091Z
+}
+Conversation with null user populated: 699fbde2ef741dfd77d0fe61, raw parts array: {
+  user: {
+    location: {
+      city: 'Those',
+      district: 'Ramechhap',
+      province: 'Province No. 3 '
+    },
+    privacySettings: {
+      profileVisibility: 'public',
+      showOnlineStatus: true,
+      allowMessagesFrom: 'everyone',
+      allowCommentsFrom: 'everyone',
+      allowMentions: true,
+      allowTagging: true
+    },
+    notificationPreferences: {
+      emailNotifications: true,
+      pushNotifications: false,
+      soundEffects: true
+    },
+    encryption: {
+      salt: null,
+      publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIk4bR/ninfKiQCXvC2yCsCU5mV8nP45G1pZBvTXsGWLYF1Bp+B9CIj4g9fT28b7gboG6w1BUsUljXDM1yAGjwA=='
+    },
+    lockUntil: null,
+    _id: new ObjectId("69102b79818d3b51d92f4dca"),
+    username: 'jineshbasnet002',
+    email: 'jineshbasnet6@gmail.com',
+    phone: '',
+    password: '$2a$12$65JWsoH6kt/ES0GF1k8s3O./oNPJFwUVEsgHZVAMA8pL5pmqI3aei',
+    fullName: 'jinesh basnet',
+    bio: 'its my bio\r\n',
+    profilePicture: '/uploads/1770709035377-602317012.jpg',
+    coverPicture: '',
+    languagePreference: 'both',
+    isVerified: false,
+    followersCount: 2,
+    followingCount: 2,
+    interests: [],
+    isActive: true,
+    role: 'user',
+    isBanned: false,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    otp: '495923',
+    otpExpires: 2026-02-08T05:32:38.421Z,
+    emailVerificationToken: null,
+    emailVerificationExpires: null,
+    closeFriends: [],
+    isDeleted: false,
+    deletedAt: null,
+    lastActive: 2026-03-12T06:09:01.918Z,
+    refreshTokens: [ [Object], [Object], [Object], [Object], [Object] ],
+    pushSubscriptions: [ [Object], [Object] ],
+    highlights: [ [Object], [Object] ],
+    createdAt: 2025-11-09T05:49:45.503Z,
+    updatedAt: 2026-03-12T06:09:01.963Z,
+    __v: 140,
+    isBusiness: false,
+    gender: 'male',
+    failedLoginAttempts: 0
+  },
+  joinedAt: 2026-02-26T03:28:34.407Z,
+  role: 'member',
+  isActive: false,
+  _id: new ObjectId("699fbde2ef741dfd77d0fe62")
+},{
+  user: null,
+  role: 'member',
+  isActive: true,
+  _id: new ObjectId("699fbde2ef741dfd77d0fe63"),
+  joinedAt: 2026-02-26T03:28:34.407Z
+}

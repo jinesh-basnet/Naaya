@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { usersAPI, postsAPI, reelsAPI } from '../services/api';
+import { usersAPI, postsAPI, reelsAPI, bookmarkCollectionsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 export const useProfileData = (username: string | undefined) => {
@@ -96,6 +96,18 @@ export const useProfileData = (username: string | undefined) => {
     refetchOnWindowFocus: true,
   });
 
+  const {
+    data: collectionsData,
+    isLoading: collectionsLoading,
+    error: collectionsError,
+  } = useQuery({
+    queryKey: ['bookmarkCollections'],
+    queryFn: () => bookmarkCollectionsAPI.getCollections(),
+    enabled: isCurrentUser && !!profile,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+
   return {
     profile,
     isCurrentUser,
@@ -119,5 +131,8 @@ export const useProfileData = (username: string | undefined) => {
     savedReelsData,
     savedReelsLoading,
     savedReelsError,
+    collectionsData,
+    collectionsLoading,
+    collectionsError,
   };
 };

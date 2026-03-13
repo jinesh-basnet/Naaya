@@ -8,7 +8,7 @@ import Avatar from './Avatar';
 import { safeString, formatLocation } from '../utils/locationUtils';
 import BlockUserModal from './BlockUserModal';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { blocksAPI } from '../services/api';
 
 interface User {
   _id: string;
@@ -53,7 +53,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     queryKey: ['blockStatus', profile._id],
     queryFn: async () => {
       if (isCurrentUser) return null;
-      const response = await axios.get(`/api/blocks/check/${profile._id}`);
+      const response = await blocksAPI.checkBlockStatus(profile._id);
       return response.data;
     },
     enabled: !isCurrentUser && !!profile._id,

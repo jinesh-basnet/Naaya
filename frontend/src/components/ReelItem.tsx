@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import Avatar from './Avatar';
+import BookmarkCollectionsModal from './BookmarkCollectionsModal';
 import { safeRender } from '../utils/safeRender';
 
 interface Reel {
@@ -131,6 +132,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCollectionsModalOpen, setIsCollectionsModalOpen] = useState(false);
   const lastTap = useRef<number>(0);
 
   const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
@@ -328,6 +330,10 @@ const ReelItem: React.FC<ReelItemProps> = ({
               whileTap={{ scale: 0.8 }}
               className="action-btn-minimal"
               onClick={(e) => { e.stopPropagation(); handleSave(reel._id); }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setIsCollectionsModalOpen(true);
+              }}
             >
               {isSaved ? <HiBookmark size={30} /> : <HiOutlineBookmark size={30} />}
             </motion.button>
@@ -394,6 +400,14 @@ const ReelItem: React.FC<ReelItemProps> = ({
         message="This will permanently remove this reel from your profile and the reels feed. This action cannot be undone."
         isPending={isDeleting}
       />
+
+      {isCollectionsModalOpen && (
+        <BookmarkCollectionsModal
+          open={isCollectionsModalOpen}
+          onClose={() => setIsCollectionsModalOpen(false)}
+          reelId={reel._id}
+        />
+      )}
     </div>
   );
 };

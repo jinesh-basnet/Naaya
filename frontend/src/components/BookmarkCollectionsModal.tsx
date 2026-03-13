@@ -10,7 +10,7 @@ interface BookmarkCollection {
   _id: string;
   name: string;
   description: string;
-  isPublic: boolean;
+  visibility: 'public' | 'private';
   coverImage: string | null;
   posts: string[];
   reels: string[];
@@ -23,6 +23,7 @@ interface BookmarkCollectionsModalProps {
   open: boolean;
   onClose: () => void;
   postId?: string;
+  reelId?: string;
   currentCollections?: string[];
 }
 
@@ -30,6 +31,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   open,
   onClose,
   postId,
+  reelId,
   currentCollections = [],
 }) => {
   const { user } = useAuth();
@@ -51,7 +53,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   });
 
   const createCollectionMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; isPublic?: boolean; coverImage?: string }) => 
+    mutationFn: (data: { name: string; description?: string; visibility?: string; coverImage?: string }) => 
       bookmarkCollectionsAPI.createCollection(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookmarkCollections'] });
@@ -91,11 +93,15 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
   });
 
   const togglePostInCollectionMutation = useMutation({
-    mutationFn: ({ collectionId, postId, isInCollection }: { collectionId: string; postId: string; isInCollection: boolean }) => {
+    mutationFn: ({ collectionId, postId, reelId, isInCollection }: { collectionId: string; postId?: string; reelId?: string; isInCollection: boolean }) => {
       if (isInCollection) {
-        return bookmarkCollectionsAPI.removePostFromCollection(collectionId, postId);
+        if (postId) return bookmarkCollectionsAPI.removePostFromCollection(collectionId, postId);
+        if (reelId) return bookmarkCollectionsAPI.removeReelFromCollection(collectionId, reelId);
+        throw new Error('No ID provided');
       } else {
-        return bookmarkCollectionsAPI.addPostToCollection(collectionId, postId);
+        if (postId) return bookmarkCollectionsAPI.addPostToCollection(collectionId, postId);
+        if (reelId) return bookmarkCollectionsAPI.addReelToCollection(collectionId, reelId);
+        throw new Error('No ID provided');
       }
     },
     onSuccess: () => {
@@ -119,9 +125,9 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     setShowDeleteModal(true);
   };
 
-  const handleTogglePostInCollection = (collectionId: string, isInCollection: boolean) => {
-    if (!postId) return;
-    togglePostInCollectionMutation.mutate({ collectionId, postId, isInCollection });
+  const handleToggleInCollection = (collectionId: string, isInCollection: boolean) => {
+    if (!postId && !reelId) return;
+    togglePostInCollectionMutation.mutate({ collectionId, postId, reelId, isInCollection });
   };
 
   const startEditing = (collection: BookmarkCollection) => {
@@ -148,7 +154,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          {postId ? 'Add to Collection' : 'Manage Collections'}
+          {(postId || reelId) ? 'Add to Collection' : 'Manage Collections'}
         </div>
         <div className="modal-body">
           {collectionsLoading ? (
@@ -197,7 +203,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
               ) : (
                 <div>
                   {collections.map((collection: BookmarkCollection) => {
-                    const isInCollection = postId ? collection.posts.includes(postId) : false;
+                    const isInCollection = postId ? collection.posts.includes(postId) : (reelId ? collection.reels?.includes(reelId) : false);
 
                     return (
                       <div key={collection._id} className="collection-item">
@@ -232,7 +238,7 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
                               <div className="collection-name">
                                 {collection.name}
                                 <span className="collection-post-count">
-                                  {collection.postCount} posts
+                                  {collection.itemCount} items
                                 </span>
                               </div>
                               <div className="collection-description">
@@ -240,10 +246,10 @@ const BookmarkCollectionsModal: React.FC<BookmarkCollectionsModalProps> = ({
                               </div>
                             </div>
                             <div className="collection-actions">
-                              {postId && (
+                              {(postId || reelId) && (
                                 <button
                                   className="action-button"
-                                  onClick={() => handleTogglePostInCollection(collection._id, isInCollection)}
+                                  onClick={() => handleToggleInCollection(collection._id, isInCollection || false)}
                                   disabled={togglePostInCollectionMutation.isPending}
                                   title={isInCollection ? 'Remove from collection' : 'Add to collection'}
                                 >

@@ -1,13 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { FaImage, FaVideo, FaTimes } from 'react-icons/fa';
-import { BsMic } from 'react-icons/bs';
+import { BsFilm, BsFileEarmarkText, BsPaperclip } from 'react-icons/bs';
 import './MessageFileUpload.css';
 
 interface MessageFileUploadProps {
-  onFileSelect: (file: File, type: 'image' | 'video' | 'audio') => void;
+  onFileSelect: (file: File, type: 'image' | 'video' | 'file') => void;
   onRemoveFile: () => void;
   selectedFile: File | null;
-  fileType: 'image' | 'video' | 'audio' | null;
+  fileType: 'image' | 'video' | 'file' | null;
 }
 
 const MessageFileUpload: React.FC<MessageFileUploadProps> = ({
@@ -18,10 +18,10 @@ const MessageFileUpload: React.FC<MessageFileUploadProps> = ({
 }) => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const handleFileSelect = (file: File, type: 'image' | 'video' | 'audio') => {
+  const handleFileSelect = (file: File, type: 'image' | 'video' | 'file') => {
     onFileSelect(file, type);
 
     // Create preview for images
@@ -44,8 +44,8 @@ const MessageFileUpload: React.FC<MessageFileUploadProps> = ({
     videoInputRef.current?.click();
   };
 
-  const handleAudioClick = () => {
-    audioInputRef.current?.click();
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleRemove = () => {
@@ -84,10 +84,10 @@ const MessageFileUpload: React.FC<MessageFileUploadProps> = ({
           <button
             type="button"
             className="upload-btn"
-            onClick={handleAudioClick}
-            title="Record audio"
+            onClick={handleFileClick}
+            title="Attach file"
           >
-            <BsMic />
+            <BsPaperclip />
           </button>
         </div>
       ) : (
@@ -95,6 +95,12 @@ const MessageFileUpload: React.FC<MessageFileUploadProps> = ({
           <div className="file-info">
             {fileType === 'image' && previewUrl && (
               <img src={previewUrl} alt="Preview" className="image-preview" />
+            )}
+            {fileType === 'video' && (
+               <BsFilm className="file-icon-placeholder" />
+            )}
+            {fileType === 'file' && (
+               <BsFileEarmarkText className="file-icon-placeholder" />
             )}
             <div className="file-details">
               <span className="file-name">{selectedFile.name}</span>
@@ -136,12 +142,12 @@ const MessageFileUpload: React.FC<MessageFileUploadProps> = ({
         style={{ display: 'none' }}
       />
       <input
-        ref={audioInputRef}
+        ref={fileInputRef}
         type="file"
-        accept="audio/*"
+        accept="*"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) handleFileSelect(file, 'audio');
+          if (file) handleFileSelect(file, 'file');
           e.target.value = '';
         }}
         style={{ display: 'none' }}

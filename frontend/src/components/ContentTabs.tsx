@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FaHeart, FaComment } from 'react-icons/fa';
 import { BsFilm, BsImages, BsGrid3X3, BsBookmarkFill, BsCameraVideo } from 'react-icons/bs';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,9 @@ interface ContentTabsProps {
   savedReelsData: any;
   savedReelsLoading: boolean;
   savedReelsError: any;
+  collectionsData: any;
+  collectionsLoading: boolean;
+  collectionsError: any;
   videoErrors: Record<string, boolean>;
   setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   isCurrentUser: boolean;
@@ -196,15 +199,18 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
   savedReelsData,
   savedReelsLoading,
   savedReelsError,
+  collectionsData,
+  collectionsLoading,
+  collectionsError,
   videoErrors,
   setVideoErrors,
   isCurrentUser,
   onPostClick,
 }) => {
   const { user } = useAuth();
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+      const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+        useEffect(() => {
     if (!loadMoreRef.current) return;
     if (!fetchNextPosts && !fetchNextReels) return;
 
@@ -281,36 +287,90 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
       );
     }
 
-    case 'bookmarks': {
-      const savedPosts = (bookmarksData?.data?.posts || []).map((post: any) => ({
-        ...post,
-        isReel: false,
-      }));
-      const savedReels = (savedReelsData?.data?.reels || []).map((reel: any) => ({
-        ...reel,
-        isReel: true,
-      }));
-      const combinedSaved = [...savedPosts, ...savedReels].sort((a, b) => {
-        const aSave = a.saves?.find((s: any) => s.user === user?._id);
-        const bSave = b.saves?.find((s: any) => s.user === user?._id);
-        const aDate = aSave ? new Date(aSave.savedAt).getTime() : 0;
-        const bDate = bSave ? new Date(bSave.savedAt).getTime() : 0;
-        return bDate - aDate;
-      });
+    case 'bookmarks': {     
+      const collections = collectionsData?.data?.collections || [];
+      const selectedCollection = collections.find((c: any) => c._id === selectedCollectionId);
+
+      // Filter logic
+      const getItemsToDisplay = () => {
+        if (selectedCollectionId && selectedCollection) {
+          const collPosts = (selectedCollection.posts || []).map((p: any) => ({ ...p, isReel: false }));
+          const collReels = (selectedCollection.reels || []).map((r: any) => ({ ...r, isReel: true }));
+          return [...collPosts, ...collReels].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+
+        const savedPosts = (bookmarksData?.data?.posts || []).map((post: any) => ({
+          ...post,
+          isReel: false,
+        }));
+        const savedReels = (savedReelsData?.data?.reels || []).map((reel: any) => ({
+          ...reel,
+          isReel: true,
+        }));
+        return [...savedPosts, ...savedReels].sort((a, b) => {
+          const aSave = a.saves?.find((s: any) => s.user === user?._id);
+          const bSave = b.saves?.find((s: any) => s.user === user?._id);
+          const aDate = aSave ? new Date(aSave.savedAt).getTime() : 0;
+          const bDate = bSave ? new Date(bSave.savedAt).getTime() : 0;
+          return bDate - aDate;
+        });
+      };
+
+      const displayItems = getItemsToDisplay();
 
       return (
-        <ContentGrid
-          items={combinedSaved}
-          loading={bookmarksLoading || savedReelsLoading}
-          error={bookmarksError || savedReelsError}
-          isReel={false}
-          videoErrors={videoErrors}
-          setVideoErrors={setVideoErrors}
-          onPostClick={onPostClick}
-          emptyIcon={<BsBookmarkFill />}
-          emptyMessage="No saved content"
-          emptySubtext="Posts and reels you save will appear here"
-        />
+        <div className="bookmarks-view">
+          {selectedCollectionId && selectedCollection ? (
+            <div className="collection-header-row">
+              <button 
+                className="back-btn-minimal" 
+                onClick={() => setSelectedCollectionId(null)}
+              >
+                ← All Bookmarks
+              </button>
+              <div className="selected-collection-info">
+                <h3>{selectedCollection.name}</h3>
+                <span>{displayItems.length} items</span>
+              </div>
+            </div>
+          ) : (
+            collections.length > 0 && (
+              <div className="collections-row">
+                {collections.map((collection: any) => (
+                  <div 
+                    key={collection._id} 
+                    className="collection-folder-item" 
+                    onClick={() => setSelectedCollectionId(collection._id)}
+                  >
+                    <div className="collection-preview">
+                      {collection.coverImage ? (
+                        <img src={getMediaUrl(collection.coverImage)} alt={collection.name} />
+                      ) : (collection.posts?.[0]?.media?.[0]?.url || collection.reels?.[0]?.video?.url) ? (
+                        <img src={getMediaUrl(collection.posts?.[0]?.media?.[0]?.url || collection.reels?.[0]?.video?.url)} alt={collection.name} />
+                      ) : (
+                        <div className="empty-collection-icon">📦</div>
+                      )}
+                    </div>
+                    <span className="collection-folder-name">{collection.name}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          <ContentGrid
+            items={displayItems}
+            loading={bookmarksLoading || savedReelsLoading || collectionsLoading}
+            error={bookmarksError || savedReelsError || collectionsError}
+            isReel={false}
+            videoErrors={videoErrors}
+            setVideoErrors={setVideoErrors}
+            onPostClick={onPostClick}
+            emptyIcon={<BsBookmarkFill />}
+            emptyMessage={selectedCollectionId ? "No items in this collection" : "No saved content"}
+            emptySubtext={selectedCollectionId ? "Add some posts or reels to start organizing" : "Posts and reels you save will appear here"}
+          />
+        </div>
       );
     }
 

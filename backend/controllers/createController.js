@@ -1,0 +1,214 @@
+const path = require('path');
+const mongoose = require('mongoose');
+const { validationResult } = require('express-validator');
+const Post = require('../models/Post');
+
+exports.createPost = async (req, res) => {
+  try {
+    console.log('Received POST /api/posts');
+    console.log('req.body:', req.body);
+    console.log('req.files:', req.files ? req.files.length : 0);
+
+    if (req.body.content) req.body.content = req.body.content.substring(0, 2200);
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({
+        message: req.t('errors:validationFailed'),
+        errors: errors.array()
+      });
+    }
+
+    delete req.body.media;
+    const postData = {
+      ...req.body,
+      author: req.user._id
+    };
+
+    if (req.body.content) {
+      postData.content = req.body.content;
+    }
+
+    const mediaFiles = req.files ? req.files.filter(f => f.fieldname === 'media') : [];
+    if (mediaFiles.length > 0) {
+      try {
+        postData.media = mediaFiles.map(file => {
+          const filename = path.basename(file.path);
+
+          return {
+            type: file.mimetype.startsWith('image/') ? 'image' : 'video',
+            url: `${req.protocol}://${req.get('host')}/uploads/${filename}`,
+            size: file.size || 0,
+            width: 0,
+            height: 0,
+            format: path.extname(file.originalname).slice(1)
+          };
+        });
+      } catch (fileError) {
+        console.error('File processing error:', fileError);
+        return res.status(400).json({
+          message: req.t('posts:fileProcessingError'),
+          code: 'FILE_PROCESSING_ERROR',
+          error: fileError.message
+        });
+      }
+    } else {
+      postData.media = [];
+    }
+
+    if (req.body.location && req.body.location.trim()) {
+      try {
+        const parsed = JSON.parse(req.body.location);
+        if (typeof parsed === 'string') {
+          postData.location = { name: parsed };
+        } else {
+          postData.location = parsed;
+        }
+      } catch (e) {
+        console.error('Location parsing error:', e);
+        return res.status(400).json({
+          message: req.t('posts:invalidLocation'),
+          code: 'INVALID_LOCATION'
+        });
+      }
+    }
+
+    if (req.body.tags) {
+      try {
+        if (typeof req.body.tags === 'string') {
+          postData.tags = JSON.parse(req.body.tags);
+        } else {
+          postData.tags = req.body.tags;
+        }
+      } catch (e) {
+        console.error('Tags parsing error:', e);
+        return res.status(400).json({
+          message: req.t('posts:invalidTags'),
+          code: 'INVALID_TAGS'
+        });
+      }
+    }
+
+    if ((!postData.media || postData.media.length === 0) && (!postData.content || postData.content.trim() === '')) {
+      return res.status(400).json({
+        message: req.t('posts:missingMediaOrContent'),
+        code: 'MISSING_MEDIA_OR_CONTENT'
+      });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      console.error('Database not connected, readyState:', mongoose.connection.readyState);
+      return res.status(500).json({
+        message: req.t('posts:databaseError'),
+        code: 'DATABASE_ERROR'
+      });
+    }
+
+    console.log('postData before saving:', postData);
+
+    const post = new Post(postData);
+    await post.save();
+
+    await post.populate('author', 'username fullName profilePicture isVerified location languagePreference');
+
+    console.log('Post created successfully:', post._id);
+    res.status(201).json({
+      message: req.t('posts:postCreated'),
+      post
+    });
+
+  } catch (error) {
+    console.error('Create post error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Database readyState:', mongoose.connection.readyState);
+    res.status(500).json({
+      message: 'Server error creating post',
+      code: 'CREATE_POST_ERROR',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+exports.updatePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: req.t('errors:validationFailed'),
+        errors: errors.array()
+      });
+    }
+
+    const post = await Post.findOne({
+      _id: postId,
+      author: req.user._id,
+      isDeleted: false
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        message: req.t('posts:postNotFound'),
+        code: 'POST_NOT_FOUND'
+      });
+    }
+
+    const { content, tags, location, postType, visibility, language } = req.body;
+
+    if (content !== undefined) post.content = content;
+    if (tags !== undefined) post.tags = tags;
+    if (location !== undefined) post.location = location;
+    if (postType !== undefined) post.postType = postType;
+    if (visibility !== undefined) post.visibility = visibility;
+    if (language !== undefined) post.language = language;
+
+    await post.save();
+
+    res.json({
+      message: req.t('posts:postUpdated'),
+      post
+    });
+
+  } catch (error) {
+    console.error('Update post error:', error);
+    res.status(500).json({
+      message: 'Server error updating post',
+      code: 'UPDATE_POST_ERROR'
+    });
+  }
+};
+
+exports.deletePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user._id;
+
+    const post = await Post.findOne({
+      _id: postId,
+      author: userId
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        message: req.t('posts:postNotFound', { defaultValue: 'Post not found or you do not have permission to delete it' }),
+        code: 'POST_NOT_FOUND'
+      });
+    }
+
+    post.isDeleted = true;
+    post.deletedAt = new Date();
+    await post.save();
+
+    res.json({
+      message: req.t('posts:postDeleted', { defaultValue: 'Post deleted successfully' })
+    });
+
+  } catch (error) {
+    console.error('Delete post error:', error);
+    res.status(500).json({
+      message: 'Server error deleting post',
+      code: 'DELETE_POST_ERROR'
+    });
+  }
+};

@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import PostCommentsModal from './PostCommentsModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import Avatar from './Avatar';
+import BookmarkCollectionsModal from './BookmarkCollectionsModal';
 import './PostViewerModal.css';
 
 
@@ -49,6 +50,7 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCollectionsModalOpen, setIsCollectionsModalOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -323,13 +325,17 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                             <FaShare />
                           </button>
                         </div>
-                        <button
-                          className={`action-btn ${currentPost.saves?.some((s: any) => s.user === user?._id) ? 'saved' : ''}`}
-                          onClick={() => handleSave(currentPost._id)}
-                          aria-label="Save post"
-                        >
-                          {currentPost.saves?.some((s: any) => s.user === user?._id) ? <FaRegBookmark style={{ color: 'var(--primary-main)' }} /> : <FaRegBookmark />}
-                        </button>
+                          <button
+                            className={`action-btn ${currentPost.saves?.some((s: any) => s.user === user?._id) ? 'saved' : ''}`}
+                            onClick={() => handleSave(currentPost._id)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setIsCollectionsModalOpen(true);
+                            }}
+                            aria-label="Save post"
+                          >
+                            {currentPost.saves?.some((s: any) => s.user === user?._id) ? <FaRegBookmark style={{ color: 'var(--primary-main)' }} /> : <FaRegBookmark />}
+                          </button>
                       </div>
                       <div className="stats-row">
                         <span className="likes-count">{(currentPost.likes || []).length.toLocaleString()} likes</span>
@@ -369,6 +375,15 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
           title={`Delete ${contentType === 'reel' ? 'Reel' : 'Post'}?`}
           message={`Are you sure you want to delete this ${contentType === 'reel' ? 'reel' : 'post'}? This action cannot be undone.`}
           isPending={isDeleting}
+        />
+      )}
+
+      {isCollectionsModalOpen && currentPost && (
+        <BookmarkCollectionsModal
+          open={isCollectionsModalOpen}
+          onClose={() => setIsCollectionsModalOpen(false)}
+          postId={(currentPost.postType === 'reel' || currentPost.video || contentType === 'reel') ? undefined : currentPost._id}
+          reelId={(currentPost.postType === 'reel' || currentPost.video || contentType === 'reel') ? currentPost._id : undefined}
         />
       )}
     </AnimatePresence>,

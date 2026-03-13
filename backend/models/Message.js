@@ -15,20 +15,37 @@ const messageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  clientId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true
+  },
+  encryptedContent: {
+    type: String,
+    select: false
+  },
+  iv: {
+    type: String
+  },
+  isEncrypted: {
+    type: Boolean,
+    default: false
+  },
   content: {
     type: String,
-    required: function() { return this.messageType === 'text'; },
+    required: function () { return this.messageType === 'text' && !this.isEncrypted; },
     maxlength: 1000
   },
   messageType: {
     type: String,
-    enum: ['text', 'image', 'video', 'audio', 'file', 'location', 'contact', 'shared_post', 'shared_reel', 'story_reply'],
+    enum: ['text', 'image', 'video', 'file', 'contact', 'shared_post', 'shared_reel', 'story_reply'],
     default: 'text'
   },
   media: {
     type: {
       type: String,
-      enum: ['image', 'video', 'audio', 'file']
+      enum: ['image', 'video', 'file']
     },
     url: String,
     thumbnail: String,
@@ -38,14 +55,7 @@ const messageSchema = new mongoose.Schema({
     width: Number,
     height: Number
   },
-  location: {
-    name: String,
-    coordinates: {
-      lat: Number,
-      lng: Number
-    },
-    address: String
-  },
+
   contact: {
     name: String,
     phone: String,
@@ -133,6 +143,16 @@ const messageSchema = new mongoose.Schema({
     default: false
   },
   deletedAt: Date,
+  deliveredTo: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    deliveredAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
 
 }, {
   timestamps: true
@@ -143,7 +163,7 @@ messageSchema.index({ sender: 1, conversation: 1, createdAt: -1 });
 messageSchema.index({ conversation: 1, isRead: 1 });
 messageSchema.index({ createdAt: -1 });
 
-messageSchema.methods.markAsRead = function() {
+messageSchema.methods.markAsRead = function () {
   if (!this.isRead) {
     this.isRead = true;
     this.readAt = new Date();
@@ -152,7 +172,7 @@ messageSchema.methods.markAsRead = function() {
   return false;
 };
 
-messageSchema.methods.markAsDelivered = function() {
+messageSchema.methods.markAsDelivered = function () {
   if (!this.isDelivered) {
     this.isDelivered = true;
     this.deliveredAt = new Date();
@@ -161,60 +181,61 @@ messageSchema.methods.markAsDelivered = function() {
   return false;
 };
 
-messageSchema.methods.addReaction = function(userId, emoji) {
+messageSchema.methods.addReaction = function (userId, emoji) {
   const existingReaction = this.reactions.find(
     reaction => reaction.user.toString() === userId.toString()
   );
-  
+
   if (existingReaction) {
     existingReaction.emoji = emoji;
     existingReaction.reactedAt = new Date();
   } else {
     this.reactions.push({ user: userId, emoji });
   }
-  
+
   return true;
 };
 
-messageSchema.methods.removeReaction = function(userId) {
+messageSchema.methods.removeReaction = function (userId) {
   this.reactions = this.reactions.filter(
     reaction => reaction.user.toString() !== userId.toString()
   );
   return true;
 };
 
-messageSchema.methods.editMessage = function(newContent) {
+messageSchema.methods.editMessage = function (newContent, iv, isEncrypted) {
   if (this.messageType !== 'text') {
     throw new Error('Only text messages can be edited');
   }
-  
+
   this.content = newContent;
+  if (iv) this.iv = iv;
+  if (isEncrypted !== undefined) this.isEncrypted = isEncrypted;
   this.isEdited = true;
   this.editedAt = new Date();
   return true;
 };
 
-messageSchema.methods.deleteMessage = function() {
+messageSchema.methods.deleteMessage = function () {
   this.isDeleted = true;
   this.deletedAt = new Date();
   this.content = 'This message was deleted';
   return true;
 };
 
-messageSchema.methods.forwardMessage = function(newReceiverId, newSenderId) {
+messageSchema.methods.forwardMessage = function (newReceiverId, newSenderId) {
   const forwardedMessage = new this.constructor({
     sender: newSenderId,
     receiver: newReceiverId,
     content: this.content,
     messageType: this.messageType,
     media: this.media,
-    location: this.location,
     contact: this.contact,
     forwarded: true,
     forwardedFrom: this.sender,
     forwardedAt: new Date()
   });
-  
+
   return forwardedMessage;
 };
 

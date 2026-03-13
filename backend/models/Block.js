@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const blockSchema = new mongoose.Schema({
-    blocker: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    blocked: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    blocker: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    blocked: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     reason: { type: String, maxlength: 500, default: '' },
     category: { type: String, enum: ['spam', 'harassment', 'inappropriate', 'impersonation', 'other', 'none'], default: 'none' },
     isActive: { type: Boolean, default: true, index: true },
@@ -16,7 +16,13 @@ const blockSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-blockSchema.index({ blocker: 1, blocked: 1, isActive: 1 }, { unique: true });
+// Partial unique index: only one ACTIVE block record per pair allowed.
+// This prevents duplicate key errors when a user is unblocked/reblocked multiple times.
+blockSchema.index(
+    { blocker: 1, blocked: 1 }, 
+    { unique: true, partialFilterExpression: { isActive: true } }
+);
+
 blockSchema.index({ blocker: 1, isActive: 1 });
 blockSchema.index({ blocked: 1, isActive: 1 });
 
@@ -96,6 +102,7 @@ blockSchema.methods.softDelete = async function() {
     this.isActive = false;
     this.unblockCount += 1;
     this.lastUnblockedAt = new Date();
+    // Logic for cleaning up mutual status is handled in the pre-save hook
     return this.save();
 };
 
@@ -105,7 +112,8 @@ blockSchema.methods.reactivate = async function() {
 };
 
 blockSchema.pre('save', async function(next) {
-    if (this.isNew || (this.isModified('isActive') && this.isActive)) {
+    // When activating a block
+    if (this.isModified('isActive') && this.isActive) {
         const reverseBlock = await this.constructor.findOne({ 
             blocker: this.blocked, 
             blocked: this.blocker, 
@@ -115,9 +123,21 @@ blockSchema.pre('save', async function(next) {
         this.isMutual = !!reverseBlock;
         
         if (reverseBlock && !reverseBlock.isMutual) {
-            reverseBlock.isMutual = true;
-            await reverseBlock.save();
+            // Using findOneAndUpdate to avoid triggering middleware recursively
+            await this.constructor.findOneAndUpdate(
+                { _id: reverseBlock._id },
+                { isMutual: true }
+            );
         }
+    } 
+    // When deactivating a block (unblocking)
+    else if (this.isModified('isActive') && !this.isActive) {
+        this.isMutual = false;
+        // Notify the other user's block record that it's no longer mutual
+        await this.constructor.findOneAndUpdate(
+            { blocker: this.blocked, blocked: this.blocker, isActive: true },
+            { isMutual: false }
+        );
     }
     next();
 });

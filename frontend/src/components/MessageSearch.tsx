@@ -42,24 +42,16 @@ const MessageSearch: React.FC<MessageSearchProps> = ({
 
   const { data: searchResults, isLoading } = useQuery({
     queryKey: ['messageSearch', conversationId, debouncedQuery],
-    queryFn: () => {
-      // This would need to be implemented in the backend
-      // For now, we'll filter messages locally
-      return messagesAPI.getConversationMessages(conversationId);
+    queryFn: async () => {
+      const response = await messagesAPI.searchMessagesInConversation(conversationId, debouncedQuery);
+      return response.data;
     },
     enabled: !!debouncedQuery.trim() && isOpen,
   });
 
   const filteredResults = React.useMemo(() => {
-    if (!searchResults?.data?.messages || !debouncedQuery.trim()) {
-      return [];
-    }
-
-    const query = debouncedQuery.toLowerCase();
-    return (searchResults.data.messages as SearchResult[]).filter(message =>
-      message.content.toLowerCase().includes(query)
-    );
-  }, [searchResults, debouncedQuery]);
+    return (searchResults?.messages || []) as SearchResult[];
+  }, [searchResults]);
 
   const highlightText = (text: string, query: string) => {
     if (!query.trim()) return text;

@@ -32,6 +32,13 @@ interface SocketContextType {
   onMessagesRead: (callback: (data: any) => void) => void;
   offMessagesRead: (callback: (data: any) => void) => void;
 
+  onMessageEdited: (callback: (data: any) => void) => void;
+  offMessageEdited: (callback: (data: any) => void) => void;
+  onMessageDeleted: (callback: (data: any) => void) => void;
+  offMessageDeleted: (callback: (data: any) => void) => void;
+  onReactionAdded: (callback: (data: any) => void) => void;
+  offReactionAdded: (callback: (data: any) => void) => void;
+
   onFeedPostLiked: (callback: (data: any) => void) => void;
   offFeedPostLiked: (callback: (data: any) => void) => void;
   onFeedPostSaved: (callback: (data: any) => void) => void;
@@ -399,6 +406,42 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     }
   }, [socket]);
 
+  const onMessageEdited = useCallback((callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('message_edited', callback);
+    }
+  }, [socket]);
+
+  const offMessageEdited = useCallback((callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('message_edited', callback);
+    }
+  }, [socket]);
+
+  const onMessageDeleted = useCallback((callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('message_deleted', callback);
+    }
+  }, [socket]);
+
+  const offMessageDeleted = useCallback((callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('message_deleted', callback);
+    }
+  }, [socket]);
+
+  const onReactionAdded = useCallback((callback: (data: any) => void) => {
+    if (socket) {
+      socket.on('reaction_added', callback);
+    }
+  }, [socket]);
+
+  const offReactionAdded = useCallback((callback: (data: any) => void) => {
+    if (socket) {
+      socket.off('reaction_added', callback);
+    }
+  }, [socket]);
+
   const value: SocketContextType = useMemo(() => ({
     socket,
     isConnected,
@@ -426,6 +469,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     offMessageRead,
     onMessagesRead,
     offMessagesRead,
+    onMessageEdited,
+    offMessageEdited,
+    onMessageDeleted,
+    offMessageDeleted,
+    onReactionAdded,
+    offReactionAdded,
     onFeedPostLiked,
     offFeedPostLiked,
     onFeedPostSaved,
@@ -446,7 +495,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     offUserUnfollowed,
     onStoryViewed,
     offStoryViewed,
-  }), [socket, isConnected, joinRoom, leaveRoom, sendMessage, onMessage, offMessage, joinUserRoom, onNotification, offNotification, joinConversation, leaveConversation, onReceiveMessage, offReceiveMessage, onUserTyping, offUserTyping, onUserOnline, offUserOnline, onUserOffline, offUserOffline, startTyping, stopTyping, onMessageRead, offMessageRead, onMessagesRead, offMessagesRead, onFeedPostLiked, offFeedPostLiked, onFeedPostSaved, offFeedPostSaved, onFeedPostShared, offFeedPostShared, onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved, onFeedReelShared, offFeedReelShared, onFeedReelCommented, offFeedReelCommented, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed, onStoryViewed, offStoryViewed]);
+  }), [socket, isConnected, joinRoom, leaveRoom, sendMessage, onMessage, offMessage, joinUserRoom, onNotification, offNotification, joinConversation, leaveConversation, onReceiveMessage, offReceiveMessage, onUserTyping, offUserTyping, onUserOnline, offUserOnline, onUserOffline, offUserOffline, startTyping, stopTyping, onMessageRead, offMessageRead, onMessagesRead, offMessagesRead, onMessageEdited, offMessageEdited, onMessageDeleted, offMessageDeleted, onReactionAdded, offReactionAdded, onFeedPostLiked, offFeedPostLiked, onFeedPostSaved, offFeedPostSaved, onFeedPostShared, offFeedPostShared, onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved, onFeedReelShared, offFeedReelShared, onFeedReelCommented, offFeedReelCommented, onUserFollowed, offUserFollowed, onUserUnfollowed, offUserUnfollowed, onStoryViewed, offStoryViewed]);
 
   return (
     <SocketContext.Provider value={value}>
