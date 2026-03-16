@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
+import { useEffect } from 'react';
+
 import toast from 'react-hot-toast';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import PostViewerModal from './PostViewerModal';
@@ -99,6 +101,11 @@ const PostCard: React.FC<PostCardProps> = ({
   const isSaved = (post.saves || []).some(save => save.user === user?._id) ?? false;
   const isAuthor = post.author?._id === user?._id;
 
+  useEffect(() => {
+    postsAPI.viewPost(post._id).catch(console.error);
+  }, [post._id]);
+
+
   const handleAction = async (action: string) => {
     setShowActionMenu(false);
     switch (action) {
@@ -106,8 +113,13 @@ const PostCard: React.FC<PostCardProps> = ({
         setShowDeleteModal(true);
         break;
       case 'report':
-        toast.success('Post reported. Thank you for keeping Naaya safe.');
+        postsAPI.reportPost(post._id, { reason: 'other', description: '' }).then(() => {
+          toast.success('Post reported successfully');
+        }).catch(() => {
+          toast.error('Report failed');
+        });
         break;
+
       case 'copy-link':
         const link = `${window.location.origin}/post/${post._id}`;
         navigator.clipboard.writeText(link);

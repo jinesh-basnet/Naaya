@@ -1,7 +1,7 @@
 const path = require('path');
+const Post = require('../../models/Post');
 const mongoose = require('mongoose');
 const { validationResult } = require('express-validator');
-const Post = require('../models/Post');
 
 exports.createPost = async (req, res) => {
   try {
@@ -148,7 +148,7 @@ exports.updatePost = async (req, res) => {
     });
 
     if (!post) {
-      return res.status(404).json({
+      return res.status(400).json({
         message: req.t('posts:postNotFound'),
         code: 'POST_NOT_FOUND'
       });

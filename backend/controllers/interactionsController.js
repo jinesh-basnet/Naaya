@@ -5,6 +5,37 @@ const { updateInteractionHistory } = require('../utils/feedAlgorithm');
 const { findCommentById, countTotalComments } = require('../utils/postHelpers');
 const { validationResult } = require('express-validator');
 
+exports.viewPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const userId = req.user._id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        message: req.t('posts:postNotFound'),
+        code: 'POST_NOT_FOUND'
+      });
+    }
+
+    const wasNewView = post.addView(userId);
+    await post.save();
+
+    res.json({
+      message: 'View recorded',
+      viewsCount: post.viewsCount,
+      isNewView: wasNewView
+    });
+  } catch (error) {
+    console.error('View post error:', error);
+    res.status(500).json({
+      message: req.t('posts:viewPostError', { defaultValue: 'View recording failed' }),
+      code: 'VIEW_POST_ERROR'
+    });
+  }
+};
+
+
 exports.likePost = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -185,7 +216,15 @@ exports.savePost = async (req, res) => {
   }
 };
 
+module.exports = {
+  likePost,
+  savePost,
+  sharePost,
+  viewPost
+};
+
 exports.sharePost = async (req, res) => {
+
   try {
     const { postId } = req.params;
     const userId = req.user._id;

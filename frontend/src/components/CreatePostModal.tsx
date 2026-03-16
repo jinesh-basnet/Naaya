@@ -7,15 +7,24 @@ interface CreatePostModalProps {
   open: boolean;
   onClose: () => void;
   onPost: (post: {
-    postType: 'post' | 'reel';
+    postType: 'post' | 'reel' | 'story';
     caption: string;
     media: File | null;
+    language: 'nepali' | 'english' | 'mixed';
+    visibility: 'public' | 'followers' | 'private';
+    hashtags: string[];
+    mentions: string[];
     tags: string[];
     location: string;
     editMode?: boolean;
     editPost?: {
       _id: string;
       content: string;
+      language?: string;
+      visibility?: string;
+      postType?: string;
+      hashtags?: string[];
+      mentions?: string[];
       media: Array<{
         type: string;
         url: string;
@@ -30,6 +39,11 @@ interface CreatePostModalProps {
   editPost?: {
     _id: string;
     content: string;
+    language?: string;
+    visibility?: string;
+    postType?: string;
+    hashtags?: string[];
+    mentions?: string[];
     media: Array<{
       type: string;
       url: string;
@@ -47,7 +61,12 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
   const [mediaPreview, setMediaPreview] = useState<string>('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [mentions, setMentions] = useState<string[]>([]);
   const [location, setLocation] = useState('');
+  const [language, setLanguage] = useState<'nepali' | 'english' | 'mixed'>('english');
+  const [visibility, setVisibility] = useState<'public' | 'followers' | 'private'>('public');
+  const [postType, setPostType] = useState<'post' | 'reel' | 'story'>('post');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -56,6 +75,11 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
       setCaption(editPost.content || '');
       setTags(editPost.tags || []);
       setLocation(editPost.location?.name || '');
+      setLanguage(editPost.language as any || 'english');
+      setVisibility(editPost.visibility as any || 'public');
+      setPostType(editPost.postType as any || 'post');
+      setHashtags(editPost.hashtags || []);
+      setMentions(editPost.mentions || []);
       if (editPost.media && editPost.media.length > 0) {
         setMediaPreview(editPost.media[0].url);
       }
@@ -82,22 +106,53 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
     }
   };
 
+  const parseTags = (input: string) => {
+    const words = input.trim().split(' ');
+    let newHashtags: string[] = [...hashtags];
+    let newMentions: string[] = [...mentions];
+    let newTags: string[] = [...tags];
+    
+    words.forEach(word => {
+      const trimmed = word.replace(/[#,@]/g, '').trim().toLowerCase();
+      if (trimmed && trimmed.length > 0) {
+        if (word.startsWith('#') && !newHashtags.includes(`#${trimmed}`)) {
+          newHashtags.push(`#${trimmed}`);
+        } else if (word.startsWith('@') && !newMentions.includes(`@${trimmed}`)) {
+          newMentions.push(`@${trimmed}`);
+        } else if (!newTags.includes(trimmed)) {
+          newTags.push(trimmed);
+        }
+      }
+    });
+    return { newHashtags, newMentions, newTags };
+  };
+
+
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
+    if (tagInput.trim()) {
+      const parsed = parseTags(tagInput);
+      setHashtags(parsed.newHashtags);
+      setMentions(parsed.newMentions);
+      setTags(parsed.newTags);
       setTagInput('');
     }
   };
 
-  const handleDeleteTag = (tagToDelete: string) => {
-    setTags(tags.filter(tag => tag !== tagToDelete));
+  const handleDeleteTag = (type: 'tag' | 'hashtag' | 'mention', item: string) => {
+    if (type === 'hashtag') setHashtags(prev => prev.filter(t => t !== item));
+    else if (type === 'mention') setMentions(prev => prev.filter(t => t !== item));
+    else setTags(prev => prev.filter(t => t !== item));
   };
 
   const handlePost = () => {
     onPost({
-      postType: 'post',
+      postType,
       caption,
       media,
+      language,
+      visibility,
+      hashtags,
+      mentions,
       tags,
       location,
       editMode,
@@ -107,7 +162,12 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
     setMedia(null);
     setMediaPreview('');
     setTags([]);
+    setHashtags([]);
+    setMentions([]);
     setLocation('');
+    setLanguage('english');
+    setVisibility('public');
+    setPostType('post');
     onClose();
   };
 
@@ -202,14 +262,14 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                   <FaUserPlus className="icon" />
                   <input
                     type="text"
-                    placeholder="Who are you with?"
+                    placeholder="Who are you with? Use #hashtag @mention"
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
                   />
                 </div>
                 <div className="tags-container">
-                  <AnimatePresence mode="popLayout">
+                  <div>Tags: <AnimatePresence mode="popLayout">
                     {tags.map((tag) => (
                       <motion.span
                         key={tag}
@@ -220,15 +280,74 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ open, onClose, onPost
                         layout
                       >
                         {tag}
-                        <span className="tag-delete" onClick={() => handleDeleteTag(tag)}>×</span>
+                        <span className="tag-delete" onClick={() => handleDeleteTag('tag', tag)}>×</span>
                       </motion.span>
                     ))}
-                  </AnimatePresence>
+                  </AnimatePresence></div>
+                  <div>Hashtags: <AnimatePresence mode="popLayout">
+                    {hashtags.map((tag) => (
+                      <motion.span
+                        key={tag}
+                        className="tag hashtag"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        layout
+                      >
+                        {tag}
+                        <span className="tag-delete" onClick={() => handleDeleteTag('hashtag', tag)}>×</span>
+                      </motion.span>
+                    ))}
+                  </AnimatePresence></div>
+                  <div>Mentions: <AnimatePresence mode="popLayout">
+                    {mentions.map((tag) => (
+                      <motion.span
+                        key={tag}
+                        className="tag mention"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        layout
+                      >
+                        {tag}
+                        <span className="tag-delete" onClick={() => handleDeleteTag('mention', tag)}>×</span>
+                      </motion.span>
+                    ))}
+                  </AnimatePresence></div>
                 </div>
+              </motion.div>
+
+              {/* New fields */}
+              <motion.div className="input-group" initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
+                <label>Language</label>
+                <select value={language} onChange={(e) => setLanguage(e.target.value as any)}>
+                  <option value="english">English</option>
+                  <option value="nepali">Nepali</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+              </motion.div>
+
+              <motion.div className="input-group" initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
+                <label>Post Type</label>
+                <select value={postType} onChange={(e) => setPostType(e.target.value as any)}>
+                  <option value="post">Post</option>
+                  <option value="reel">Reel</option>
+                  <option value="story">Story</option>
+                </select>
+              </motion.div>
+
+              <motion.div className="input-group" initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.5 }}>
+                <label>Visibility</label>
+                <select value={visibility} onChange={(e) => setVisibility(e.target.value as any)}>
+                  <option value="public">Public</option>
+                  <option value="followers">Followers</option>
+                  <option value="private">Private</option>
+                </select>
               </motion.div>
             </div>
           </div>
         </div>
+
 
         <div className="modal-footer">
           <button

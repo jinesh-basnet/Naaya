@@ -24,4 +24,10 @@ router.post('/:postId/share', authenticateToken, [
   body('location').optional(),
 ], interactionsController.sharePost);
 
+// @route   POST /api/posts/:postId/view
+// @desc    Record post view
+// @access  Private
+router.post('/:postId/view', authenticateToken, interactionsController.viewPost);
+
 module.exports = router;
+

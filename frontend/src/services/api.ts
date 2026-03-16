@@ -138,9 +138,16 @@ export const postsAPI = {
 
   deleteReply: (postId: string, replyId: string) =>
     api.delete(`/posts/${postId}/replies/${replyId}`),
+
+  viewPost: (postId: string) =>
+    api.post(`/posts/${postId}/view`),
+
+  reportPost: (postId: string, data: { reason: string; description?: string }) =>
+    api.post(`/reports/post/${postId}`, data),
 };
 
 export const usersAPI = {
+
   getProfile: (username: string) =>
     api.get(`/users/profile/${username}`),
 
