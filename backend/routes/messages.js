@@ -67,7 +67,10 @@ router.put('/:messageId/read', authenticateToken, messagesController.markMessage
 // @desc    Mark all messages in a conversation as read
 // @access  Private
 router.put('/conversation/:conversationId/read-all', authenticateToken, [
-  param('conversationId').isMongoId().withMessage('Invalid conversation ID'),
+  param('conversationId').custom(value => {
+    if (typeof value === 'string' && value.startsWith('direct_')) return true;
+    return mongoose.Types.ObjectId.isValid(value);
+  }).withMessage('Invalid conversation ID'),
   validate
 ], messagesController.markAllMessagesRead);
 

@@ -103,6 +103,8 @@ conversationSchema.methods.updateLastMessage = function(messageId, timestamp) {
 };
 
 conversationSchema.statics.findDirectConversation = function(userId1, userId2) {
+  // Do NOT filter by isActive here — we need to find the conversation
+  // even when a participant previously left, so we can re-activate them.
   return this.findOne({
     type: 'direct',
     participants: {
@@ -117,7 +119,25 @@ conversationSchema.statics.findDirectConversation = function(userId1, userId2) {
 
 conversationSchema.statics.createDirectConversation = async function(userId1, userId2) {
   const existing = await this.findDirectConversation(userId1, userId2);
-  if (existing) return existing;
+
+  if (existing) {
+    // Re-activate any participant who previously "left" the direct conversation.
+    // This heals the isActive:false state so both users can message again.
+    let dirty = false;
+    existing.participants = existing.participants.map(p => {
+      if (!p.isActive) {
+        dirty = true;
+        return { ...p.toObject(), isActive: true };
+      }
+      return p;
+    });
+    if (!existing.isActive) {
+      existing.isActive = true;
+      dirty = true;
+    }
+    if (dirty) await existing.save();
+    return existing;
+  }
 
   const conversation = new this({
     type: 'direct',
