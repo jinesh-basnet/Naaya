@@ -1,5 +1,5 @@
 const path = require('path');
-const Post = require('../../models/Post');
+const Post = require('../models/Post');
 const mongoose = require('mongoose');
 const { validationResult } = require('express-validator');
 

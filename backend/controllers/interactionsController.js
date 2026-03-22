@@ -216,12 +216,7 @@ exports.savePost = async (req, res) => {
   }
 };
 
-module.exports = {
-  likePost,
-  savePost,
-  sharePost,
-  viewPost
-};
+
 
 exports.sharePost = async (req, res) => {
 
