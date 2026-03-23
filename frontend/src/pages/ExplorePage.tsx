@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { postsAPI, usersAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -16,6 +16,8 @@ import {
   IoImages,
   IoGrid,
   IoList,
+  IoSparkles,
+  IoPricetag
 } from 'react-icons/io5';
 import Suggestions from '../components/Suggestions';
 import Avatar from '../components/Avatar';
@@ -80,6 +82,11 @@ const ExplorePage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const { data: overviewData } = useQuery({
+    queryKey: ['explore-overview'],
+    queryFn: () => postsAPI.getExploreOverview().then(res => res.data),
+  });
+
   const { data: exploreData, isLoading } = useQuery({
     queryKey: ['explore', activeTab],
     queryFn: () => {
@@ -89,7 +96,7 @@ const ExplorePage: React.FC = () => {
         case 1:
           return postsAPI.getFeed('trending');
         case 2:
-          return postsAPI.getFeed('friends');
+          return Promise.resolve({ data: { posts: [] } } as any);
         default:
           return postsAPI.getFeed('explore');
       }
@@ -136,6 +143,41 @@ const ExplorePage: React.FC = () => {
     { id: 2, label: 'Friends', icon: <IoPeople /> },
   ];
 
+  const queryClient = useQueryClient();
+
+  const likeMutation = useMutation({
+    mutationFn: (postId: string) => postsAPI.likePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['explore']);
+      queryClient.invalidateQueries(['search-posts']);
+      if (selectedPost) {
+        const isLiked = selectedPost.likes?.some(l => l.user === user?._id);
+        setSelectedPost(prev => prev ? {
+          ...prev,
+          likesCount: isLiked ? Math.max(0, prev.likesCount - 1) : prev.likesCount + 1,
+          likes: isLiked 
+            ? prev.likes.filter(l => l.user !== user?._id)
+            : [...(prev.likes || []), { user: user?._id as string }]
+        } : null);
+      }
+    }
+  });
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (selectedPost) {
+      likeMutation.mutate(selectedPost._id);
+    }
+  };
+
+  const handleGoToPost = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (selectedPost) {
+      navigate(`/post/${selectedPost._id}`);
+      handleCloseModal();
+    }
+  };
+
   const handlePostClick = (post: Post) => {
     setSelectedPost(post);
   };
@@ -153,14 +195,24 @@ const ExplorePage: React.FC = () => {
 
   return (
     <div className="explore-page">
-      <div className="explore-header">
+      <div className="stardust-bg">
+        {Array.from({ length: 20 }).map((_, i) => (
+          <div key={i} className="star cursor-star" style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            animationDelay: `${Math.random() * 5}s`
+          }}></div>
+        ))}
+      </div>
+
+      <div className="explore-header sticky-header">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="explore-title-section"
         >
           <h1 className="explore-title">Explore</h1>
-          <p className="explore-subtitle">Discover what's trending across Naaya</p>
+          <p className="explore-subtitle">Discover trending content and creators</p>
         </motion.div>
 
         <motion.div
@@ -284,6 +336,50 @@ const ExplorePage: React.FC = () => {
         </motion.div>
       )}
 
+      {!isActuallySearching && activeTab === 0 && overviewData && (
+        <motion.div 
+          className="explore-overview-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          {overviewData.suggestedUsers && overviewData.suggestedUsers.length > 0 && (
+            <div className="creators-carousel">
+              <h3 className="section-subtitle"><IoSparkles className="accent-icon" /> Discover Creators</h3>
+              <div className="carousel-track">
+                {overviewData.suggestedUsers.map((u: any) => (
+                  <div key={u._id} className="creator-card" onClick={() => navigate(`/profile/${u.username}`)}>
+                    <div className="creator-avatar-wrap">
+                      <Avatar src={u.profilePicture} alt={u.fullName} size={64} />
+                    </div>
+                    <span className="creator-name">{u.fullName}</span>
+                    <span className="creator-username">@{u.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {overviewData.trendingTags && overviewData.trendingTags.length > 0 && (
+            <div className="trending-tags">
+              <h3 className="section-subtitle"><IoPricetag className="accent-icon" /> Trending Tags</h3>
+              <div className="tags-container">
+                {overviewData.trendingTags.map((tag: any) => (
+                  <button 
+                    key={tag.name} 
+                    className="tag-chip"
+                    onClick={() => {
+                      setSearchQuery(tag.name);
+                    }}
+                  >
+                    <span className="tag-hash">#</span>{tag.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       <div className="explore-content">
         {isLoading ? (
           <div className={`posts-${viewMode}`}>
@@ -297,13 +393,17 @@ const ExplorePage: React.FC = () => {
             animate={{ opacity: 1, scale: 1 }}
             className="empty-state"
           >
-            <IoCompass className="empty-icon" />
-            <h2>{searchQuery ? 'No results found' : 'No posts yet'}</h2>
-            <p>
-              {searchQuery
-                ? 'Try adjusting your search terms'
-                : 'Discover amazing content from your community'}
-            </p>
+            {activeTab === 2 ? null : (
+              <>
+                <IoCompass className="empty-icon" />
+                <h2>{searchQuery ? 'No results found' : 'No posts yet'}</h2>
+                <p>
+                  {searchQuery
+                    ? 'Try adjusting your search terms'
+                    : 'Discover amazing content from your community'}
+                </p>
+              </>
+            )}
           </motion.div>
         ) : (
           <div className={`posts-${viewMode}`}>
@@ -394,8 +494,12 @@ const ExplorePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="suggestions-container"
+            style={{ marginTop: 0 }}
           >
-            <Suggestions />
+            <h2 className="section-subtitle" style={{ marginBottom: '24px', fontSize: '1.5rem' }}>
+              <IoPeople className="accent-icon" /> Discover Friends
+            </h2>
+            <Suggestions limit={20} />
           </motion.div>
         )}
       </div>
@@ -444,21 +548,28 @@ const ExplorePage: React.FC = () => {
                 <div className="modal-details">
                   <div className="modal-header">
                     <img
-                      src={selectedPost.author.profilePicture}
-                      alt={selectedPost.author.fullName}
+                      src={selectedPost.author?.profilePicture || ''}
+                      alt={selectedPost.author?.fullName || 'User'}
                       className="modal-avatar"
+                      onClick={() => {
+                        if (selectedPost.author?._id !== user?._id) {
+                          navigate(`/profile/${selectedPost.author?.username}`);
+                          handleCloseModal();
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
                     />
                     <div className="modal-author-info">
                       <p
                         className="modal-author-name"
                         onClick={() => {
-                          if (selectedPost.author._id !== user?._id) {
-                            navigate(`/profile/${selectedPost.author.username}`);
+                          if (selectedPost.author?._id !== user?._id) {
+                            navigate(`/profile/${selectedPost.author?.username}`);
                             handleCloseModal();
                           }
                         }}
                       >
-                        {selectedPost.author.fullName}
+                        {selectedPost.author?.fullName}
                       </p>
                       {selectedPost.location?.city && (
                         <p className="modal-location">📍 {selectedPost.location.city}</p>
@@ -466,20 +577,24 @@ const ExplorePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="modal-body">
+                  <div className="modal-body" onClick={handleGoToPost} style={{ cursor: 'pointer' }}>
                     <p className="modal-content-text">{selectedPost.content}</p>
                   </div>
 
                   <div className="modal-footer">
                     <div className="modal-actions">
-                      <button className="action-btn">
+                      <button 
+                        className="action-btn" 
+                        onClick={handleLike}
+                        style={{ color: selectedPost.likes?.some(l => l.user === user?._id) ? 'var(--primary-main)' : '' }}
+                      >
                         <IoHeart />
                       </button>
-                      <button className="action-btn">
+                      <button className="action-btn" onClick={handleGoToPost}>
                         <IoChatbubble />
                       </button>
                     </div>
-                    <p className="likes-count">{selectedPost.likesCount} likes</p>
+                    <p className="likes-count">{selectedPost.likesCount || 0} likes</p>
                   </div>
                 </div>
               </div>
