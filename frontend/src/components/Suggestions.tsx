@@ -99,12 +99,16 @@ const Suggestions: React.FC<{ limit?: number }> = ({ limit = 6 }) => {
               src={u.profilePicture}
               alt={u.username}
               name={u.username}
-              size={40}
+              size={44}
               className="card-avatar"
             />
             <div className="suggestion-info">
               <span className="card-name">{u.username}</span>
-              <span className="card-username">Suggested for you</span>
+              <span className="card-username">
+                {u.mutualConnections > 0 
+                  ? `${u.mutualConnections} mutual connection${u.mutualConnections === 1 ? '' : 's'}` 
+                  : 'Suggested for you'}
+              </span>
             </div>
           </div>
           <button
