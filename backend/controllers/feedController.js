@@ -11,13 +11,11 @@ exports.getSimpleFeed = async (req, res) => {
     const following = await Follow.find({ follower: userId }).select('following').lean();
     const followingIds = following.map(f => f.following.toString());
 
-    // Get all blocked IDs (both who I blocked and who blocked me)
     const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(userId);
     const blockerUserIds = await Block.getBlockerUserIds(userId);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
 
-    // Filter out blocked users from following list for the feed query
     const filteredFollowingIds = followingIds.filter(id => !allBlockedIds.includes(id));
 
     const posts = await Post.find({
@@ -220,8 +218,7 @@ exports.getPersonalizedFeed = async (req, res) => {
         commentsCount: post.commentsCount,
         savesCount: post.savesCount
       }));
-    }
-    else if (feedType === 'explore') {
+    } else if (feedType === 'explore') {
       posts = await Post.find({
         author: { $nin: allBlockedIds },
         postType: 'post',
@@ -231,16 +228,10 @@ exports.getPersonalizedFeed = async (req, res) => {
       })
       .populate('author', 'username fullName profilePicture isVerified location languagePreference')
       .lean()
-      .sort({ createdAt: -1 })
+      .sort({ likesCount: -1, createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-      posts = posts.map(post => ({
-        ...post,
-        likesCount: post.likesCount,
-        commentsCount: post.commentsCount,
-        savesCount: post.savesCount
-      }));
     } else if (feedType === 'trending') {
       posts = await Post.find({
         author: { $nin: allBlockedIds },
@@ -278,6 +269,52 @@ exports.getPersonalizedFeed = async (req, res) => {
     res.status(500).json({
       message: 'Server error retrieving feed',
       code: 'FEED_ERROR'
+    });
+  }
+};
+
+exports.getExploreOverview = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm.js');
+    const algo = new RichGetRicherAlgorithm();
+    
+    const [suggestions, trendingTags] = await Promise.all([
+      algo.getSuggestions(userId, 10),
+      Post.aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, 
+            isDeleted: false, 
+            isArchived: false, 
+            visibility: 'public' 
+          } 
+        },
+        { $unwind: "$hashtags" },
+        { $group: { _id: "$hashtags", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 12 }
+      ])
+    ]);
+
+    // Format tags
+    const tags = trendingTags.map(t => ({
+      name: t._id,
+      count: t.count
+    }));
+
+    res.json({
+      message: 'Explore overview retrieved successfully',
+      suggestedUsers: suggestions.users,
+      trendingTags: tags,
+      algorithm: suggestions.algorithm
+    });
+
+  } catch (error) {
+    console.error('Get explore overview error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving explore overview',
+      code: 'EXPLORE_OVERVIEW_ERROR'
     });
   }
 };
