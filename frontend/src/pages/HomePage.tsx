@@ -124,19 +124,9 @@ const HomePage: React.FC = () => {
                 <h3>Recommended for you</h3>
                 <button onClick={() => navigate('/explore')}>See All</button>
               </div>
-              <Suggestions limit={5} />
+              <Suggestions limit={10} />
             </div>
 
-            <div className="sidebar-stats-box">
-              <div className="stat-item">
-                <span className="stat-value">{user?.followers?.length || 0}</span>
-                <span className="stat-label">Soulmates</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">{user?.following?.length || 0}</span>
-                <span className="stat-label">Following</span>
-              </div>
-            </div>
 
             <footer className="sidebar-footer-text">
               <p>© 2026 NAAYA • BY JINESH</p>
