@@ -84,6 +84,9 @@ export const postsAPI = {
   getFeed: (feedType: string = 'fyp', page: number = 1, limit: number = 10) =>
     api.get(`/posts/feed?feedType=${feedType}&page=${page}&limit=${limit}`),
 
+  getExploreOverview: () =>
+    api.get('/posts/feed/explore-overview'),
+
   getCombinedFeed: (page: number = 1, limit: number = 20) =>
     api.get(`/feed/simple?page=${page}&limit=${limit}`),
 
@@ -348,7 +351,7 @@ export const notificationsAPI = {
 
 export const messagesAPI = {
   getConversations: () =>
-    api.get('/conversations'),
+    api.get('/messages/conversations'),
 
   getConversation: (conversationId: string) =>
     api.get(`/conversations/${conversationId}`),
