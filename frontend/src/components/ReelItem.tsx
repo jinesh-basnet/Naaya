@@ -139,7 +139,8 @@ const ReelItem: React.FC<ReelItemProps> = ({
   const isSaved = savedReels.has(reel._id);
   const isAuthor = reel.author?._id === user?._id;
 
-  const handleAction = async (action: string) => {
+  const handleAction = async (action: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setShowActionMenu(false);
     switch (action) {
       case 'delete':
@@ -175,10 +176,6 @@ const ReelItem: React.FC<ReelItemProps> = ({
       queryClient.invalidateQueries({ queryKey: ['reelsFeed'] });
       queryClient.invalidateQueries({ queryKey: ['userReels', reel.author?.username] });
       setShowDeleteModal(false);
-
-      if (user?.username) {
-        navigate(`/profile/${user.username}`);
-      }
     } catch (error) {
       toast.error('Failed to delete reel');
     } finally {
@@ -264,19 +261,19 @@ const ReelItem: React.FC<ReelItemProps> = ({
                   exit={{ opacity: 0, scale: 0.9, y: -10 }}
                   className="action-dropdown-v2 reel-dropdown"
                 >
-                  <button className="menu-item-v2" onClick={() => handleAction('copy-link')}>
+                  <button className="menu-item-v2" onClick={(e) => handleAction('copy-link', e)}>
                     <HiOutlineLink size={18} /> <span>Copy Link</span>
                   </button>
                   {!isAuthor && (
-                    <button className="menu-item-v2" onClick={() => handleAction('not-interested')}>
+                    <button className="menu-item-v2" onClick={(e) => handleAction('not-interested', e)}>
                       <HiOutlineEyeSlash size={18} /> <span>Not Interested</span>
                     </button>
                   )}
-                  <button className="menu-item-v2" onClick={() => handleAction('report')}>
+                  <button className="menu-item-v2" onClick={(e) => handleAction('report', e)}>
                     <HiOutlineFlag size={18} /> <span>Report</span>
                   </button>
                   {isAuthor && (
-                    <button className="menu-item-v2 danger" onClick={() => handleAction('delete')}>
+                    <button className="menu-item-v2 danger" onClick={(e) => handleAction('delete', e)}>
                       <HiOutlineTrash size={18} /> <span>Delete Reel</span>
                     </button>
                   )}
