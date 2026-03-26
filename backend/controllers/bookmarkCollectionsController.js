@@ -2,13 +2,14 @@ const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const BookmarkCollection = require('../models/BookmarkCollection');
 const Post = require('../models/Post');
+const Reel = require('../models/Reel');
+const Block = require('../models/Block');
 
 exports.getCollections = async (req, res) => {
   try {
     const collections = await BookmarkCollection.getUserCollections(req.user._id);
 
     // Block Feature Integration: Filter out items from blocked users
-    const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
     const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -214,7 +215,6 @@ exports.addPostToCollection = async (req, res) => {
     }
 
     // Block check
-    const Block = require('../models/Block');
     const isBlocked = await Block.areBlocked(req.user._id, post.author._id);
     if (isBlocked) {
       return res.status(403).json({
@@ -281,7 +281,6 @@ exports.removePostFromCollection = async (req, res) => {
 exports.addReelToCollection = async (req, res) => {
   try {
     const { collectionId, reelId } = req.params;
-    const Reel = require('../models/Reel');
 
     if (!mongoose.Types.ObjectId.isValid(reelId)) {
       return res.status(400).json({
@@ -311,7 +310,6 @@ exports.addReelToCollection = async (req, res) => {
     }
 
     // Block check
-    const Block = require('../models/Block');
     const isBlocked = await Block.areBlocked(req.user._id, reel.author._id);
     if (isBlocked) {
       return res.status(403).json({
