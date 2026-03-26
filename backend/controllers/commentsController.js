@@ -1,7 +1,6 @@
 const Post = require('../models/Post');
 const { updateInteractionHistory } = require('../utils/feedAlgorithm');
-const { findCommentById, countTotalComments } = require('../utils/postHelpers');
-const { validationResult } = require('express-validator');
+const { findCommentById, countTotalComments } = require('../utils/commentUtils');
 
 exports.addComment = async (req, res) => {
   try {
@@ -55,19 +54,8 @@ exports.addComment = async (req, res) => {
       }
     }
 
-    if (userId.toString() !== post.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createCommentNotification) {
-          await global.notificationService.createCommentNotification(
-            post._id,
-            userId,
-            post.author._id,
-            newComment._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating comment notification:', error);
-      }
+    if (userId.toString() !== post.author._id.toString() && global.notificationService) {
+      await global.notificationService.comment(post._id, userId, post.author._id, newComment._id);
     }
 
     res.status(201).json({
@@ -243,19 +231,8 @@ exports.replyToComment = async (req, res) => {
       }
     }
 
-    if (userId.toString() !== comment.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createCommentNotification) {
-          await global.notificationService.createCommentNotification(
-            post._id,
-            userId,
-            comment.author._id,
-            newReply._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating reply notification:', error);
-      }
+    if (userId.toString() !== comment.author._id.toString() && global.notificationService) {
+      await global.notificationService.comment(post._id, userId, comment.author._id, newReply._id);
     }
 
     res.status(201).json({
@@ -388,19 +365,8 @@ exports.replyToReply = async (req, res) => {
       }
     }
 
-    if (userId.toString() !== parentReply.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createCommentNotification) {
-          await global.notificationService.createCommentNotification(
-            post._id,
-            userId,
-            parentReply.author._id,
-            newReply._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating reply to reply notification:', error);
-      }
+    if (userId.toString() !== parentReply.author._id.toString() && global.notificationService) {
+      await global.notificationService.comment(post._id, userId, parentReply.author._id, newReply._id);
     }
 
     res.status(201).json({
