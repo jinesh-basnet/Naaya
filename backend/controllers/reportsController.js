@@ -9,7 +9,7 @@ exports.reportPost = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: 'Something is wrong with your report data.',
         errors: errors.array()
       });
     }
@@ -63,7 +63,7 @@ exports.reportComment = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: 'Report data looks incomplete.',
         errors: errors.array()
       });
     }
@@ -123,7 +123,7 @@ exports.reportStory = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: 'Report details are not quite right.',
         errors: errors.array()
       });
     }
@@ -188,7 +188,7 @@ exports.reportUser = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
-        message: 'User not found',
+        message: 'We could not find that user.',
         code: 'USER_NOT_FOUND'
       });
     }
