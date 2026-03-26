@@ -1,8 +1,14 @@
 const webpush = require('web-push');
+const fs = require('fs');
 
-const vapidKeys = webpush.generateVAPIDKeys();
+const keys = webpush.generateVAPIDKeys();
+const envLines = [
+  '',
+  'VAPID_PUBLIC_KEY=' + keys.publicKey,
+  'VAPID_PRIVATE_KEY=' + keys.privateKey
+].join('\n');
 
-console.log('Generated VAPID Keys:');
-console.log('VAPID_PUBLIC_KEY=' + vapidKeys.publicKey);
-console.log('VAPID_PRIVATE_KEY=' + vapidKeys.privateKey);
-console.log('\nAdd these to your .env file');
+fs.appendFileSync('.env', envLines);
+console.log('Successfully appended VAPID keys to .env');
+console.log('Public Key:', keys.publicKey);
+console.log('Private Key:', keys.privateKey);
