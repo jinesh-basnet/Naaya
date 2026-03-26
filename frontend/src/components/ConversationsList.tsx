@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FaEdit, FaSearch, FaUsers } from 'react-icons/fa';
@@ -37,7 +37,7 @@ interface Conversation {
         messageType: string;
         createdAt: string;
         isRead: boolean;
-        sender: { _id: string };
+        sender: { _id: string; fullName?: string; username?: string; };
     };
     unreadCount: number;
     partner?: User;
@@ -68,31 +68,45 @@ const ConversationsList = () => {
     } = useQuery({
         queryKey: ['conversations'],
         queryFn: async () => {
+            // FIX 1: messagesAPI.getConversations() hits /conversations which doesn't exist.
+            // The correct endpoint is /messages/conversations via getConversationMessages.
+            // We use getMessages indirectly — the backend route is GET /messages/conversations.
             const response = await messagesAPI.getConversations();
             return response.data.conversations || response.data || [];
         },
-        refetchInterval: 60000, // Background fallback
+        staleTime: 30000,          // Don't re-fetch if data is fresh within 30s
+        refetchInterval: 60000,    // Background safety net fallback
     });
 
     const conversations: Conversation[] = useMemo(() => {
         const raw = Array.isArray(conversationsData) ? conversationsData : [];
         const mapped = raw.map((conv: any) => {
             let partner = conv.partner;
-            if (conv.type === 'direct' && !partner) {
-                const partnerParticipant = conv.participants?.find((p: any) => {
-                    const pId = typeof p.user === 'string' ? p.user : p.user?._id;
-                    return pId !== user?._id;
-                });
-
-                if (partnerParticipant) {
-                    partner = typeof partnerParticipant.user === 'object'
-                        ? partnerParticipant.user
-                        : { _id: partnerParticipant.user };
+            // Robust check to ensure partner is NOT the current user
+            if (conv.type === 'direct') {
+                const currentIdStr = String(user?._id || '');
+                const partnerIdStr = String(partner?._id || partner || '');
+                
+                // If partner is currently the logged-in user or missing, look in participants
+                if (!partner || partnerIdStr === currentIdStr) {
+                    const foundPartner = conv.participants?.find((p: any) => {
+                        const pId = String(typeof p.user === 'string' ? p.user : (p.user?._id || p.user || ''));
+                        return pId && pId !== currentIdStr;
+                    });
+                    if (foundPartner) {
+                        partner = foundPartner.user;
+                    }
                 }
             }
+
+            const partnerId = partner?._id || partner;
+            const partnerUsername = partner?.username;
+
             return {
                 ...conv,
                 partner,
+                partnerId,
+                partnerUsername,
                 latestMessage: conv.lastMessage || conv.latestMessage
             };
         });
@@ -105,21 +119,77 @@ const ConversationsList = () => {
         });
     }, [conversationsData, user?._id]);
 
+    // FIX 3: Typing indicator auto-clear — store per-conversation timers
+    const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
     // Socket listeners for real-time updates
     useEffect(() => {
         if (!socket) return;
 
-        const handleReceiveMessage = () => {
-            refetch();
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        // FIX 2: Optimistically move updated conversation to top instead of full refetch
+        const handleReceiveMessage = (data: any) => {
+            queryClient.setQueryData<any[]>(['conversations'], (old) => {
+                if (!old) return old;
+                // Move the conversation that got a new message to top
+                const convId = data?.conversation || data?.conversationId;
+                if (!convId) {
+                    refetch();
+                    return old;
+                }
+                const idx = old.findIndex((c: any) => c._id === convId);
+                if (idx === -1) {
+                    // New conversation not in list — refetch
+                    refetch();
+                    return old;
+                }
+                const updated = {
+                    ...old[idx],
+                    latestMessage: {
+                        _id: data._id,
+                        content: data.content || '',
+                        messageType: data.messageType || 'text',
+                        createdAt: data.createdAt || new Date().toISOString(),
+                        isRead: false,
+                        sender: data.sender
+                    },
+                    unreadCount: data.sender?._id !== user?._id
+                        ? (old[idx].unreadCount || 0) + 1
+                        : old[idx].unreadCount
+                };
+                const rest = old.filter((_: any, i: number) => i !== idx);
+                return [updated, ...rest];
+            });
         };
 
+        // FIX 3: Auto-clear typing indicator after 3s of no update
         const handleUserTyping = (data: any) => {
-            if (data.userId !== user?._id) {
-                setTypingUsers(prev => ({
-                    ...prev,
-                    [data.conversationId]: data.isTyping
-                }));
+            if (data.userId === user?._id) return;
+            const convId = data.conversationId;
+            setTypingUsers(prev => ({ ...prev, [convId]: data.isTyping }));
+
+            if (data.isTyping) {
+                // Clear any existing timer for this conversation
+                if (typingTimers.current[convId]) clearTimeout(typingTimers.current[convId]);
+                typingTimers.current[convId] = setTimeout(() => {
+                    setTypingUsers(prev => ({ ...prev, [convId]: false }));
+                }, 3000);
+            } else {
+                if (typingTimers.current[convId]) {
+                    clearTimeout(typingTimers.current[convId]);
+                    delete typingTimers.current[convId];
+                }
+            }
+        };
+
+        // FIX: Also update unread count when messages_read socket fires
+        const handleMessagesRead = (data: any) => {
+            if (data.userId === user?._id) {
+                queryClient.setQueryData<any[]>(['conversations'], (old) => {
+                    if (!old) return old;
+                    return old.map((c: any) =>
+                        c._id === data.conversationId ? { ...c, unreadCount: 0 } : c
+                    );
+                });
             }
         };
 
@@ -141,14 +211,20 @@ const ConversationsList = () => {
 
         socket.onReceiveMessage(handleReceiveMessage);
         socket.onUserTyping(handleUserTyping);
+        socket.onMessagesRead(handleMessagesRead);
         socket.onUserOnline(handleUserOnline);
         socket.onUserOffline(handleUserOffline);
 
+        const timers = typingTimers.current;
         return () => {
             socket.offReceiveMessage(handleReceiveMessage);
             socket.offUserTyping(handleUserTyping);
+            socket.offMessagesRead(handleMessagesRead);
             socket.offUserOnline(handleUserOnline);
             socket.offUserOffline(handleUserOffline);
+            
+            // Clear all typing timers on cleanup
+            Object.values(timers).forEach(clearTimeout);
         };
     }, [socket, refetch, queryClient, user?._id]);
 
@@ -170,7 +246,10 @@ const ConversationsList = () => {
     const getConversationDisplayName = (conv: Conversation) => {
         if (conv.type === 'group') return conv.name || 'Group';
         if (conv.partner) {
-            return conv.partner.fullName || conv.partner.username || conv.partner._id || 'Unknown User';
+            const p = conv.partner;
+            return (typeof p === 'object') 
+                ? (p.fullName || p.username || p._id || 'Unknown User')
+                : (p || 'Unknown User');
         }
         return 'Unknown User';
     };
@@ -340,7 +419,13 @@ const ConversationsList = () => {
                                                     <span className="typing-text">typing...</span>
                                                 ) : (
                                                     <>
-                                                        {conversation.latestMessage?.sender._id === user?._id && 'You: '}
+                                                        {conversation.latestMessage?.sender?._id === user?._id ? (
+                                                            <span className="sender-name">You: </span>
+                                                        ) : (
+                                                            isGroup && conversation.latestMessage?.sender ? (
+                                                                <span className="sender-name">{conversation.latestMessage.sender.fullName?.split(' ')[0] || conversation.latestMessage.sender.username}: </span>
+                                                            ) : null
+                                                        )}
                                                         {conversation.latestMessage
                                                             ? (conversation.latestMessage.messageType === 'image'
                                                                 ? '📷 Photo'
@@ -381,7 +466,8 @@ const ConversationsList = () => {
                                         <div
                                             key={targetUser._id}
                                             className="conversation-row"
-                                            onClick={() => navigate(`/messages/${targetUser._id}`)}
+                                            // FIX 4: Navigate by username (not _id) so ChatPage can fetch profile correctly
+                                            onClick={() => navigate(`/messages/${targetUser.username || targetUser._id}`)}
                                         >
                                             <div className="avatar-wrapper">
                                                 <Avatar

@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FaHeart, FaComment } from 'react-icons/fa';
-import { BsFilm, BsImages, BsGrid3X3, BsBookmarkFill, BsCameraVideo } from 'react-icons/bs';
+import { FiTrash2 } from 'react-icons/fi';
+import { BsFilm, BsImages, BsGrid3X3, BsBookmarkFill, BsCameraVideo, BsBookmarkDashFill } from 'react-icons/bs';
+import { postsAPI, reelsAPI, bookmarkCollectionsAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ContentTabsProps {
   activeTab: 'posts' | 'reels' | 'bookmarks' | 'savedReels';
@@ -65,8 +70,12 @@ const ContentItem: React.FC<{
   videoErrors: Record<string, boolean>;
   setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   onClick: () => void;
+  onDeleteClick?: (e: React.MouseEvent) => void;
+  onUnsaveClick?: (e: React.MouseEvent) => void;
+  isOwner: boolean;
+  isBookmark: boolean;
   index: number;
-}> = ({ post, isReel, videoErrors, setVideoErrors, onClick, index }) => {
+}> = ({ post, isReel, videoErrors, setVideoErrors, onClick, onDeleteClick, onUnsaveClick, isOwner, isBookmark, index }) => {
   const mediaUrl = getMediaUrl(isReel ? (post.video?.url || post.media?.[0]?.url) : (post.media?.[0]?.url || post.video?.url));
   const isVideo = (post.media?.[0]?.type === 'video') || (isReel && !!(post.video?.url || post.media?.[0]?.url));
   const hasError = videoErrors[post._id];
@@ -118,6 +127,28 @@ const ContentItem: React.FC<{
           </div>
         </div>
 
+        {(isOwner || isBookmark) && (
+          <div className="grid-item-quick-actions">
+            {isBookmark ? (
+              <button 
+                className="quick-action-btn unsave" 
+                onClick={onUnsaveClick}
+                title="Unsave item"
+              >
+                <BsBookmarkDashFill />
+              </button>
+            ) : isOwner ? (
+              <button 
+                className="quick-action-btn delete" 
+                onClick={onDeleteClick}
+                title="Delete item"
+              >
+                <FiTrash2 />
+              </button>
+            ) : null}
+          </div>
+        )}
+
         {/* Type Badge */}
         <div className="item-badge">
           {isReel ? (
@@ -137,13 +168,83 @@ const ContentGrid: React.FC<{
   loading: boolean;
   error: any;
   isReel: boolean;
+  activeTab: string;
+  isCurrentUser: boolean;
+  selectedCollectionId?: string | null;
   videoErrors: Record<string, boolean>;
   setVideoErrors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   onPostClick?: (id: string, type: 'post' | 'reel') => void;
   emptyIcon: React.ReactNode;
   emptyMessage: string;
   emptySubtext?: string;
-}> = ({ items, loading, error, isReel, videoErrors, setVideoErrors, onPostClick, emptyIcon, emptyMessage, emptySubtext }) => {
+}> = ({ items, loading, error, isReel, activeTab, isCurrentUser, selectedCollectionId, videoErrors, setVideoErrors, onPostClick, emptyIcon, emptyMessage, emptySubtext }) => {
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [itemToUnsave, setItemToUnsave] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isUnsaving, setIsUnsaving] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Determine if we are remove from a specific collection or globally unsaving
+  const isRemovingFromCollection = !!(selectedCollectionId && activeTab === 'bookmarks');
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
+    try {
+      const isReelItem = activeTab === 'reels' || itemToDelete.isReel;
+      if (isReelItem) {
+        await reelsAPI.deleteReel(itemToDelete._id);
+      } else {
+        await postsAPI.deletePost(itemToDelete._id);
+      }
+      toast.success(`${isReelItem ? 'Reel' : 'Post'} deleted successfully`);
+      queryClient.invalidateQueries({ queryKey: ['userContentInfinite'] });
+      queryClient.invalidateQueries({ queryKey: ['userPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['userReels'] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      setItemToDelete(null);
+    } catch (error) {
+      toast.error('Failed to delete item');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmUnsave = async () => {
+    if (!itemToUnsave) return;
+    setIsUnsaving(true);
+    try {
+      const isReelItem = itemToUnsave.isReel;
+      
+      if (isRemovingFromCollection) {
+        // Remove from specific collection
+        if (isReelItem) {
+          await bookmarkCollectionsAPI.removeReelFromCollection(selectedCollectionId!, itemToUnsave._id);
+        } else {
+          await bookmarkCollectionsAPI.removePostFromCollection(selectedCollectionId!, itemToUnsave._id);
+        }
+      } else {
+        // Global unsave (toggle)
+        if (isReelItem) {
+          await reelsAPI.saveReel(itemToUnsave._id);
+        } else {
+          await postsAPI.savePost(itemToUnsave._id);
+        }
+      }
+
+      toast.success(isRemovingFromCollection ? 'Removed from collection' : 'Removed from saved');
+      queryClient.invalidateQueries({ queryKey: ['userContentInfinite'] });
+      queryClient.invalidateQueries({ queryKey: ['savedReels'] });
+      queryClient.invalidateQueries({ queryKey: ['userBookmarks'] });
+      queryClient.invalidateQueries({ queryKey: ['bookmark-collections'] });
+      setItemToUnsave(null);
+    } catch (error) {
+      toast.error('Failed to unsave item');
+    } finally {
+      setIsUnsaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -159,22 +260,52 @@ const ContentGrid: React.FC<{
   }
 
   return (
-    <div className="content-grid">
-      {items.map((post: any, index: number) => {
-        const itemIsReel = post.isReel !== undefined ? post.isReel : isReel;
-        return (
-          <ContentItem
-            key={post._id || index}
-            post={post}
-            isReel={itemIsReel}
-            videoErrors={videoErrors}
-            setVideoErrors={setVideoErrors}
-            onClick={() => onPostClick?.(post._id, itemIsReel ? 'reel' : 'post')}
-            index={index}
-          />
-        );
-      })}
-    </div>
+    <>
+      <div className="content-grid">
+        {items.map((post: any, index: number) => {
+          const itemIsReel = post.isReel !== undefined ? post.isReel : isReel;
+          return (
+            <ContentItem
+              key={post._id || index}
+              post={post}
+              isReel={itemIsReel}
+              videoErrors={videoErrors}
+              setVideoErrors={setVideoErrors}
+              onClick={() => onPostClick?.(post._id, itemIsReel ? 'reel' : 'post')}
+              onDeleteClick={(e) => {
+                e.stopPropagation();
+                setItemToDelete({ ...post, isReel: itemIsReel });
+              }}
+              onUnsaveClick={(e) => {
+                e.stopPropagation();
+                setItemToUnsave({ ...post, isReel: itemIsReel });
+              }}
+              isOwner={isCurrentUser && activeTab !== 'bookmarks' && activeTab !== 'savedReels'}
+              isBookmark={activeTab === 'bookmarks' || activeTab === 'savedReels'}
+              index={index}
+            />
+          );
+        })}
+      </div>
+
+      <DeleteConfirmationModal
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title={`Delete ${itemToDelete?.isReel ? 'Reel' : 'Post'}?`}
+        message={`Are you sure you want to permanently delete this ${itemToDelete?.isReel ? 'reel' : 'post'}?`}
+        isPending={isDeleting}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!itemToUnsave}
+        onClose={() => setItemToUnsave(null)}
+        onConfirm={handleConfirmUnsave}
+        title="Unsave Item?"
+        message="Are you sure you want to remove this item from your saved collection?"
+        isPending={isUnsaving}
+      />
+    </>
   );
 };
 
@@ -208,9 +339,10 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
   onPostClick,
 }) => {
   const { user } = useAuth();
-    const loadMoreRef = useRef<HTMLDivElement | null>(null);
-      const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
-        useEffect(() => {
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+
+  useEffect(() => {
     if (!loadMoreRef.current) return;
     if (!fetchNextPosts && !fetchNextReels) return;
 
@@ -242,6 +374,9 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
             loading={postsLoading}
             error={postsError}
             isReel={false}
+            activeTab={activeTab}
+            isCurrentUser={isCurrentUser}
+            selectedCollectionId={selectedCollectionId}
             videoErrors={videoErrors}
             setVideoErrors={setVideoErrors}
             onPostClick={onPostClick}
@@ -270,6 +405,9 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
             loading={reelsLoading}
             error={reelsError}
             isReel={true}
+            activeTab={activeTab}
+            isCurrentUser={isCurrentUser}
+            selectedCollectionId={selectedCollectionId}
             videoErrors={videoErrors}
             setVideoErrors={setVideoErrors}
             onPostClick={onPostClick}
@@ -363,6 +501,9 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
             loading={bookmarksLoading || savedReelsLoading || collectionsLoading}
             error={bookmarksError || savedReelsError || collectionsError}
             isReel={false}
+            activeTab={activeTab}
+            isCurrentUser={isCurrentUser}
+            selectedCollectionId={selectedCollectionId}
             videoErrors={videoErrors}
             setVideoErrors={setVideoErrors}
             onPostClick={onPostClick}
@@ -382,6 +523,9 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
           loading={savedReelsLoading}
           error={savedReelsError}
           isReel={true}
+          activeTab={activeTab}
+          isCurrentUser={isCurrentUser}
+          selectedCollectionId={selectedCollectionId}
           videoErrors={videoErrors}
           setVideoErrors={setVideoErrors}
           onPostClick={onPostClick}

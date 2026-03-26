@@ -86,6 +86,11 @@
 /* Premium Search Bar */
 .messages-search-bar {
     padding: 20px 24px;
+    position: sticky;
+    top: 97px;         /* just below the sticky header */
+    z-index: 9;
+    background: var(--background-paper, #0f172a);
+    backdrop-filter: blur(10px);
 }
 
 .search-input-wrapper {
@@ -105,6 +110,13 @@
     transform: translateY(-2px);
 }
 
+.search-icon {
+    /* FIX: Without pointer-events:none the icon was intercepting clicks on the row below */
+    pointer-events: none;
+    color: #64748b;
+    flex-shrink: 0;
+}
+
 .search-input {
     width: 100%;
     background: transparent;
@@ -119,7 +131,9 @@
 .conversations-scroll-area {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;  /* prevent rows from peeking out horizontally */
     padding: 10px 16px;
+    isolation: isolate;  /* contain hover/z-index effects within scroll area */
 }
 
 .conversation-row {
@@ -134,12 +148,14 @@
     background: transparent;
     border: 1px solid transparent;
     position: relative;
-    overflow: hidden;
+    /* FIX: overflow:hidden was clipping the delete button and shifting click zones */
+    overflow: visible;
 }
 
 .conversation-row:hover {
     background: rgba(255, 255, 255, 0.04);
-    transform: scale(1.02);
+    /* FIX: scale(1.02) was expanding rows upward, overlapping the search bar above */
+    transform: translateX(4px);
 }
 
 .conversation-row.active {
