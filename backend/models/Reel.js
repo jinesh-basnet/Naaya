@@ -254,28 +254,22 @@ reelSchema.index({ 'comments.author': 1, createdAt: -1 });
 
 
 
-reelSchema.methods.calculateEngagementScore = function() {
-  const likesWeight = 1;
-  const commentsWeight = 3;
-  const sharesWeight = 5;
-  const savesWeight = 2;
-  const viewsWeight = 0.1;
-  
-  const score = (this.likes.length * likesWeight) +
-                (this.comments.length * commentsWeight) +
-                (this.shares.length * sharesWeight) +
-                (this.saves.length * savesWeight) +
-                (this.views.length * viewsWeight);
-  
+reelSchema.methods.calculateEngagementScore = function () {
+  const score = (this.likes.length * 1) +
+    (this.comments.length * 3) +
+    (this.shares.length * 5) +
+    (this.saves.length * 2) +
+    (this.views.length * 0.1);
+
   this.engagementScore = score;
   return score;
 };
 
-reelSchema.methods.calculateLocalScore = function(userLocation) {
+reelSchema.methods.calculateLocalScore = function (userLocation) {
   if (!this.location || !userLocation) return 0;
-  
+
   let score = 0;
-  
+
   if (this.location.city === userLocation.city) {
     score = 10;
   }
@@ -285,19 +279,19 @@ reelSchema.methods.calculateLocalScore = function(userLocation) {
   else if (this.location.province === userLocation.province) {
     score = 2;
   }
-  
+
   this.localScore = score;
   return score;
 };
 
-reelSchema.methods.calculateLanguageScore = function(userLanguagePref) {
+reelSchema.methods.calculateLanguageScore = function (userLanguagePref) {
   if (userLanguagePref === 'both') return 1;
   if (this.language === userLanguagePref) return 1;
   return 0.5;
 };
 
-reelSchema.methods.calculateRelationshipScore = function(userId, userFollowing) {
-  if (this.author.toString() === userId.toString()) return 2; 
+reelSchema.methods.calculateRelationshipScore = function (userId, userFollowing) {
+  if (this.author.toString() === userId.toString()) return 2;
 
   if (userFollowing.some(id => id.equals(this.author))) {
     return 1;
@@ -306,23 +300,23 @@ reelSchema.methods.calculateRelationshipScore = function(userId, userFollowing) 
   return 0.3;
 };
 
-reelSchema.methods.calculateFinalScore = function(userLocation, userLanguagePref, userId, userFollowing) {
+reelSchema.methods.calculateFinalScore = function (userLocation, userLanguagePref, userId, userFollowing) {
   const engagementScore = this.calculateEngagementScore();
   const localScore = this.calculateLocalScore(userLocation);
   const languageScore = this.calculateLanguageScore(userLanguagePref);
   const relationshipScore = this.calculateRelationshipScore(userId, userFollowing);
-  
-  const finalScore = (0.25 * engagementScore) + 
-                    (0.35 * localScore) + 
-                    (0.2 * languageScore) + 
-                    (0.15 * relationshipScore) +
-                    (0.05 * 1.2); 
-  
+
+  const finalScore = (0.25 * engagementScore) +
+    (0.35 * localScore) +
+    (0.2 * languageScore) +
+    (0.15 * relationshipScore) +
+    (0.05 * 1.2);
+
   this.finalScore = finalScore;
   return finalScore;
 };
 
-reelSchema.methods.addView = function(userId) {
+reelSchema.methods.addView = function (userId) {
   if (!this.views.some(view => view.user.toString() === userId.toString())) {
     this.views.push({ user: userId });
     this.viewsCount += 1;
@@ -331,21 +325,21 @@ reelSchema.methods.addView = function(userId) {
   return false;
 };
 
-reelSchema.methods.addLike = function(userId) {
+reelSchema.methods.addLike = function (userId) {
   const existingLike = this.likes.find(like => like.user.toString() === userId.toString());
 
   if (existingLike) {
     this.likes.pull(existingLike._id);
     this.likesCount = Math.max(0, this.likesCount - 1);
-    return false; 
+    return false;
   } else {
     this.likes.push({ user: userId });
     this.likesCount += 1;
-    return true; 
+    return true;
   }
 };
 
-reelSchema.methods.addComment = function(userId, content) {
+reelSchema.methods.addComment = function (userId, content) {
   this.comments.push({
     author: userId,
     content
@@ -354,23 +348,23 @@ reelSchema.methods.addComment = function(userId, content) {
   return this.comments[this.comments.length - 1];
 };
 
-reelSchema.methods.addShare = function(userId) {
+reelSchema.methods.addShare = function (userId) {
   this.shares.push({ user: userId });
   this.sharesCount += 1;
   return true;
 };
 
-reelSchema.methods.addSave = function(userId) {
+reelSchema.methods.addSave = function (userId) {
   const existingSave = this.saves.find(save => save.user.toString() === userId.toString());
 
   if (existingSave) {
     this.saves.pull(existingSave._id);
     this.savesCount = Math.max(0, this.savesCount - 1);
-    return false; 
+    return false;
   } else {
     this.saves.push({ user: userId });
     this.savesCount += 1;
-    return true; 
+    return true;
   }
 };
 

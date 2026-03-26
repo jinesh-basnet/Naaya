@@ -1,10 +1,10 @@
 const path = require('path');
-const { validationResult } = require('express-validator');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
+const Block = require('../models/Block');
 const BookmarkCollection = require('../models/BookmarkCollection');
-const { findCommentById } = require('../utils/reelHelpers');
+const { findCommentById, countTotalComments } = require('../utils/commentUtils');
 
 exports.createReel = async (req, res) => {
   try {
@@ -13,18 +13,15 @@ exports.createReel = async (req, res) => {
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.error('Reel creation validation errors:', errors.array());
       return res.status(400).json({
-        message: 'Validation failed',
+        message: 'Something is wrong with your reel upload.',
         errors: errors.array()
       });
     }
 
     if (!req.file) {
-      console.error('No video file provided in reel creation');
       return res.status(400).json({
-        message: 'Video file is required',
-        code: 'VIDEO_REQUIRED'
+        message: 'You need to upload a video for your reel!'
       });
     }
 
@@ -92,7 +89,6 @@ exports.getSavedReels = async (req, res) => {
       });
     }
 
-    const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(userId);
     const blockerUserIds = await Block.getBlockerUserIds(userId);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])];
@@ -219,7 +215,6 @@ exports.getFeed = async (req, res) => {
     const followingIds = following.map(f => f.following.toString());
 
     // Get all blocked IDs (both who I blocked and who blocked me)
-    const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(userId);
     const blockerUserIds = await Block.getBlockerUserIds(userId);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -312,7 +307,6 @@ exports.searchReels = async (req, res) => {
 
     let allBlockedIds = [];
     if (req.user) {
-        const Block = require('../models/Block');
         const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
         const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
         allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -412,7 +406,6 @@ exports.getReel = async (req, res) => {
 
     // Block check
     if (req.user) {
-      const Block = require('../models/Block');
       const isBlocked = await Block.areBlocked(req.user._id, reel.author._id);
       if (isBlocked) {
         return res.status(403).json({
@@ -483,18 +476,8 @@ exports.likeReel = async (req, res) => {
       }
     }
 
-    if (wasLiked && userId.toString() !== reel.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createLikeNotification) {
-          await global.notificationService.createLikeNotification(
-            reel._id,
-            userId,
-            reel.author._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating like notification:', error);
-      }
+    if (wasLiked && userId.toString() !== reel.author._id.toString() && global.notificationService) {
+      await global.notificationService.like(reel._id, userId, reel.author._id);
     }
 
     res.json({
@@ -536,7 +519,6 @@ exports.commentOnReel = async (req, res) => {
 
     // Block check
     if (req.user) {
-      const Block = require('../models/Block');
       const isBlocked = await Block.areBlocked(req.user._id, reel.author._id);
       if (isBlocked) {
         return res.status(403).json({
@@ -573,19 +555,8 @@ exports.commentOnReel = async (req, res) => {
       }
     }
 
-    if (userId.toString() !== reel.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createCommentNotification) {
-          await global.notificationService.createCommentNotification(
-            reel._id,
-            userId,
-            reel.author._id,
-            newComment._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating comment notification:', error);
-      }
+    if (userId.toString() !== reel.author._id.toString() && global.notificationService) {
+      await global.notificationService.comment(reel._id, userId, reel.author._id, newComment._id);
     }
 
     res.status(201).json({
@@ -636,18 +607,15 @@ exports.shareReel = async (req, res) => {
       }
     }
 
-    if (userId.toString() !== reel.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createShareNotification) {
-          await global.notificationService.createShareNotification(
-            reel._id,
-            userId,
-            reel.author._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating share notification:', error);
-      }
+    if (userId.toString() !== reel.author._id.toString() && global.notificationService) {
+      await global.notificationService.trigger({
+        recipientId: reel.author._id,
+        senderId: userId,
+        type: 'share',
+        title: 'Reel Shared',
+        message: 'Someone shared your reel',
+        extraData: { reelId: reel._id }
+      });
     }
 
     res.json({
@@ -745,18 +713,15 @@ exports.saveReel = async (req, res) => {
       }
     }
 
-    if (wasSaved && userId.toString() !== reel.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createSaveNotification) {
-          await global.notificationService.createSaveNotification(
-            reel._id,
-            userId,
-            reel.author._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating save notification:', error);
-      }
+    if (wasSaved && userId.toString() !== reel.author._id.toString() && global.notificationService) {
+      await global.notificationService.trigger({
+        recipientId: reel.author._id,
+        senderId: userId,
+        type: 'save',
+        title: 'Reel Saved',
+        message: 'Someone saved your reel',
+        extraData: { reelId: reel._id }
+      });
     }
 
     res.json({
@@ -781,7 +746,6 @@ exports.getUserReels = async (req, res) => {
 
     // Block check
     if (req.user) {
-      const Block = require('../models/Block');
       const isBlocked = await Block.areBlocked(req.user._id, userId);
       if (isBlocked) {
         return res.status(403).json({
