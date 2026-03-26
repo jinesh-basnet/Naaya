@@ -3,6 +3,9 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Block = require('../models/Block');
+const Post = require('../models/Post');
+const Reel = require('../models/Reel');
+const Story = require('../models/Story');
 const { validationResult } = require('express-validator');
 
 exports.sendMessage = async (req, res) => {
@@ -21,13 +24,14 @@ exports.sendMessage = async (req, res) => {
     } = req.body;
     const senderId = req.user._id;
 
+    // Check for double submit / clientId
     if (clientId) {
-      const existingMessage = await Message.findOne({ clientId });
-      if (existingMessage) {
+      const alreadyThere = await Message.findOne({ clientId });
+      if (alreadyThere) {
+        console.log(`[Dedupe] Message with clientID ${clientId} already exists. Skipping.`);
         return res.status(200).json({
-          message: 'Message already sent (deduplicated)',
-          messageData: existingMessage,
-          conversationId: existingMessage.conversation
+          message: 'Already sent!',
+          messageData: alreadyThere
         });
       }
     }
@@ -148,62 +152,42 @@ exports.sendMessage = async (req, res) => {
     const message = new Message(messageData);
     await message.save();
 
+    // Trigger update for conversation's last message
     await conversation.updateLastMessage(message._id, message.createdAt);
 
+    // Socket emission - this is the "real-time" part
     try {
       if (global.io) {
         global.io.to(`conversation:${actualConversationId.toString()}`).emit('receive_message', message);
 
-        for (const participant of conversation.participants) {
-          if (participant.isActive && participant.user.toString() !== senderId.toString()) {
-            const userInRoom = global.io.sockets?.adapter?.rooms?.get(`conversation:${actualConversationId.toString()}`)?.has(participant.user.toString());
-
-            if (userInRoom) {
-              message.deliveredTo.push({ user: participant.user, deliveredAt: new Date() });
-            }
-
-            global.io.to(`user:${participant.user}`).emit('receive_message', message);
+        for (const p of conversation.participants) {
+          if (p.isActive && p.user.toString() !== senderId.toString()) {
+            global.io.to(`user:${p.user}`).emit('receive_message', message);
           }
         }
-
-        if (message.deliveredTo.length > 1) {
-          message.isDelivered = true;
-          message.deliveredAt = new Date();
-          await message.save();
-        }
       }
-    } catch (err) {
-      console.error('Socket emit error (send message):', err);
+    } catch (socketErr) {
+      console.error('Socket error:', socketErr.message);
     }
 
+    // Populate and send back
     await message.populate('sender', 'username fullName profilePicture isVerified');
 
-    try {
-      for (const participant of otherParticipants) {
-        await global.notificationService.createMessageNotification(
-          participant.user,
-          senderId,
-          message._id,
-          content,
-          actualConversationId
-        );
+    if (global.notificationService) {
+      for (const p of otherParticipants) {
+        global.notificationService.message(p.user, senderId, message._id, content);
       }
-    } catch (error) {
-      console.error('Error creating message notifications:', error);
     }
 
+
     res.status(201).json({
-      message: 'Message sent successfully',
-      messageData: message,
-      conversationId: actualConversationId
+      message: 'Message sent!',
+      messageData: message
     });
 
   } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({
-      message: 'Server error sending message',
-      code: 'SEND_MESSAGE_ERROR'
-    });
+    console.error('Error in sendMessage:', error);
+    res.status(500).json({ message: 'Could not send the message' });
   }
 };
 

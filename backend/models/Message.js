@@ -218,7 +218,7 @@ messageSchema.methods.editMessage = function (newContent, iv, isEncrypted) {
 messageSchema.methods.deleteMessage = function () {
   this.isDeleted = true;
   this.deletedAt = new Date();
-  this.content = 'This message was deleted';
+  this.content = 'Deleted';
   return true;
 };
 
