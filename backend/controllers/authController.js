@@ -1,51 +1,30 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { validationResult } = require('express-validator');
-const User = require('../models/User');
-const SecurityLogger = require('../services/securityLogger');
-const { sendVerificationEmail } = require('../services/communicationService');
 const crypto = require('crypto');
+const User = require('../models/User');
 
 const generateAccessToken = (userId) => {
   return jwt.sign(
     { userId },
-    process.env.JWT_SECRET,
-    { expiresIn: '1h' }
+    process.env.JWT_SECRET || 'secret',
+    { expiresIn: '1d' }
   );
 };
 
 const generateRefreshToken = () => {
-  return crypto.randomBytes(64).toString('hex');
+  return crypto.randomBytes(40).toString('hex');
 };
 
 exports.register = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: req.t('errors:validationFailed'),
-        errors: errors.array()
-      });
-    }
-
-    const { username, email, password, fullName, phone, location, languagePreference } = req.body;
-
-    // Trim and validate phone: set to undefined if empty or whitespace
-    const trimmedPhone = phone && phone.trim() ? phone.trim() : undefined;
+    const { username, email, password, fullName, phone } = req.body;
 
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }, ...(trimmedPhone ? [{ phone: trimmedPhone }] : [])]
+      $or: [{ email }, { username }]
     });
 
     if (existingUser) {
-      let field = 'email';
-      if (existingUser.username === username) field = 'username';
-      if (existingUser.phone === trimmedPhone) field = 'phone';
-
-      return res.status(400).json({
-        message: req.t('auth:userExists', { field: req.t(`auth:${field}`) }),
-        code: 'USER_EXISTS'
-      });
+      return res.status(400).json({ message: 'User already exists' });
     }
 
     const user = new User({
@@ -53,51 +32,33 @@ exports.register = async (req, res) => {
       email,
       password,
       fullName,
-      phone: trimmedPhone,
-      location: location || {},
-      languagePreference: languagePreference || 'both'
+      phone
     });
 
     await user.save();
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    await user.addRefreshToken(refreshToken, req.headers['user-agent'], req.ip);
-
-    const userData = user.getPublicProfile();
-
-    // Send verification email
-    const verificationToken = user.generateEmailVerificationToken();
+    
+    // Simple refresh token push
+    user.refreshTokens.push(refreshToken);
     await user.save();
-    const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(user.email, verificationUrl, user.fullName);
 
     res.status(201).json({
-      message: req.t('auth:registrationSuccess'),
+      message: 'Registration successful',
       accessToken,
       refreshToken,
-      user: userData
+      user: user.getPublicProfile()
     });
 
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({
-      message: 'Server error during registration',
-      code: 'REGISTRATION_ERROR'
-    });
+    res.status(500).json({ message: 'Error during registration' });
   }
 };
 
 exports.login = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: req.t('errors:validationFailed'),
-        errors: errors.array()
-      });
-    }
-
     const { identifier, password } = req.body;
 
     const user = await User.findOne({
@@ -106,207 +67,101 @@ exports.login = async (req, res) => {
         { username: identifier },
         { phone: identifier }
       ]
-    });
+    }).select('+password'); // Ensure password is selected
 
     if (!user) {
-      await new SecurityLogger().logFailedLogin(identifier, 'User not found', req.ip, req.headers['user-agent']);
-      return res.status(401).json({
-        message: req.t('auth:invalidCredentials'),
-        code: 'INVALID_CREDENTIALS'
-      });
-    }
-
-    if (user.isLocked) {
-      await new SecurityLogger().logAccountLockout(identifier, req.ip, req.headers['user-agent']);
-      return res.status(423).json({
-        message: 'Account is temporarily locked due to too many failed login attempts',
-        code: 'ACCOUNT_LOCKED'
-      });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     if (!user.isActive) {
-      return res.status(401).json({
-        message: req.t('auth:accountDeactivated'),
-        code: 'ACCOUNT_DEACTIVATED'
-      });
+      return res.status(401).json({ message: 'Account is deactivated' });
     }
 
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      await user.incLoginAttempts();
-      await new SecurityLogger().logFailedLogin(identifier, 'Invalid password', req.ip, req.headers['user-agent']);
-      return res.status(401).json({
-        message: req.t('auth:invalidCredentials'),
-        code: 'INVALID_CREDENTIALS'
-      });
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-
-    await user.resetLoginAttempts();
-    await new SecurityLogger().logLoginAttempt(identifier, true, req.ip, req.headers['user-agent']);
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    await user.addRefreshToken(refreshToken, req.headers['user-agent'], req.ip);
 
-    const userData = user.getPublicProfile();
+    // Limit to last 5 tokens for some sanity
+    user.refreshTokens.push(refreshToken);
+    if (user.refreshTokens.length > 5) user.refreshTokens.shift();
+    await user.save();
 
     res.json({
-      message: req.t('auth:loginSuccess'),
+      message: 'Login successful',
       accessToken,
       refreshToken,
-      user: userData
+      user: user.getPublicProfile()
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
-      message: 'Server error during login',
-      code: 'LOGIN_ERROR'
-    });
+    res.status(500).json({ message: 'Error during login' });
   }
 };
 
 exports.getMe = async (req, res) => {
   try {
-    const userData = req.user.getPublicProfile();
+    // req.user is usually attached by auth middleware
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
     res.json({
-      message: req.t('auth:profileRetrieved'),
-      user: userData
+      message: 'Profile retrieved',
+      user: user.getPublicProfile()
     });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({
-      message: 'Server error retrieving user data',
-      code: 'USER_DATA_ERROR'
-    });
-  }
-};
-
-exports.sendVerification = async (req, res) => {
-  try {
-    const user = req.user;
-
-    if (user.isVerified) {
-      return res.status(400).json({
-        message: 'Email is already verified',
-        code: 'ALREADY_VERIFIED'
-      });
-    }
-
-    const verificationToken = user.generateEmailVerificationToken();
-    await user.save();
-
-    const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(user.email, verificationUrl, user.fullName);
-
-    res.json({
-      message: 'Verification email sent',
-      verificationUrl: verificationUrl // Keep returning for development/debug if needed
-    });
-
-  } catch (error) {
-    console.error('Send verification error:', error);
-    res.status(500).json({
-      message: 'Server error sending verification',
-      code: 'SEND_VERIFICATION_ERROR'
-    });
-  }
-};
-
-exports.verifyEmail = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const { token } = req.body;
-
-    const crypto = require('crypto');
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-
-    const user = await User.findOne({
-      emailVerificationToken: hashedToken,
-      emailVerificationExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        message: 'Invalid or expired verification token',
-        code: 'INVALID_TOKEN'
-      });
-    }
-
-    user.isVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
-
-    res.json({
-      message: 'Email verified successfully'
-    });
-
-  } catch (error) {
-    console.error('Verify email error:', error);
-    res.status(500).json({
-      message: 'Server error verifying email',
-      code: 'VERIFY_EMAIL_ERROR'
-    });
+    res.status(500).json({ message: 'Error retrieving profile' });
   }
 };
 
 exports.refreshToken = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
     const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(400).json({ message: 'No refresh token' });
 
-    const crypto = require('crypto');
-    const hashedToken = crypto.createHash('sha256').update(refreshToken).digest('hex');
-
-    const user = await User.findOne({
-      'refreshTokens.token': hashedToken,
-      'refreshTokens.expiresAt': { $gt: new Date() }
-    });
+    const user = await User.findOne({ refreshTokens: refreshToken });
 
     if (!user) {
-      return res.status(401).json({
-        message: 'Invalid or expired refresh token',
-        code: 'INVALID_REFRESH_TOKEN'
-      });
+      return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
-    await user.removeExpiredRefreshTokens();
-
-    await user.removeRefreshToken(refreshToken);
-
+    // Generate new ones
     const newAccessToken = generateAccessToken(user._id);
     const newRefreshToken = generateRefreshToken();
-    await user.addRefreshToken(newRefreshToken, req.headers['user-agent'], req.ip);
 
-    const userData = user.getPublicProfile();
+    // Replace old token with new one
+    user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
+    user.refreshTokens.push(newRefreshToken);
+    await user.save();
 
     res.json({
-      message: 'Tokens refreshed successfully',
+      message: 'Tokens refreshed',
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
-      user: userData
+      user: user.getPublicProfile()
     });
 
   } catch (error) {
     console.error('Refresh token error:', error);
-    res.status(500).json({
-      message: 'Server error refreshing token',
-      code: 'REFRESH_ERROR'
-    });
+    res.status(500).json({ message: 'Error refreshing token' });
   }
+};
+
+exports.logout = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+        const user = await User.findOne({ refreshTokens: refreshToken });
+        if (user) {
+            user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
+            await user.save();
+        }
+        res.json({ message: 'Logged out successfully' });
+    } catch (err) {
+        res.status(500).json({ message: 'Error during logout' });
+    }
 };
