@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { FaArrowLeft, FaPaperPlane, FaImage, FaTimes, FaVideo, FaLock, FaSearch } from 'react-icons/fa';
 import { BsEmojiSmile, BsInfoCircle, BsCheck2, BsCheck2All, BsFileEarmarkText, BsPaperclip } from 'react-icons/bs';
 import { useAuth } from '../contexts/AuthContext';
@@ -55,8 +55,21 @@ interface Message {
   status?: 'sending' | 'sent' | 'failed';
   isDelivered?: boolean;
   isEncrypted?: boolean;
+  encryptedContent?: string;
   iv?: string;
   isDeleted?: boolean;
+  contact?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
+  storyReply?: {
+    storyContent?: string;
+    storyAuthor?: {
+      username?: string;
+      fullName?: string;
+    };
+  };
 }
 
 interface Conversation {
@@ -101,7 +114,8 @@ const DecryptedText: React.FC<{ message: Message, currentUser: any, conversation
             return;
           }
           const sharedSecret = await deriveSharedSecret(storedKeys.privateKey, partner.encryption.publicKey);
-          const text = await decryptContent(message.content, message.iv, sharedSecret);
+          const contentToDecrypt = message.encryptedContent || message.content;
+          const text = await decryptContent(contentToDecrypt, message.iv, sharedSecret);
           setDecrypted(text);
         } catch (err) {
           console.error('Decryption error:', err);
@@ -207,14 +221,19 @@ const ChatPage: React.FC = () => {
     if (!raw) return undefined;
 
     let partner = raw.partner;
-    if (raw.type === 'direct' && !partner) {
-      const partnerParticipant = raw.participants?.find((p: any) => {
-        const pId = typeof p.user === 'string' ? p.user : p.user?._id || p.user;
-        return String(pId) !== String(user?._id);
-      });
+    const currentIdStr = String(user?._id || '');
 
-      if (partnerParticipant) {
-        partner = typeof partnerParticipant.user === 'object' ? partnerParticipant.user : { _id: partnerParticipant.user };
+    // Reset partner if it happens to be the current user, or if it's missing for a DM
+    if (raw.type === 'direct') {
+      const partnerIdStr = String(partner?._id || partner || '');
+      if (!partner || partnerIdStr === currentIdStr) {
+        const foundPartner = raw.participants?.find((p: any) => {
+          const pId = String(typeof p.user === 'string' ? p.user : (p.user?._id || p.user || ''));
+          return pId && pId !== currentIdStr;
+        });
+        if (foundPartner) {
+          partner = typeof foundPartner.user === 'object' ? foundPartner.user : { _id: foundPartner.user };
+        }
       }
     }
 
@@ -224,15 +243,21 @@ const ChatPage: React.FC = () => {
     };
   }, [conversationData, user?._id]);
 
-  const { data: messagesData, isLoading: messagesLoading, refetch: refetchMessages, error: messagesError } = useQuery({
+  const { data: messagesData, isLoading: messagesLoading, fetchNextPage, hasNextPage, isFetchingNextPage, refetch: refetchMessages, error: messagesError } = useInfiniteQuery({
     queryKey: ['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)],
-    queryFn: () => {
+    queryFn: ({ pageParam = 1 }: any) => {
       if (conversation?._id) {
-        return messagesAPI.getConversationMessages(conversation._id);
+        return messagesAPI.getConversationMessages(conversation._id, pageParam);
       }
       return isDirectMessage
-        ? messagesAPI.getMessages(targetUserId!)
-        : messagesAPI.getConversationMessages(effectiveConversationId!);
+        ? messagesAPI.getMessages(targetUserId!, pageParam)
+        : messagesAPI.getConversationMessages(effectiveConversationId!, pageParam);
+    },
+    getNextPageParam: (lastPage: any) => {
+      const page = lastPage.data?.page || lastPage.page;
+      const totalPages = lastPage.data?.totalPages || lastPage.totalPages;
+      if (page < totalPages) return page + 1;
+      return undefined;
     },
     enabled: (!!conversation?._id || !!effectiveConversationId || (isDirectMessage && !!targetUserId)) && userId !== 'new',
   });
@@ -249,8 +274,8 @@ const ChatPage: React.FC = () => {
   }, [messagesError]);
 
   const messages: Message[] = useMemo(() => {
-    const rawMessages = (messagesData as any)?.data?.messages || (messagesData as any)?.messages || (messagesData as any)?.data || [];
-    const serverMessages = Array.isArray(rawMessages) ? rawMessages : [];
+    const rawPages = messagesData?.pages || [];
+    const serverMessages = rawPages.flatMap((page: any) => page.data?.messages || page.messages || page.data || []);
 
     const combined = [...cachedMessages, ...serverMessages, ...optimisticMessages];
     const uniqueMap = new Map();
@@ -278,9 +303,10 @@ const ChatPage: React.FC = () => {
 
 
   const sendMessageMutation = useMutation({
-    mutationFn: (data: { content: string, replyTo?: string, clientId: string, iv?: string, isEncrypted?: boolean }) => {
+    mutationFn: (data: { content?: string, encryptedContent?: string, replyTo?: string, clientId: string, iv?: string, isEncrypted?: boolean }) => {
       const payload: any = {
         content: data.content,
+        encryptedContent: data.encryptedContent,
         messageType: 'text',
         replyTo: data.replyTo,
         clientId: data.clientId,
@@ -336,6 +362,8 @@ const ChatPage: React.FC = () => {
         if (conversation?._id) {
           queryClient.invalidateQueries({ queryKey: ['messages', conversation._id] });
         }
+      }).catch(err => {
+        console.error('Failed to mark message as read:', err);
       });
     }
   }, [messages, user?._id, currentConversationId, queryClient, isDirectMessage, userId, effectiveConversationId, conversation?._id]);
@@ -353,12 +381,12 @@ const ChatPage: React.FC = () => {
     };
   }, [socket, currentConversationId, conversation?._id]);
 
-  // Production-level Mark All Read logic
   useEffect(() => {
-    if (currentConversationId && currentConversationId !== 'new') {
+    const markReadId = conversation?._id || (currentConversationId !== 'new' ? currentConversationId : null);
+    if (markReadId) {
       const markAllRead = async () => {
         try {
-          await messagesAPI.markAllMessagesAsRead(currentConversationId);
+          await messagesAPI.markAllMessagesAsRead(markReadId);
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         } catch (error) {
           console.error('Failed to mark all messages as read:', error);
@@ -367,7 +395,7 @@ const ChatPage: React.FC = () => {
 
       markAllRead();
     }
-  }, [currentConversationId, queryClient]);
+  }, [conversation?._id, currentConversationId, queryClient]);
 
   useEffect(() => {
     const handleReceiveMessage = (data: any) => {
@@ -411,12 +439,32 @@ const ChatPage: React.FC = () => {
       const msgId = data.messageId;
       queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)], (prev: any) => {
         if (!prev) return prev;
-        const messages = (prev.data?.messages || prev.messages || prev.data || []);
-        const updatedMessages = messages.map((m: any) =>
-          m._id === msgId ? { ...m, reactions: data.reaction } : m
-        );
-        return { ...prev, messages: updatedMessages };
+        const msgPages = prev.pages || [prev];
+        const updatedPages = msgPages.map((page: any) => {
+          const messages = page.data?.messages || page.messages || page.data || [];
+          return {
+            ...page,
+            messages: messages.map((m: any) => m._id === msgId ? { ...m, reactions: data.reaction } : m)
+          };
+        });
+        return { ...prev, pages: updatedPages };
       });
+    };
+    
+    const handleMessageDelivered = (data: any) => {
+      queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)], (prev: any) => {
+        if (!prev) return prev;
+        const msgPages = prev.pages || [prev];
+        const updatedPages = msgPages.map((page: any) => {
+          const messages = page.data?.messages || page.messages || page.data || [];
+          return {
+            ...page,
+            messages: messages.map((m: any) => m._id === data.messageId ? { ...m, isDelivered: true } : m)
+          };
+        });
+        return { ...prev, pages: updatedPages };
+      });
+      refetchMessages();
     };
 
     if (socket) {
@@ -424,6 +472,7 @@ const ChatPage: React.FC = () => {
       socket.onMessageEdited(handleMessageEdited);
       socket.onMessageDeleted(handleMessageDeleted);
       socket.onReactionAdded(handleReactionAdded);
+      socket.onMessageDelivered(handleMessageDelivered);
     }
 
     return () => {
@@ -432,6 +481,7 @@ const ChatPage: React.FC = () => {
         socket.offMessageEdited(handleMessageEdited);
         socket.offMessageDeleted(handleMessageDeleted);
         socket.offReactionAdded(handleReactionAdded);
+        socket.offMessageDelivered(handleMessageDelivered);
       }
     };
   }, [socket, currentConversationId, refetchMessages, queryClient, conversation?._id, isDirectMessage, targetUserId, effectiveConversationId]);
@@ -590,7 +640,8 @@ const ChatPage: React.FC = () => {
     setReplyTo(null);
 
     sendMessageMutation.mutate({
-      content: payloadContent,
+      content: isEncrypted ? undefined : payloadContent,
+      encryptedContent: isEncrypted ? payloadContent : undefined,
       replyTo: replyTo?.id,
       clientId,
       iv,
@@ -608,7 +659,7 @@ const ChatPage: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessageInput(e.target.value);
 
-    if (socket.isConnected && currentConversationId) {
+    if (socket?.isConnected && currentConversationId) {
       socket.startTyping(currentConversationId);
 
       if (typingTimeoutRef.current) {
@@ -712,7 +763,7 @@ const ChatPage: React.FC = () => {
     return '/default-profile.svg';
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' = 'image') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'file' = 'image') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -799,7 +850,7 @@ const ChatPage: React.FC = () => {
         id="file-upload"
         hidden
         accept="*"
-        onChange={(e) => handleFileUpload(e, 'file' as 'image' | 'video')}
+        onChange={(e) => handleFileUpload(e, 'file')}
       />
 
       {!isMobile && (
@@ -862,15 +913,6 @@ const ChatPage: React.FC = () => {
               <FaSearch size={20} />
             </button>
           )}
-          {!isNewMessage && (
-            <button
-              className="info-button"
-              onClick={() => setShowSearch(true)}
-              title="Search Messages"
-            >
-              <FaSearch size={20} />
-            </button>
-          )}
           {!isNewMessage && conversation?.type === 'group' && (
             <button
               className="info-button"
@@ -908,7 +950,19 @@ const ChatPage: React.FC = () => {
         )}
 
         <div className="messages-container">
-          <div className="messages-list">
+          <div 
+            className="messages-list" 
+            onScroll={(e) => {
+              if (e.currentTarget.scrollTop === 0 && hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+          >
+            {isFetchingNextPage && (
+              <div className="loading-older text-center py-2 text-sm text-gray-500">
+                Loading older messages...
+              </div>
+            )}
             {isNewMessage && (
               <div className="new-message-search-results">
                 {isSearching ? (
@@ -1043,6 +1097,29 @@ const ChatPage: React.FC = () => {
                             </div>
                           )}
 
+                          {message.messageType === 'contact' && message.contact && (
+                            <div className="contact-message-container p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                              <div className="contact-header mb-1">
+                                <span className="contact-name font-semibold">{message.contact.name}</span>
+                              </div>
+                              <div className="contact-details text-sm opacity-80">
+                                <p>{message.contact.phone}</p>
+                                <p>{message.contact.email}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {message.messageType === 'story_reply' && message.storyReply && (
+                            <div className="story-reply-container p-2 bg-black/5 dark:bg-white/5 rounded">
+                              <div className="story-reply-header mb-1 text-xs opacity-70">
+                                <span className="story-author">Replied to {message.storyReply.storyAuthor?.username}'s story</span>
+                              </div>
+                              <div className="story-reply-content border-l-2 border-primary-500 pl-2">
+                                <p className="story-caption italic">{message.storyReply.storyContent}</p>
+                              </div>
+                            </div>
+                          )}
+
                           {message.messageType === 'file' && (
                             <div className="file-message-container">
                               <a href={message.content} target="_blank" rel="noreferrer" className="file-download-link">
@@ -1068,9 +1145,17 @@ const ChatPage: React.FC = () => {
 
                           <div className="message-meta">
                             <span className="message-time">{formatTime(message.createdAt)}</span>
-                            {isOwn && message.status === 'sent' && (
+                            {isOwn && (
                               <span className="message-status">
-                                {message.isRead ? <BsCheck2All size={14} className="read-tick" color="#34B7F1" /> : message.isDelivered ? <BsCheck2All size={14} /> : <BsCheck2 size={14} />}
+                                {message.status === 'sending' ? (
+                                  <span className="sending-indicator opacity-60" style={{ letterSpacing: '1px' }}>...</span>
+                                ) : message.status === 'failed' ? (
+                                  <span className="failed-indicator text-red-500 flex items-center gap-1" title="Failed to send">
+                                    <BsInfoCircle size={12} />
+                                  </span>
+                                ) : message.status === 'sent' || !message.status ? (
+                                  message.isRead ? <BsCheck2All size={14} className="read-tick" color="#34B7F1" /> : message.isDelivered ? <BsCheck2All size={14} /> : <BsCheck2 size={14} />
+                                ) : null}
                               </span>
                             )}
                           </div>
@@ -1165,7 +1250,7 @@ const ChatPage: React.FC = () => {
                 ref={inputRef}
                 value={messageInput}
                 onChange={handleInputChange}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Type message..."
                 rows={1}
                 onFocus={() => setShowEmojiPicker(false)}
@@ -1179,7 +1264,7 @@ const ChatPage: React.FC = () => {
                 </div>
               )}
 
-              {messageInput.trim() && (
+              {messageInput.trim().length > 0 && (
                 <button className="send-btn" onClick={handleSendMessage} type="button"><FaPaperPlane /></button>
               )}
             </div>
