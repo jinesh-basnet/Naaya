@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { FaLock, FaEye, FaEyeSlash, FaArrowLeft, FaCheckCircle } from 'react-icons/fa';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import { api } from '../services/api';
 import toast from 'react-hot-toast';
+
 import './ChangePasswordPage.css';
 
 interface ChangePasswordForm {

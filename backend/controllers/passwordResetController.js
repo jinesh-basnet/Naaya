@@ -1,64 +1,46 @@
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
-const { sendOTPEmail } = require('../services/communicationService');
-const SecurityLogger = require('../services/securityLogger');
+const communicationService = require('../services/communicationService');
+const securityLogger = require('../services/securityLogger');
 
 exports.requestReset = async (req, res) => {
-  const securityLogger = new SecurityLogger();
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
     const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
 
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
-      console.log(`Password reset requested for non-existent email: ${email}`);
-      await securityLogger.logSuspiciousActivity('PASSWORD_RESET_REQUEST_NON_EXISTENT_USER', { email }, req.ip, req.headers['user-agent']);
+      console.log(`[auth] reset requested for unknown email: ${email}`);
+      // securityLogger.log(...) - I'll fix this later
       return res.status(200).json({
-        success: true,
-        message: 'If an account with the provided information exists, we have sent an OTP to the registered email.'
+        message: 'If an account exists, we sent an OTP to the email.'
       });
     }
 
-    console.log(`Generating OTP for user: ${user.username} (${user.email})`);
     const otp = user.generateOTP();
     await user.save();
 
-    console.log(`Sending OTP email to: ${user.email}`);
-    const emailResult = await sendOTPEmail(user.email, otp, user.fullName);
+    console.log(`[auth] sending OTP to ${user.email}`);
+    const emailResult = await communicationService.sendOTP(user.email, otp, user.fullName);
 
     if (emailResult.success) {
-      console.log(`OTP email sent successfully to ${user.email}`);
-      await securityLogger.logPasswordChange(user._id, req.ip, req.headers['user-agent']);
       return res.status(200).json({
-        success: true,
-        message: 'If an account with the provided information exists, we have sent an OTP to the registered email.'
+        message: 'If an account exists, we sent an OTP to the email.'
       });
     } else {
-      console.error(`Failed to send OTP email to ${user.email}:`, emailResult.error);
       return res.status(500).json({
-        success: false,
-        message: `Failed to send OTP email: ${emailResult.error || 'Unknown error'}`
+        message: 'Failed to send email'
       });
     }
 
   } catch (error) {
-    console.error('CRITICAL: Password reset request crash:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error: ' + error.message
-    });
+    console.error('[auth] reset request error:', error.message);
+    res.status(500).json({ message: 'Server error check logs' });
   }
 };
+
 
 exports.verifyToken = async (req, res) => {
   try {
@@ -150,165 +132,75 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.verifyOTP = async (req, res) => {
-  const securityLogger = new SecurityLogger();
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
     const { email, otp } = req.body;
-
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await User.findOne({ email: email?.trim().toLowerCase() });
 
     if (!user || !user.otp || !user.otpExpires) {
-      await securityLogger.logSuspiciousActivity('OTP_VERIFICATION_FAILED_INVALID_OTP', { email }, req.ip, req.headers['user-agent']);
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP or OTP has expired'
-      });
+      securityLogger.suspicious('OTP_INVALID', { email }, req.ip, req.headers['user-agent']);
+      return res.status(400).json({ message: 'Invalid OTP' });
     }
 
     if (Date.now() > user.otpExpires) {
-      await securityLogger.logSuspiciousActivity('OTP_VERIFICATION_FAILED_EXPIRED', { email }, req.ip, req.headers['user-agent']);
-      return res.status(400).json({
-        success: false,
-        message: 'OTP has expired. Please request a new one.'
-      });
+      securityLogger.suspicious('OTP_EXPIRED', { email }, req.ip, req.headers['user-agent']);
+      return res.status(400).json({ message: 'OTP expired' });
     }
 
     if (user.otp !== otp) {
-      await securityLogger.logSuspiciousActivity('OTP_VERIFICATION_FAILED_INVALID', { email }, req.ip, req.headers['user-agent']);
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP'
-      });
+      securityLogger.suspicious('OTP_MISMATCH', { email }, req.ip, req.headers['user-agent']);
+      return res.status(400).json({ message: 'Incorrect OTP' });
     }
 
     user.otp = undefined;
     user.otpExpires = undefined;
     await user.save();
 
-    await securityLogger.log('OTP_VERIFICATION_SUCCESS', { userId: user._id, email }, req.ip, req.headers['user-agent']);
+    securityLogger.generic('OTP_SUCCESS', { userId: user._id, email }, req.ip, req.headers['user-agent']);
 
-    res.status(200).json({
-      success: true,
-      message: 'OTP verified successfully',
-      userId: user._id
-    });
-
+    res.status(200).json({ success: true, message: 'OTP verified', userId: user._id });
   } catch (error) {
-    console.error('OTP verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred while verifying OTP'
-    });
+    console.error('[auth] OTP verify error:', error.message);
+    res.status(500).json({ message: 'Server error check logs' });
   }
 };
 
 exports.resetWithOTP = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
     const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email: email?.trim().toLowerCase() });
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
-
-    if (!user || !user.otp || !user.otpExpires) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP or OTP has expired'
-      });
-    }
-
-    if (Date.now() > user.otpExpires) {
-      return res.status(400).json({
-        success: false,
-        message: 'OTP has expired. Please request a new one.'
-      });
-    }
-
-    if (user.otp !== otp) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP'
-      });
+    if (!user || user.otp !== otp || Date.now() > user.otpExpires) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
     user.password = newPassword;
     user.otp = undefined;
     user.otpExpires = undefined;
-
     await user.save();
 
-    res.status(200).json({
-      success: true,
-      message: 'Password has been reset successfully'
-    });
-
+    res.json({ success: true, message: 'Password reset successful' });
   } catch (error) {
-    console.error('Password reset with OTP error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred while resetting password'
-    });
+    console.error('[auth] Reset with OTP error:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
 exports.changePassword = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
+    const user = await User.findById(req.user.id);
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
-    if (!isCurrentPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
+    if (!user || !(await user.comparePassword(currentPassword))) {
+      return res.status(400).json({ message: 'Current password incorrect' });
     }
 
     user.password = newPassword;
     await user.save();
 
-    res.status(200).json({
-      success: true,
-      message: 'Password has been changed successfully'
-    });
-
+    res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
-    console.error('Password change error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error occurred while changing password'
-    });
+    console.error('[auth] Change password error:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
 };
+

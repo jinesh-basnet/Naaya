@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { FaEnvelope, FaArrowLeft } from 'react-icons/fa';
 import { useForm } from 'react-hook-form';
 import { Link as RouterLink } from 'react-router-dom';
-import api from '../services/api';
+import { api } from '../services/api';
 import toast from 'react-hot-toast';
+
 import './ForgotPasswordPage.css';
 
 interface ForgotPasswordForm {
