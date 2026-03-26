@@ -1,5 +1,6 @@
 const Block = require('../models/Block');
 const User = require('../models/User');
+const Follow = require('../models/Follow');
 
 exports.blockUser = async (req, res) => {
     try {
@@ -52,7 +53,6 @@ exports.blockUser = async (req, res) => {
             }
         });
 
-        const Follow = require('../models/Follow');
         await Follow.deleteMany({
             $or: [
                 { follower: req.user._id, following: userId },
