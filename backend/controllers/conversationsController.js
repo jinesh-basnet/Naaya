@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
+const Block = require('../models/Block');
+const Message = require('../models/Message');
 
 exports.createConversation = async (req, res) => {
   try {
@@ -72,10 +74,9 @@ exports.createConversation = async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Create conversation error:', error);
+    console.error('Failed to create new chat:', error.message);
     res.status(500).json({
-      message: 'Server error creating conversation',
-      code: 'CREATE_CONVERSATION_ERROR'
+      message: 'Internal error while starting the chat'
     });
   }
 };
@@ -87,43 +88,84 @@ exports.getConversations = async (req, res) => {
     const skip = (page - 1) * limit;
     const userId = req.user._id;
 
-    const conversations = await Conversation.find({
-      participants: {
-        $elemMatch: { user: userId, isActive: true }
-      },
-      isActive: true
-    })
-      .populate('participants.user', 'username fullName profilePicture isVerified lastActive')
-      .populate('lastMessage')
-      .sort({ lastMessageAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const blockedUserIds = await Block.getBlockedUserIds(userId);
+    const blockerUserIds = await Block.getBlockerUserIds(userId);
+    const allBlockedSet = new Set([...blockedUserIds, ...blockerUserIds].map(String));
 
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const unreadCount = await require('../models/Message').countDocuments({
-          conversation: conv._id,
-          sender: { $ne: userId },
-          isRead: false,
-          seenBy: { $ne: userId }
-        });
-
-        return {
-          ...conv.toObject(),
-          unreadCount
-        };
+    const [conversations, totalCount] = await Promise.all([
+      Conversation.find({
+        participants: { $elemMatch: { user: userId, isActive: true } },
+        isActive: true
       })
-    );
+        .populate('participants.user', 'username fullName profilePicture isVerified lastActive')
+        .populate({
+          path: 'lastMessage',
+          select: 'content messageType createdAt isRead sender',
+          populate: { path: 'sender', select: '_id username fullName' }
+        })
+        .sort({ lastMessageAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
 
-    const totalCount = await Conversation.countDocuments({
-      participants: {
-        $elemMatch: { user: userId, isActive: true }
+      Conversation.countDocuments({
+        participants: { $elemMatch: { user: userId, isActive: true } },
+        isActive: true
+      })
+    ]);
+
+    const convIds = conversations.map(c => c._id);
+    const unreadAgg = await Message.aggregate([
+      {
+        $match: {
+          conversation: { $in: convIds },
+          sender: { $ne: userId },
+          seenBy: { $not: { $elemMatch: { $eq: userId } } }
+        }
       },
-      isActive: true
-    });
+      { $group: { _id: '$conversation', count: { $sum: 1 } } }
+    ]);
+    const unreadMap = {};
+    unreadAgg.forEach(u => { unreadMap[u._id.toString()] = u.count; });
+
+    const filtered = conversations
+      .map(conv => {
+        const unreadCount = unreadMap[conv._id.toString()] || 0;
+        const lastMsg = conv.lastMessage || null;
+
+        const latestMessage = lastMsg ? {
+          _id: lastMsg._id,
+          content: lastMsg.content ? lastMsg.content.substring(0, 100) : '',
+          messageType: lastMsg.messageType,
+          createdAt: lastMsg.createdAt,
+          isRead: lastMsg.isRead,
+          sender: lastMsg.sender || null
+        } : null;
+
+        if (conv.type === 'direct') {
+          const otherParticipant = conv.participants.find(p =>
+            p.user && p.user._id && p.user._id.toString() !== userId.toString()
+          );
+          const partner = otherParticipant?.user || null;
+          if (partner && allBlockedSet.has(partner._id.toString())) return null;
+
+          return { _id: conv._id, type: 'direct', partner, latestMessage, unreadCount };
+        } else {
+          return {
+            _id: conv._id,
+            type: 'group',
+            name: conv.name,
+            avatar: conv.avatar,
+            participants: conv.participants,
+            latestMessage,
+            unreadCount
+          };
+        }
+      })
+      .filter(Boolean);
 
     res.json({
-      conversations: conversationsWithUnread,
+      conversations: filtered,
       total: totalCount,
       page,
       limit,
@@ -131,11 +173,8 @@ exports.getConversations = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get conversations error:', error);
-    res.status(500).json({
-      message: 'Server error fetching conversations',
-      code: 'GET_CONVERSATIONS_ERROR'
-    });
+    console.error('Failed to list chats:', error.message);
+    res.status(500).json({ message: 'Error getting your conversations' });
   }
 };
 
@@ -172,7 +211,7 @@ exports.getOrCreateConversationWithUser = async (req, res) => {
 
     if (userId === currentUserId.toString()) {
       return res.status(400).json({
-        message: 'Cannot create conversation with yourself',
+        message: 'You cannot talk to yourself!',
         code: 'INVALID_PARTICIPANT'
       });
     }
