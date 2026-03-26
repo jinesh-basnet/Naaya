@@ -22,8 +22,7 @@ const messageSchema = new mongoose.Schema({
     index: true
   },
   encryptedContent: {
-    type: String,
-    select: false
+    type: String
   },
   iv: {
     type: String

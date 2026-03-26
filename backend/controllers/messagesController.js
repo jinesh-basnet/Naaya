@@ -122,14 +122,18 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
+    const isEncryptedBool = isEncrypted === 'true' || isEncrypted === true;
+    const resolvedContent = req.file ? `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${req.file.filename}` : content;
+    
     const messageData = {
       sender: senderId,
       conversation: actualConversationId,
-      content: req.file ? `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/${req.file.filename}` : content,
+      content: isEncryptedBool ? undefined : resolvedContent,
+      encryptedContent: isEncryptedBool ? resolvedContent : undefined,
       messageType: req.file ? (req.body.messageType || 'image') : messageType,
       clientId,
       iv,
-      isEncrypted: isEncrypted === 'true' || isEncrypted === true
+      isEncrypted: isEncryptedBool
     };
 
     if (replyTo) messageData.replyTo = replyTo;
@@ -397,6 +401,35 @@ exports.getConversationMessages = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
+
+    // Also handle delivery bug for offline users
+    const undeliveredMessages = await Message.find({
+      conversation: conversationId,
+      sender: { $ne: userId },
+      'deliveredTo.user': { $ne: userId }
+    });
+    
+    if (undeliveredMessages.length > 0) {
+      await Message.updateMany(
+        { _id: { $in: undeliveredMessages.map(m => m._id) } },
+        { 
+          $push: { deliveredTo: { user: userId, deliveredAt: new Date() } },
+          $set: { isDelivered: true, deliveredAt: new Date() }
+        }
+      );
+      
+      try {
+        if (global.io) {
+          undeliveredMessages.forEach(msg => {
+            global.io.to(`user:${msg.sender}`).emit('message_delivered', {
+              messageId: msg._id,
+              conversationId: msg.conversation,
+              userId
+            });
+          });
+        }
+      } catch (err) { }
+    }
 
     const unreadMessages = await Message.find({
       conversation: conversationId,

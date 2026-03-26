@@ -105,11 +105,6 @@ router.put('/:messageId', authenticateToken, [
 // @access  Private
 router.delete('/:messageId', authenticateToken, messagesController.deleteMessage);
 
-// @route   POST /api/messages/:messageId/forward
-// @desc    Forward a message to another user
-// @access  Private
-router.post('/:messageId/forward', authenticateToken, messagesController.forwardMessage);
-
 // @route   PUT /api/messages/:messageId/seen
 // @desc    Add current user to seenBy for the message (idempotent)
 // @access  Private
