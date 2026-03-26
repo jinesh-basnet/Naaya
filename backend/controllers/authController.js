@@ -39,8 +39,11 @@ exports.register = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
-    
+
     // Simple refresh token push
+    if (!user.refreshTokens) {
+      user.refreshTokens = [];
+    }
     user.refreshTokens.push(refreshToken);
     await user.save();
 
@@ -67,7 +70,7 @@ exports.login = async (req, res) => {
         { username: identifier },
         { phone: identifier }
       ]
-    }).select('+password'); // Ensure password is selected
+    }).select('+password');
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -86,6 +89,9 @@ exports.login = async (req, res) => {
     const refreshToken = generateRefreshToken();
 
     // Limit to last 5 tokens for some sanity
+    if (!user.refreshTokens) {
+      user.refreshTokens = [];
+    }
     user.refreshTokens.push(refreshToken);
     if (user.refreshTokens.length > 5) user.refreshTokens.shift();
     await user.save();
@@ -106,9 +112,9 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     // req.user is usually attached by auth middleware
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    
+
     res.json({
       message: 'Profile retrieved',
       user: user.getPublicProfile()
@@ -135,7 +141,11 @@ exports.refreshToken = async (req, res) => {
     const newRefreshToken = generateRefreshToken();
 
     // Replace old token with new one
-    user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
+    if (!user.refreshTokens) {
+      user.refreshTokens = [];
+    } else {
+      user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
+    }
     user.refreshTokens.push(newRefreshToken);
     await user.save();
 
@@ -153,15 +163,54 @@ exports.refreshToken = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-    try {
-        const { refreshToken } = req.body;
-        const user = await User.findOne({ refreshTokens: refreshToken });
-        if (user) {
-            user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
-            await user.save();
-        }
-        res.json({ message: 'Logged out successfully' });
-    } catch (err) {
-        res.status(500).json({ message: 'Error during logout' });
+  try {
+    const { refreshToken } = req.body;
+    const user = await User.findOne({ refreshTokens: refreshToken });
+    if (user) {
+      user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
+      await user.save();
     }
+    res.json({ message: 'Logged out successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error during logout' });
+  }
+};
+
+exports.sendVerification = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Use a simple 6-digit code for "human" feel
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationToken = code;
+    await user.save();
+
+    console.log(`[Verification] Email to ${user.email}: Your code is ${code}`);
+
+    res.json({ message: 'Verification code sent (check server logs)' });
+  } catch (err) {
+    console.error('Send verification error:', err);
+    res.status(500).json({ message: 'Error sending verification' });
+  }
+};
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    const user = await User.findOne({ email, verificationToken: code });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid code or email' });
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    await user.save();
+
+    res.json({ message: 'Email verified successfully!' });
+  } catch (err) {
+    console.error('Verify email error:', err);
+    res.status(500).json({ message: 'Error verifying email' });
+  }
 };
