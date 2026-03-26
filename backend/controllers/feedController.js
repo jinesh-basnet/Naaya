@@ -2,6 +2,7 @@ const Post = require('../models/Post');
 const Reel = require('../models/Reel');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
+const Block = require('../models/Block');
 
 exports.getSimpleFeed = async (req, res) => {
   try {
@@ -11,7 +12,6 @@ exports.getSimpleFeed = async (req, res) => {
     const following = await Follow.find({ follower: userId }).select('following').lean();
     const followingIds = following.map(f => f.following.toString());
 
-    const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(userId);
     const blockerUserIds = await Block.getBlockerUserIds(userId);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -133,7 +133,6 @@ exports.getPersonalizedFeed = async (req, res) => {
       });
     }
 
-    const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(userId);
     const blockerUserIds = await Block.getBlockerUserIds(userId);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
