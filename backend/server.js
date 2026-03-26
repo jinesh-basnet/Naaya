@@ -9,97 +9,38 @@ const jwt = require('jsonwebtoken');
 const connectDB = require('./config/database');
 const path = require('path');
 const fs = require('fs');
-const i18next = require('./config/i18n');
-const i18nextMiddleware = require('i18next-http-middleware');
-
 const app = express();
 
-app.use(i18nextMiddleware.handle(i18next));
-
-app.set('trust proxy', 'loopback');
+app.set('trust proxy', 1);
 
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: process.env.NODE_ENV === 'production'
-        ? ["'self'", "data:", "https:"]
-        : ["'self'", "data:", "https:", "http://localhost:5000"],
-      mediaSrc: process.env.NODE_ENV === 'production'
-        ? ["'self'", "https:"]
-        : ["'self'", "https:", "http://localhost:5000"],
-    },
-  },
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // simpler for local dev
 }));
 
-const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:3000'];
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-};
-
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
+}));
 
 app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
-  message: (req, res) => ({
-    message: req.t('errors:rateLimited'),
-    code: 'RATE_LIMIT_EXCEEDED'
-  }),
-  standardHeaders: true,
-  legacyHeaders: false,
+  message: 'Too many requests, please try again later.'
 });
 app.use(limiter);
 
+// Simple logging and req.t polyfill
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  const method = req.method;
-  const url = req.originalUrl;
-  const ip = req.ip || req.connection.remoteAddress;
-
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}\\n[${timestamp}] ${method} ${url} - IP: ${ip}`);
-
-  if (['POST', 'PUT', 'PATCH'].includes(method) && req.body) {
-    const logBody = { ...req.body };
-    if (logBody.password) logBody.password = '[HIDDEN]';
-    if (logBody.token) logBody.token = '[HIDDEN]';
-    console.log(`Request Body:`, JSON.stringify(logBody));
-  }
-
+  console.log(`${req.method} ${req.url}`);
+  req.t = (key, opts) => opts?.defaultValue || key.split(':').pop();
   next();
 });
 
-app.use(express.json({
-  limit: '10mb',
-  verify: (req, res, buf) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({ error: 'Invalid JSON format' });
-      return;
-    }
-  }
-}));
-
-app.use(express.urlencoded({
-  extended: true,
-  limit: '10mb'
-}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, filePath) => {
@@ -401,35 +342,16 @@ const startServer = async () => {
         });
       });
 
-      socket.on('disconnect', (reason) => {
-        console.log(`📱 Socket disconnected: ${socket.id} (Reason: ${reason})`);
-
-        setTimeout(() => {
-          const userSockets = Array.from(io.sockets.sockets.values())
-            .filter(s => s.userId === socket.userId);
-
-          if (userSockets.length === 0) {
-            onlineUsers.delete(socket.userId);
-            socket.broadcast.emit('user_offline', { userId: socket.userId });
-          }
-        }, 5000); 
-      });
-
-      socket.on('connect_error', (error) => {
-        console.error('📱 Socket connection error:', error);
+      socket.on('disconnect', () => {
+        onlineUsers.delete(socket.userId);
+        socket.broadcast.emit('user_offline', { userId: socket.userId });
+        console.log(`📱 Socket disconnected: ${socket.id}`);
       });
     });
 
     global.io = io;
+    global.notificationService = require('./services/notificationService');
 
-    try {
-      const NotificationService = require('./services/notificationService');
-      const notificationService = new NotificationService(io);
-      global.notificationService = notificationService;
-      console.log('✅ Notification service initialized');
-    } catch (error) {
-      console.error('❌ Failed to initialize notification service:', error.message);
-    }
 
     module.exports = { app, server, io };
 
