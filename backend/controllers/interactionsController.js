@@ -2,7 +2,7 @@ const Post = require('../models/Post');
 const BookmarkCollection = require('../models/BookmarkCollection');
 const User = require('../models/User');
 const { updateInteractionHistory } = require('../utils/feedAlgorithm');
-const { findCommentById, countTotalComments } = require('../utils/postHelpers');
+const { findCommentById, countTotalComments } = require('../utils/commentUtils');
 const { validationResult } = require('express-validator');
 
 exports.viewPost = async (req, res) => {
@@ -81,18 +81,8 @@ exports.likePost = async (req, res) => {
         console.error('Error updating interaction history:', interactionError);
       }
 
-      if (userId.toString() !== post.author._id.toString()) {
-        try {
-          if (global.notificationService && global.notificationService.createLikeNotification) {
-            await global.notificationService.createLikeNotification(
-              post._id,
-              userId,
-              post.author._id
-            );
-          }
-        } catch (error) {
-          console.error('Error creating like notification:', error);
-        }
+      if (userId.toString() !== post.author._id.toString() && global.notificationService) {
+        await global.notificationService.like(post._id, userId, post.author._id);
       }
     }
 
@@ -187,18 +177,15 @@ exports.savePost = async (req, res) => {
       }
     }
 
-    if (wasSaved && userId.toString() !== post.author._id.toString()) {
-      try {
-        if (global.notificationService && global.notificationService.createSaveNotification) {
-          await global.notificationService.createSaveNotification(
-            post._id,
-            userId,
-            post.author._id
-          );
-        }
-      } catch (error) {
-        console.error('Error creating save notification:', error);
-      }
+    if (wasSaved && userId.toString() !== post.author._id.toString() && global.notificationService) {
+      await global.notificationService.trigger({
+        recipientId: post.author._id,
+        senderId: userId,
+        type: 'save',
+        title: 'Post Saved',
+        message: 'Someone saved your post',
+        extraData: { postId: post._id }
+      });
     }
 
     res.json({
@@ -325,18 +312,15 @@ exports.sharePost = async (req, res) => {
         }
       }
 
-      if (userId.toString() !== post.author._id.toString()) {
-        try {
-          if (global.notificationService && global.notificationService.createShareNotification) {
-            await global.notificationService.createShareNotification(
-              post._id,
-              userId,
-              post.author._id
-            );
-          }
-        } catch (error) {
-          console.error('Error creating share notification:', error);
-        }
+      if (userId.toString() !== post.author._id.toString() && global.notificationService) {
+        await global.notificationService.trigger({
+          recipientId: post.author._id,
+          senderId: userId,
+          type: 'share',
+          title: 'Post Shared',
+          message: 'Someone shared your post',
+          extraData: { postId: post._id }
+        });
       }
 
       res.json({
