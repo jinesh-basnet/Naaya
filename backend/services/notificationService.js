@@ -2,33 +2,27 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const webpush = require('web-push');
 
-class NotificationService {
-  constructor(io) {
-    this.io = io;
-  }
+// we use this to identify our server to the push services
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:support@naaya.com.np',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
-  /**
-   * 
-   * @param {Object} notificationData 
-   * @param {string} notificationData.recipientId 
-   * @param {string} notificationData.senderId 
-   * @param {string} notificationData.type 
-   * @param {string} notificationData.title 
-   * @param {string} notificationData.message 
-   * @param {Object} notificationData.data 
-   */
-  async createNotification(notificationData) {
+// simplify notification logic
+const notificationService = {
+  // core trigger for notifications
+  async trigger(data) {
     try {
-      const { recipientId, senderId, type, title, message, data = {} } = notificationData;
+      const { recipientId, senderId, type, title, message, extraData = {} } = data;
 
-      if (recipientId === senderId) {
-        return null;
-      }
+      // don't notify yourself
+      if (recipientId === senderId) return null;
 
       const recipient = await User.findById(recipientId);
-      if (!recipient || !recipient.isActive) {
-        return null;
-      }
+      if (!recipient || !recipient.isActive) return null;
 
       const notification = await Notification.createNotification({
         recipient: recipientId,
@@ -36,286 +30,97 @@ class NotificationService {
         type,
         title,
         message,
-        data
+        data: extraData
       });
 
-      this.sendRealtimeNotification(recipientId, notification);
+      console.log(`[notifications] new ${type} for user: ${recipientId}`);
 
-      this.sendPushNotification(recipientId, notification);
+      // send via socket if connected
+      if (global.io) {
+        global.io.to(`user:${recipientId}`).emit('notification', notification);
+      }
+
+      // finally, send web-push notifications if the user has any subscriptions
+      if (recipient.pushSubscriptions?.length > 0 && recipient.notificationPreferences?.pushNotifications) {
+        const payload = JSON.stringify({
+          title,
+          body: message,
+          icon: '/logo.png', // you can update this later
+          data: { url: `/posts/${extraData.postId || ''}`, ...extraData }
+        });
+
+        // let's try pushing to all their registered devices
+        recipient.pushSubscriptions.forEach(async (sub) => {
+          try {
+            await webpush.sendNotification(sub, payload);
+          } catch (err) {
+            // if the push failed (e.g. 410 Gone - subscription expired)
+            // we should probably remove this subscription to keep things clean
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              console.log(`[push] removing dead sub for user: ${recipientId}`);
+              await User.findByIdAndUpdate(recipientId, {
+                $pull: { pushSubscriptions: { endpoint: sub.endpoint } }
+              });
+            } else {
+              console.error(`[push] error for user ${recipientId}:`, err.message);
+            }
+          }
+        });
+      }
 
       return notification;
     } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
+      console.error('[notifications] error:', error.message);
+      return null;
     }
-  }
+  },
 
-  /**
-   * 
-   * @param {string} userId 
-   * @param {Object} notification 
-   */
-  sendRealtimeNotification(userId, notification) {
-    if (this.io) {
-      this.io.to(`user:${userId}`).emit('notification', notification);
-    }
-  }
 
-  /**
-   * 
-   * @param {string} userId 
-   * @param {Object} notification 
-   */
-  async sendPushNotification(userId, notification) {
-    try {
-      const user = await User.findById(userId).select('pushSubscriptions notificationPreferences');
-
-      if (!user || !user.pushSubscriptions || user.pushSubscriptions.length === 0) {
-        return;
-      }
-
-      const preferences = user.notificationPreferences || {
-        emailNotifications: true,
-        pushNotifications: true,
-        soundEffects: true
-      };
-
-      if (!preferences.pushNotifications) {
-        return;
-      }
-
-      const payload = JSON.stringify({
-        title: notification.title,
-        body: notification.message,
-        icon: '/logo192.png',
-        badge: '/logo192.png',
-        data: {
-          type: notification.type,
-          postId: notification.data?.postId,
-          commentId: notification.data?.commentId,
-          storyId: notification.data?.storyId,
-          messageId: notification.data?.messageId,
-          notificationId: notification._id
-        },
-        requireInteraction: true,
-        silent: false,
-        tag: `naaya-${notification.type}-${notification._id}`
-      });
-
-      const promises = user.pushSubscriptions.map(subscription => {
-        return webpush.sendNotification(subscription, payload).catch(error => {
-          console.error('Error sending push notification:', error);
-          if (error.statusCode === 410 || error.statusCode === 400) {
-            User.findByIdAndUpdate(userId, {
-              $pull: { pushSubscriptions: subscription }
-            }).catch(err => console.error('Error removing invalid subscription:', err));
-          }
-        });
-      });
-
-      await Promise.all(promises);
-      console.log(`Push notification sent to user ${userId}`);
-    } catch (error) {
-      console.error('Error sending push notification:', error);
-    }
-  }
-
-  /**
-   *
-   * @param {string} postId 
-   * @param {string} likerId 
-   * @param {string} postAuthorId 
-   */
-  async createLikeNotification(postId, likerId, postAuthorId) {
-    const liker = await User.findById(likerId).select('username fullName');
-    
-    return this.createNotification({
-      recipientId: postAuthorId,
+  // helpers for common actions
+  async like(postId, likerId, authorId) {
+    return this.trigger({
+      recipientId: authorId,
       senderId: likerId,
       type: 'like',
       title: 'New Like',
-      message: `${liker.fullName} liked your post`,
-      data: { postId }
+      message: 'Someone liked your post',
+      extraData: { postId }
     });
-  }
+  },
 
-  /**
-   *
-   * @param {string} postId
-   * @param {string} commenterId
-   * @param {string} postAuthorId
-   * @param {string} commentId
-   */
-  async createCommentNotification(postId, commenterId, postAuthorId, commentId) {
-    const commenter = await User.findById(commenterId).select('username fullName');
-
-    return this.createNotification({
-      recipientId: postAuthorId,
+  async comment(postId, commenterId, authorId, commentId) {
+    return this.trigger({
+      recipientId: authorId,
       senderId: commenterId,
       type: 'comment',
       title: 'New Comment',
-      message: `${commenter.fullName} commented on your post`,
-      data: { postId, commentId }
+      message: 'Someone commented on your post',
+      extraData: { postId, commentId }
     });
-  }
+  },
 
-  /**
-   *
-   * @param {string} postId
-   * @param {string} sharerId
-   * @param {string} postAuthorId
-   */
-  async createShareNotification(postId, sharerId, postAuthorId) {
-    const sharer = await User.findById(sharerId).select('username fullName');
-
-    return this.createNotification({
-      recipientId: postAuthorId,
-      senderId: sharerId,
-      type: 'share',
-      title: 'Post Shared',
-      message: `${sharer.fullName} shared your post`,
-      data: { postId }
-    });
-  }
-
-  /**
-   *
-   * @param {string} postId
-   * @param {string} saverId
-   * @param {string} postAuthorId
-   */
-  async createSaveNotification(postId, saverId, postAuthorId) {
-    const saver = await User.findById(saverId).select('username fullName');
-
-    return this.createNotification({
-      recipientId: postAuthorId,
-      senderId: saverId,
-      type: 'save',
-      title: 'Post Saved',
-      message: `${saver.fullName} saved your post`,
-      data: { postId }
-    });
-  }
-
-  /**
-   * 
-   * @param {string} followerId 
-   * @param {string} followingId 
-   */
-  async createFollowNotification(followerId, followingId) {
-    const follower = await User.findById(followerId).select('username fullName');
-    
-    return this.createNotification({
+  async follow(followerId, followingId) {
+    return this.trigger({
       recipientId: followingId,
       senderId: followerId,
       type: 'follow',
       title: 'New Follower',
-      message: `${follower.fullName} started following you`,
-      data: {}
+      message: 'Someone started following you'
     });
-  }
+  },
 
-  /**
-   * 
-   * @param {string} mentionedUserId 
-   * @param {string} mentionerId 
-   * @param {string} postId 
-   * @param {string} commentId 
-   */
-  async createMentionNotification(mentionedUserId, mentionerId, postId, commentId = null) {
-    const mentioner = await User.findById(mentionerId).select('username fullName');
-    
-    return this.createNotification({
-      recipientId: mentionedUserId,
-      senderId: mentionerId,
-      type: 'mention',
-      title: 'You were mentioned',
-      message: `${mentioner.fullName} mentioned you in a ${commentId ? 'comment' : 'post'}`,
-      data: { postId, commentId }
-    });
-  }
-
-  /**
-   * 
-   * @param {string} recipientId 
-   * @param {string} senderId 
-   * @param {string} messageId 
-   * @param {string} messagePreview 
-   */
-  async createMessageNotification(recipientId, senderId, messageId, messagePreview) {
-    const sender = await User.findById(senderId).select('username fullName');
-    
-    return this.createNotification({
+  async message(recipientId, senderId, messageId, preview) {
+    const shortPreview = preview.length > 50 ? preview.substring(0, 50) + '...' : preview;
+    return this.trigger({
       recipientId,
       senderId,
       type: 'message',
       title: 'New Message',
-      message: `${sender.fullName}: ${messagePreview.substring(0, 50)}${messagePreview.length > 50 ? '...' : ''}`,
-      data: { messageId }
+      message: shortPreview,
+      extraData: { messageId }
     });
   }
+};
 
-  /**
-   * 
-   * @param {string} storyAuthorId 
-   * @param {string} replierId 
-   * @param {string} storyId 
-   */
-  async createStoryReplyNotification(storyAuthorId, replierId, storyId) {
-    const replier = await User.findById(replierId).select('username fullName');
-    
-    return this.createNotification({
-      recipientId: storyAuthorId,
-      senderId: replierId,
-      type: 'story_reply',
-      title: 'Story Reply',
-      message: `${replier.fullName} replied to your story`,
-      data: { storyId }
-    });
-  }
+module.exports = notificationService;
 
-  /**
-   * 
-   * @param {string} recipientId 
-   * @param {string} title 
-   * @param {string} message 
-   * @param {Object} data 
-   */
-  async createSystemNotification(recipientId, title, message, data = {}) {
-    return this.createNotification({
-      recipientId,
-      senderId: recipientId, 
-      type: 'system',
-      title,
-      message,
-      data
-    });
-  }
-
-  /**
-   *
-   * @param {Array} userIds 
-   * @param {Object} notificationData 
-   */
-  async createBulkNotification(userIds, notificationData) {
-    const notifications = [];
-    
-    for (const userId of userIds) {
-      try {
-        const notification = await this.createNotification({
-          ...notificationData,
-          recipientId: userId
-        });
-        if (notification) {
-          notifications.push(notification);
-        }
-      } catch (error) {
-        console.error(`Error creating notification for user ${userId}:`, error);
-      }
-    }
-    
-    return notifications;
-  }
-}
-
-module.exports = NotificationService;

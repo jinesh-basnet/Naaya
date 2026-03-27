@@ -5,14 +5,8 @@ const notificationsController = require('../controllers/notificationsController'
 
 const router = express.Router();
 
-// @route   GET /api/notifications/preferences
-// @desc    Get notification preferences for user
-// @access  Private
 router.get('/preferences', authenticateToken, notificationsController.getPreferences);
 
-// @route   PUT /api/notifications/preferences
-// @desc    Update notification preferences for user
-// @access  Private
 router.put('/preferences', authenticateToken, notificationsController.updatePreferences);
 
 const vapidKeys = {
@@ -46,34 +40,17 @@ router.post('/subscribe', authenticateToken, (req, res) => {
 
 router.post('/subscription', authenticateToken, notificationsController.saveSubscription);
 
-// @route   GET /api/notifications
-// @desc    Get user notifications
-// @access  Private
 router.get('/', authenticateToken, notificationsController.getNotifications);
 
-// @route   PUT /api/notifications/:notificationId/read
-// @desc    Mark notification as read
-// @access  Private
 router.put('/:notificationId/read', authenticateToken, notificationsController.markRead);
 
-// @route   PUT /api/notifications/read-all
-// @desc    Mark all notifications as read
-// @access  Private
 router.put('/read-all', authenticateToken, notificationsController.markAllRead);
 
-// @route   GET /api/notifications/unread-count
-// @desc    Get unread notification count
-// @access  Private
 router.get('/unread-count', authenticateToken, notificationsController.getUnreadCount);
 
-// @route   DELETE /api/notifications/clear-all
-// @desc    Delete all notifications for user
-// @access  Private
 router.delete('/clear-all', authenticateToken, notificationsController.clearAll);
 
-// @route   DELETE /api/notifications/:notificationId
-// @desc    Delete a notification
-// @access  Private
 router.delete('/:notificationId', authenticateToken, notificationsController.deleteNotification);
 
 module.exports = router;
+

@@ -68,47 +68,45 @@ notificationSchema.index({ recipient: 1, isRead: 1 });
 notificationSchema.index({ type: 1 });
 notificationSchema.index({ createdAt: -1 });
 
+// Static method to handle creation and population in one go
 notificationSchema.statics.createNotification = async function(notificationData) {
   try {
     const notification = new this(notificationData);
     await notification.save();
     
+    // We usually want the sender's info for the UI
     await notification.populate('sender', 'username fullName profilePicture');
     
     return notification;
-  } catch (error) {
-    console.error('Error creating notification:', error);
-    throw error;
+  } catch (err) {
+    console.error('Failed to save notification:', err.message);
+    return null; // Don't crash the whole process
   }
 };
 
+// Get notifications for a user with some basic pagination
 notificationSchema.statics.getUserNotifications = async function(userId, page = 1, limit = 20) {
   try {
+    const skip = (page - 1) * limit;
+    
     const notifications = await this.find({ recipient: userId })
       .populate('sender', 'username fullName profilePicture')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip(skip);
 
     const total = await this.countDocuments({ recipient: userId });
-    const unreadCount = await this.countDocuments({ 
-      recipient: userId, 
-      isRead: false 
-    });
+    const unread = await this.countDocuments({ recipient: userId, isRead: false });
 
     return {
       notifications,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      },
-      unreadCount
+      total,
+      unreadCount: unread,
+      pages: Math.ceil(total / limit)
     };
-  } catch (error) {
-    console.error('Error getting user notifications:', error);
-    throw error;
+  } catch (err) {
+    console.error('Error fetching notifications:', err.message);
+    return { notifications: [], total: 0, unreadCount: 0, pages: 0 };
   }
 };
 
