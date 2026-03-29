@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const User = require('../models/User');
+const Block = require('../models/Block');
 const BookmarkCollection = require('../models/BookmarkCollection');
 
 exports.getSavedPosts = async (req, res) => {
@@ -37,8 +39,6 @@ exports.getSavedPosts = async (req, res) => {
     })
       .populate('author', 'username fullName profilePicture isVerified location languagePreference');
 
-    // Block Feature Integration: Filter out posts from blocked users
-    const Block = require('../models/Block');
     const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
     const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -85,10 +85,8 @@ exports.getUserPosts = async (req, res) => {
       });
     }
 
-    // Block check
     if (req.user) {
-      const Block = require('../models/Block');
-      const isBlocked = await Block.areBlocked(req.user._id, user._id);
+        const isBlocked = await Block.areBlocked(req.user._id, user._id);
       if (isBlocked) {
         return res.status(403).json({
           message: 'Access denied due to blocking restrictions',
@@ -147,8 +145,7 @@ exports.searchPosts = async (req, res) => {
 
     let allBlockedIds = [];
     if (req.user) {
-        const Block = require('../models/Block');
-        const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
+            const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
         const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
         allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
     }
@@ -208,6 +205,13 @@ exports.getPost = async (req, res) => {
     const { postId } = req.params;
     console.log('GET /api/posts/:postId called with postId:', postId);
 
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({
+        message: 'Invalid post ID format',
+        code: 'INVALID_ID'
+      });
+    }
+
     const post = await Post.findOne({
       _id: postId,
       isDeleted: false,
@@ -243,8 +247,7 @@ exports.getPost = async (req, res) => {
 
     // Block check
     if (req.user) {
-      const Block = require('../models/Block');
-      const isBlocked = await Block.areBlocked(req.user._id, post.author._id);
+        const isBlocked = await Block.areBlocked(req.user._id, post.author._id);
       if (isBlocked) {
         return res.status(403).json({
           message: 'Access denied due to blocking restrictions',
