@@ -84,6 +84,8 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
 
             toast.success('Story shared!');
             queryClient.invalidateQueries({ queryKey: ['stories'] });
+            queryClient.invalidateQueries({ queryKey: ['storiesFeed'] });
+            queryClient.invalidateQueries({ queryKey: ['userStories'] });
             onClose();
         } catch (error: any) {
             console.error('Error sharing story:', error);
