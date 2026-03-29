@@ -2,70 +2,61 @@ const User = require('../models/User');
 const Follow = require('../models/Follow');
 const Block = require('../models/Block');
 
-/**
- * Pure Stochastic Rich-Get-Richer (Preferential Attachment) Algorithm.
- * implements P(B) = degree(B) / Σ(all users degrees)
- */
-class RichGetRicherAlgorithm {
-  async getSuggestions(userId, limit = 10) {
-    try {
-      const [totalDegreesResult] = await User.aggregate([
-        { $match: { isDeleted: false, isBanned: false } },
-        { $group: { _id: null, total: { $sum: { $ifNull: ["$followersCount", 0] } } } }
-      ]);
-      const globalSum = totalDegreesResult?.total || 1;
+async function getFriendSuggestions(userId, limit = 10) {
+  try {
+    const [following, blocked, blockers] = await Promise.all([
+      Follow.find({ follower: userId }).distinct('following'),
+      Block.getBlockedUserIds(userId),
+      Block.getBlockerUserIds(userId)
+    ]);
 
-      const [following, blocked, blockers] = await Promise.all([
-        Follow.find({ follower: userId }).distinct('following'),
-        Block.getBlockedUserIds(userId),
-        Block.getBlockerUserIds(userId)
-      ]);
-      const exclude = [userId, ...following, ...blocked, ...blockers];
+    const excludeIds = [userId, ...following, ...blocked, ...blockers];
 
-      const pool = await User.find({
-        _id: { $nin: exclude },
-        isActive: true, isBanned: false, isDeleted: false
-      })
-      .select('username fullName profilePicture isVerified followersCount followingCount location interests')
-      .sort({ followersCount: -1 }).limit(500).lean();
+    const pool = await User.find({
+      _id: { $nin: excludeIds },
+      isActive: true,
+      isBanned: false,
+      isDeleted: false,
+      followersCount: { $gt: 0 }
+    })
+      .select('username fullName profilePicture isVerified followersCount location interests')
+      .limit(500)
+      .lean();
 
-      if (!pool.length) return { users: [], metadata: { total: 0 } };
+    if (!pool.length) return { users: [], total: 0 };
 
-      const suggestions = [];
-      const totalCandidates = pool.length;
+    const totalWeight = pool.reduce((sum, u) => sum + (u.followersCount || 0), 0);
 
-      while (suggestions.length < Math.min(limit, totalCandidates)) {
-        const poolDegrees = pool.reduce((sum, u) => sum + (u.followersCount || 0) + 0.1, 0);
-        let random = Math.random() * poolDegrees;
+    const suggestions = [];
+    const poolSize = pool.length;
 
-        for (let i = 0; i < pool.length; i++) {
-          random -= (pool[i].followersCount || 0) + 0.1;
-          if (random <= 0) {
-            const [selected] = pool.splice(i, 1);
-            selected.richnessProbability = (selected.followersCount || 0) / globalSum;
-            suggestions.push(selected);
-            break;
-          }
+    while (suggestions.length < Math.min(limit, poolSize)) {
+      const currentPoolWeight = pool.reduce((sum, u) => sum + (u.followersCount || 0), 0);
+      let threshold = Math.random() * currentPoolWeight;
+
+      for (let i = 0; i < pool.length; i++) {
+        threshold -= (pool[i].followersCount || 0);
+        if (threshold <= 0) {
+          const [selected] = pool.splice(i, 1);
+          selected.suggestionScore = selected.followersCount / totalWeight;
+          suggestions.push(selected);
+          break;
         }
       }
-
-      return {
-        message: 'Pure stochastic preferential attachment suggestions generated',
-        users: suggestions,
-        algorithm: 'stochastic_rich_get_richer_v2',
-        metadata: {
-          totalNetworkDegrees: globalSum,
-          totalAvailableSuggestions: totalCandidates,
-          explanation: `Implemented P(B) = degree(B) / Σ(all users) degree. Denominator is ${globalSum}.`,
-          formula: 'P(B) = followersCount(B) / Total Followers in System'
-        }
-      };
-
-    } catch (error) {
-      console.error('Algorithm error:', error);
-      throw new Error(`Failed to generate suggestions: ${error.message}`);
     }
+
+    console.log(`[suggestions] generated ${suggestions.length} pure suggestions for user: ${userId}`);
+
+    return {
+      users: suggestions,
+      total: poolSize
+    };
+
+  } catch (error) {
+    console.error('[suggestions] pure algorithm failed:', error.message);
+    return { users: [], total: 0, error: 'Internal logic error' };
   }
 }
 
-module.exports = RichGetRicherAlgorithm;
+module.exports = { getFriendSuggestions };
+
