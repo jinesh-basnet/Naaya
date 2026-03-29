@@ -4,48 +4,49 @@ interface LocationData {
   city?: string;
   district?: string;
   province?: string;
-  accuracy?: number;
-}
-
-interface LocationPermissionState {
-  granted: boolean;
-  denied: boolean;
-  prompt: boolean;
 }
 
 class LocationService {
   private locationData: LocationData | null = null;
-  private permissionState: LocationPermissionState = {
-    granted: false,
-    denied: false,
-    prompt: true
-  };
 
-  async requestPermission(): Promise<LocationPermissionState> {
-    if (!('geolocation' in navigator)) {
-      throw new Error('Geolocation is not supported by this browser');
-    }
+  loadLocationFromStorage(): LocationData | null {
+    const stored = localStorage.getItem('userLocation');
+    return stored ? (JSON.parse(stored) as LocationData) : null;
+  }
 
-    try {
-      const result = await navigator.permissions.query({ name: 'geolocation' });
-      this.updatePermissionState(result.state);
-
-      if (result.state === 'granted') {
-        await this.getCurrentPosition();
+  async requestPermission(): Promise<{ granted: boolean; denied: boolean }> {
+    return new Promise((resolve) => {
+      if (!('geolocation' in navigator)) {
+        resolve({ granted: false, denied: true });
+        return;
       }
 
-      return this.permissionState;
-    } catch (error) {
-      console.error('Error requesting location permission:', error);
-      return this.permissionState;
-    }
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((permission) => {
+        switch (permission.state) {
+          case 'granted':
+            resolve({ granted: true, denied: false });
+            break;
+          case 'denied':
+            resolve({ granted: false, denied: true });
+            break;
+          default:
+            resolve({ granted: false, denied: false });
+        }
+      }).catch(() => {
+        // Fallback - try getCurrentPosition with error handling
+        navigator.geolocation.getCurrentPosition(() => {
+          resolve({ granted: true, denied: false });
+        }, () => {
+          resolve({ granted: false, denied: false });
+        }, { timeout: 1000 });
+      });
+    });
   }
 
   async getCurrentPosition(): Promise<LocationData | null> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       if (!('geolocation' in navigator)) {
-        reject(new Error('Geolocation is not supported'));
-        return;
+        return resolve(null);
       }
 
       navigator.geolocation.getCurrentPosition(
@@ -53,145 +54,52 @@ class LocationService {
           const locationData: LocationData = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
           };
 
           try {
-            const addressDetails = await this.reverseGeocode(
-              locationData.latitude,
-              locationData.longitude
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${locationData.latitude}&lon=${locationData.longitude}&zoom=10`
             );
-            locationData.city = addressDetails.city;
-            locationData.district = addressDetails.district;
-            locationData.province = addressDetails.province;
+            const data = await response.json();
+            
+            locationData.city = data.address?.city || data.address?.town || data.address?.village;
+            locationData.district = data.address?.county;
+            locationData.province = data.address?.state;
           } catch (error) {
-            console.warn('Reverse geocoding failed:', error);
+            console.error('Reverse geocode error', error);
           }
 
           this.locationData = locationData;
-          this.saveLocationToStorage(locationData);
+          localStorage.setItem('userLocation', JSON.stringify(locationData));
           resolve(locationData);
         },
         (error) => {
-          console.error('Error getting location:', error);
-          reject(error);
+          console.error('Location error', error);
+          resolve(null);
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000 
-        }
+        { enableHighAccuracy: true, timeout: 5000 }
       );
     });
   }
 
-  private async reverseGeocode(lat: number, lng: number): Promise<{
-    city?: string;
-    district?: string;
-    province?: string;
-  }> {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`
-      );
-
-      if (!response.ok) {
-        throw new Error('Reverse geocoding request failed');
-      }
-
-      const data = await response.json();
-
-      return {
-        city: data.address?.city || data.address?.town || data.address?.village,
-        district: data.address?.county || data.address?.state_district,
-        province: data.address?.state
-      };
-    } catch (error) {
-      console.error('Reverse geocoding error:', error);
-      return {};
-    }
-  }
-
-  private updatePermissionState(state: PermissionState): void {
-    this.permissionState = {
-      granted: state === 'granted',
-      denied: state === 'denied',
-      prompt: state === 'prompt'
-    };
-  }
-
-  private saveLocationToStorage(location: LocationData): void {
-    try {
-      localStorage.setItem('userLocation', JSON.stringify(location));
-      localStorage.setItem('locationTimestamp', Date.now().toString());
-    } catch (error) {
-      console.warn('Failed to save location to storage:', error);
-    }
-  }
-
-  loadLocationFromStorage(): LocationData | null {
-    try {
-      const locationStr = localStorage.getItem('userLocation');
-      const timestampStr = localStorage.getItem('locationTimestamp');
-
-      if (locationStr && timestampStr) {
-        const timestamp = parseInt(timestampStr);
-        const age = Date.now() - timestamp;
-
-        if (age < 60 * 60 * 1000) {
-          return JSON.parse(locationStr);
-        } else {
-          localStorage.removeItem('userLocation');
-          localStorage.removeItem('locationTimestamp');
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load location from storage:', error);
-    }
-
-    return null;
-  }
-
   getLocationData(): LocationData | null {
-    return this.locationData || this.loadLocationFromStorage();
+    if (this.locationData) return this.locationData;
+    return this.loadLocationFromStorage();
   }
 
-  getPermissionState(): LocationPermissionState {
-    return this.permissionState;
-  }
+  // Simplified distance for basic local content check
+  isLocal(targetLat: number, targetLng: number, maxKm: number = 50): boolean {
+    const current = this.getLocationData();
+    if (!current) return false;
 
-  calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371; 
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLng = this.toRadians(lng2 - lng1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; 
-  }
-
-  private toRadians(degrees: number): number {
-    return degrees * (Math.PI / 180);
-  }
-
-  isLocalContent(contentLat: number, contentLng: number, maxDistance: number = 50): boolean {
-    const userLocation = this.getLocationData();
-    if (!userLocation) return false;
-
-    const distance = this.calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      contentLat,
-      contentLng
-    );
-
-    return distance <= maxDistance;
+    // Simple Pythagorean approximation for small distances (Good enough for a student project)
+    const ky = 40000 / 360;
+    const kx = Math.cos(Math.PI * current.latitude / 180.0) * ky;
+    const dx = Math.abs(current.longitude - targetLng) * kx;
+    const dy = Math.abs(current.latitude - targetLat) * ky;
+    return Math.sqrt(dx * dx + dy * dy) <= maxKm;
   }
 }
 
 export const locationService = new LocationService();
-export type { LocationData, LocationPermissionState };
+export type { LocationData };
