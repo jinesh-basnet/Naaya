@@ -5,29 +5,18 @@ const interactionsController = require('../../controllers/interactionsController
 
 const router = express.Router();
 
-// @route   POST /api/posts/:postId/like
-// @desc    Like/unlike a post
-// @access  Private
 router.post('/:postId/like', authenticateToken, interactionsController.likePost);
 
-// @route   POST /api/posts/:postId/save
-// @desc    Save/unsave a post 
-// @access  Private
 router.post('/:postId/save', authenticateToken, interactionsController.savePost);
 
-// @route   POST /api/posts/:postId/share
-// @desc    Share/unshare a post
-// @access  Private
 router.post('/:postId/share', authenticateToken, [
   body('caption').optional().isString().isLength({ max: 2200 }),
   body('tags').optional(),
   body('location').optional(),
 ], interactionsController.sharePost);
 
-// @route   POST /api/posts/:postId/view
-// @desc    Record post view
-// @access  Private
 router.post('/:postId/view', authenticateToken, interactionsController.viewPost);
 
 module.exports = router;
+
 
