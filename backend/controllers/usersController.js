@@ -4,13 +4,20 @@ const Post = require('../models/Post');
 const Reel = require('../models/Reel');
 const Story = require('../models/Story');
 const Follow = require('../models/Follow');
+const Block = require('../models/Block');
 
-const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm');
+const { getFriendSuggestions } = require('../utils/friendSuggestionAlgorithm');
+
 
 exports.getUserProfile = async (req, res) => {
   try {
     const { username } = req.params;
-    const user = await User.findOne({ username }).select('-password -email -phone');
+    
+    let user = await User.findOne({ username: new RegExp('^' + username + '$', 'i') }).select('-password -email -phone');
+    
+    if (!user && /^[0-9a-fA-F]{24}$/.test(username)) {
+        user = await User.findById(username).select('-password -email -phone');
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -21,13 +28,10 @@ exports.getUserProfile = async (req, res) => {
 
     const profile = user.toObject();
 
-    // Check if there is a block between the current user and this profile
     if (req.user) {
-        const Block = require('../models/Block');
         const blockStatus = await Block.getBlockStatus(req.user._id, user._id);
         
         if (blockStatus.areBlocked) {
-            // If they blocked me or I blocked them, we don't show the full profile
             return res.status(403).json({
                 message: blockStatus.hasBlockedMe ? 'You have been blocked by this user' : 'You have blocked this user',
                 code: 'BLOCK_RESTRICTION',
@@ -48,15 +52,14 @@ exports.getUserProfile = async (req, res) => {
     }
 
     res.json({
-      message: 'User profile retrieved successfully',
+      message: 'Found the profile!',
       user: profile
     });
 
   } catch (error) {
-    console.error('Get user profile error:', error);
+    console.error('Error in getUserProfile:', error.message);
     res.status(500).json({
-      message: 'Server error retrieving user profile',
-      code: 'PROFILE_ERROR'
+      message: 'Something went wrong while getting the profile'
     });
   }
 };
@@ -88,30 +91,20 @@ exports.updateProfile = async (req, res) => {
     const invalidFields = Object.keys(updates).filter(field => !allowedFields.includes(field));
     if (invalidFields.length > 0) {
       return res.status(400).json({
-        message: `Invalid fields: ${invalidFields.join(', ')}`,
-        code: 'INVALID_UPDATE_FIELDS'
+        message: `Oops, you can't update these fields: ${invalidFields.join(', ')}`
       });
     }
 
     if (updates.gender && !['male', 'female', 'other'].includes(updates.gender)) {
-      return res.status(400).json({
-        message: 'Invalid gender value',
-        code: 'INVALID_GENDER'
-      });
+      return res.status(400).json({ message: 'Invalid gender value' });
     }
 
     if (updates.bio && updates.bio.length > 150) {
-      return res.status(400).json({
-        message: 'Bio must be less than 150 characters',
-        code: 'BIO_TOO_LONG'
-      });
+      return res.status(400).json({ message: 'Bio is too long (max 150 chars)' });
     }
 
     if (updates.fullName && updates.fullName.length > 50) {
-      return res.status(400).json({
-        message: 'Full name must be less than 50 characters',
-        code: 'NAME_TOO_LONG'
-      });
+      return res.status(400).json({ message: 'Name is too long (max 50 chars)' });
     }
 
     if (updates.location) {
@@ -228,23 +221,23 @@ exports.updateProfile = async (req, res) => {
           visibility: updates.privacySettings?.profileVisibility || 'public'
         });
         await newPost.save();
+        console.log(`Auto-post created for user ${user.username} (profile pic update)`);
       } catch (postError) {
-        console.error('Error auto-creating profile update post:', postError);
+        console.error('Failed to auto-create profile update post:', postError.message);
       }
     }
 
     const updatedUser = await User.findById(userId).select('-password -email -phone');
 
     res.json({
-      message: 'Profile updated successfully',
+      message: 'Profile updated!',
       user: updatedUser
     });
 
   } catch (error) {
-    console.error('Update profile error:', error);
+    console.error('Update error:', error);
     res.status(500).json({
-      message: 'Server error updating profile',
-      code: 'PROFILE_UPDATE_ERROR'
+      message: 'Failed to update profile'
     });
   }
 };
@@ -311,11 +304,10 @@ exports.followUser = async (req, res) => {
       }
     });
 
-    try {
-      await global.notificationService.createFollowNotification(currentUserId, userIdToFollow);
-    } catch (error) {
-      console.error('Error creating follow notification:', error);
+    if (global.notificationService) {
+      await global.notificationService.follow(currentUserId, userIdToFollow);
     }
+
 
     res.json({
       message: 'User followed successfully'
@@ -414,7 +406,6 @@ exports.searchUsers = async (req, res) => {
 
     let allBlockedIds = [];
     if (req.user) {
-        const Block = require('../models/Block');
         const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
         const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
         allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -508,10 +499,8 @@ exports.getFollowers = async (req, res) => {
     const sanitizedLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));
     const skip = (sanitizedPage - 1) * sanitizedLimit;
 
-    // Get blocked users to filter them out
     let allBlockedIds = [];
     if (req.user) {
-        const Block = require('../models/Block');
         const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
         const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
         allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -529,7 +518,7 @@ exports.getFollowers = async (req, res) => {
       .lean();
 
     const followersWithFollowStatus = follows
-      .filter(f => f.follower) // Filter out blocked/null followers
+      .filter(f => f.follower) 
       .map(f => {
         const followerObj = { ...f.follower };
         if (req.user) {
@@ -622,10 +611,8 @@ exports.getFollowing = async (req, res) => {
     const sanitizedLimit = Math.min(50, Math.max(1, parseInt(limit) || 20));
     const skip = (sanitizedPage - 1) * sanitizedLimit;
 
-    // Get blocked users to filter them out
     let allBlockedIds = [];
     if (req.user) {
-        const Block = require('../models/Block');
         const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
         const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
         allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -643,7 +630,7 @@ exports.getFollowing = async (req, res) => {
       .lean();
 
     const followingWithFollowStatus = follows
-      .filter(f => f.following) // Filter out blocked/null followed users
+      .filter(f => f.following) 
       .map(f => {
         const followingObj = { ...f.following };
         if (req.user) {
@@ -700,20 +687,14 @@ exports.getFollowing = async (req, res) => {
 exports.getSuggestions = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
-    const currentUserId = req.user._id;
-
-    const suggestionAlgorithm = new RichGetRicherAlgorithm();
-    const suggestions = await suggestionAlgorithm.getSuggestions(currentUserId, parseInt(limit));
-
+    const suggestions = await getFriendSuggestions(req.user._id, parseInt(limit));
     res.json(suggestions);
   } catch (error) {
-    console.error('Get suggestions error:', error);
-    res.status(500).json({
-      message: 'Server error retrieving suggestions',
-      code: 'SUGGESTIONS_ERROR'
-    });
+    console.error('[suggestions] route error:', error.message);
+    res.status(500).json({ message: 'Error getting recommendations' });
   }
 };
+
 
 exports.updateKeys = async (req, res) => {
   try {
@@ -765,7 +746,7 @@ exports.deleteProfile = async (req, res) => {
     user.bio = '';
     user.profilePicture = '';
     user.password = `DELETED_${timestamp}_${Math.random()}`; // Scramble password
-    user.refreshTokens = []; // Log out from all devices
+    user.refreshTokens = []; 
 
     await user.save();
 
