@@ -4,64 +4,44 @@ const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: {
-    message: 'Too many authentication attempts, please try again later.',
-    code: 'RATE_LIMIT_EXCEEDED'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  skip: (req, res) => {
-    return res.statusCode < 400;
-  }
-});
-
-const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-
-  max: 3,
-
-  message: {
-    message: 'Too many login attempts, please try again later.',
-    code: 'LOGIN_RATE_LIMIT_EXCEEDED'
+    message: 'Too many tries! Please wait a while before trying again.'
   },
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true
 });
 
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5, 
+  message: {
+    message: 'Slow down! Too many login attempts.'
+  }
+});
 
 const registerRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
   message: {
-    message: 'Too many registration attempts, please try again later.',
-    code: 'REGISTER_RATE_LIMIT_EXCEEDED'
-  },
-  standardHeaders: true,
-  legacyHeaders: false
+    message: 'You have reached the limit for creating accounts today.'
+  }
 });
 
 const suggestionsRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 20,
   message: {
-    message: 'Too many suggestion requests, please try again later.',
-    code: 'SUGGESTIONS_RATE_LIMIT_EXCEEDED'
-  },
-  standardHeaders: true,
-  legacyHeaders: false
+    message: 'Easy there! Searching too fast.'
+  }
 });
 
 const messagingRateLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, 
   max: 60,
   message: {
-    message: 'Too many messages sent. Please slow down.',
-    code: 'MESSAGING_RATE_LIMIT_EXCEEDED'
+    message: 'Chill out with the messages. You are talking too fast!'
   },
-  keyGenerator: (req) => req.user?._id || req.ip,
-  standardHeaders: true,
-  legacyHeaders: false
+  keyGenerator: (req) => req.user?._id || req.ip
 });
 
 module.exports = {
