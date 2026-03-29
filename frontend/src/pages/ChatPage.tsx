@@ -194,7 +194,6 @@ const ChatPage: React.FC = () => {
         toast.error('You do not have permission to access this conversation');
         navigate('/messages');
       } else if (err.response?.status === 404) {
-        // expected for new conversations
         console.log('Conversation not found, will be created on first message');
       } else {
         console.error('Failed to load conversation:', conversationError);
@@ -425,19 +424,20 @@ const ChatPage: React.FC = () => {
       });
     };
 
-    if (socket) {
-      socket.onReceiveMessage(handleReceiveMessage);
-      socket.onMessageEdited(handleMessageEdited);
-      socket.onMessageDeleted(handleMessageDeleted);
-      socket.onReactionAdded(handleReactionAdded);
+    const s = socket.socket;
+    if (s) {
+      s.on('receive_message', handleReceiveMessage);
+      s.on('message_edited', handleMessageEdited);
+      s.on('message_deleted', handleMessageDeleted);
+      s.on('reaction_added', handleReactionAdded);
     }
 
     return () => {
-      if (socket) {
-        socket.offReceiveMessage(handleReceiveMessage);
-        socket.offMessageEdited(handleMessageEdited);
-        socket.offMessageDeleted(handleMessageDeleted);
-        socket.offReactionAdded(handleReactionAdded);
+      if (s) {
+        s.off('receive_message', handleReceiveMessage);
+        s.off('message_edited', handleMessageEdited);
+        s.off('message_deleted', handleMessageDeleted);
+        s.off('reaction_added', handleReactionAdded);
       }
     };
   }, [socket, currentConversationId, refetchMessages, queryClient, conversation?._id, isDirectMessage, targetUserId, effectiveConversationId]);
@@ -450,13 +450,14 @@ const ChatPage: React.FC = () => {
       }
     };
 
-    if (socket) {
-      socket.onUserTyping(handleUserTyping);
+    const s = socket.socket;
+    if (s) {
+      s.on('user_typing', handleUserTyping);
     }
 
     return () => {
-      if (socket) {
-        socket.offUserTyping(handleUserTyping);
+      if (s) {
+        s.off('user_typing', handleUserTyping);
       }
     };
   }, [socket, currentConversationId, user?._id, conversation?._id]);
@@ -491,21 +492,21 @@ const ChatPage: React.FC = () => {
       if (data.userId === userId) setIsPartnerOnline(false);
     };
 
-    if (socket) {
-      socket.onUserOnline(handleUserOnline);
-      socket.onUserOffline(handleUserOffline);
+    const s = socket.socket;
+    if (s) {
+      s.on('user_online', handleUserOnline);
+      s.on('user_offline', handleUserOffline);
     }
     return () => {
-      if (socket) {
-        socket.offUserOnline(handleUserOnline);
-        socket.offUserOffline(handleUserOffline);
+      if (s) {
+        s.off('user_online', handleUserOnline);
+        s.off('user_offline', handleUserOffline);
       }
     };
   }, [socket, userId]);
 
   const hasScrolledRef = useRef<string | null>(null);
 
-  // Scroll to bottom effect
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
@@ -525,7 +526,6 @@ const ChatPage: React.FC = () => {
         }
       };
 
-      // Small delay to ensure layout is ready
       timeoutId = setTimeout(scrollToBottom, 60);
     }
 
@@ -640,19 +640,16 @@ const ChatPage: React.FC = () => {
   const getChatTitle = () => {
     if (isNewMessage) return 'New Message';
 
-    // 1. Try targetUser from explicit profile fetch
     if (targetUser && (targetUser.fullName || targetUser.username)) {
       return targetUser.fullName || targetUser.username;
     }
 
-    // 2. Try conversation partner info
     if (conversation) {
       const partner = (conversation as any).partner;
       if (partner?.fullName || partner?.username) {
         return partner.fullName || partner.username;
       }
 
-      // 3. Try participants list
       const otherParticipant = conversation.participants?.find((p: any) => {
         const pId = typeof p.user === 'string' ? p.user : (p.user?._id || p.user);
         return String(pId) !== String(user?._id);
@@ -667,7 +664,6 @@ const ChatPage: React.FC = () => {
       if (conversation.name) return conversation.name;
     }
 
-    // 4. Try to find other user's name from existing messages
     if (messages && messages.length > 0) {
       const otherSender = messages.find(m => m.sender?._id !== user?._id)?.sender;
       if (otherSender && (otherSender.fullName || otherSender.username)) {
@@ -675,10 +671,8 @@ const ChatPage: React.FC = () => {
       }
     }
 
-    // 5. Fallback while loading
     if (conversationLoading || messagesLoading) return 'Loading...';
 
-    // 6. Fallback to userId from URL if available
     if (userId && userId !== 'new') return userId;
 
     return 'Chat';
@@ -687,12 +681,10 @@ const ChatPage: React.FC = () => {
   const getChatAvatar = () => {
     if (isNewMessage) return '/default-profile.svg';
 
-    // 1. Try targetUser profile picture
     if (targetUser?.profilePicture) {
       return targetUser.profilePicture;
     }
 
-    // 2. Try conversation partner or participant info
     if (conversation) {
       const partner = (conversation as any).partner;
       if (partner?.profilePicture) return partner.profilePicture;
@@ -709,7 +701,6 @@ const ChatPage: React.FC = () => {
       if (conversation.avatar) return conversation.avatar;
     }
 
-    // 3. Try messages for sender avatar
     if (messages && messages.length > 0) {
       const otherSenderAvatar = messages.find(m => m.sender?._id !== user?._id)?.sender?.profilePicture;
       if (otherSenderAvatar) return otherSenderAvatar;
@@ -753,7 +744,6 @@ const ChatPage: React.FC = () => {
 
   const onEmojiClick = (emojiData: any) => {
     setMessageInput(prev => prev + emojiData.emoji);
-    // setShowEmojiPicker(false); // Keep it open for multiple emojis
   };
 
   const isMobile = window.innerWidth < 768;

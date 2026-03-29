@@ -68,26 +68,22 @@ const ConversationsList = () => {
     } = useQuery({
         queryKey: ['conversations'],
         queryFn: async () => {
-            // FIX 1: messagesAPI.getConversations() hits /conversations which doesn't exist.
-            // The correct endpoint is /messages/conversations via getConversationMessages.
-            // We use getMessages indirectly — the backend route is GET /messages/conversations.
             const response = await messagesAPI.getConversations();
             return response.data.conversations || response.data || [];
         },
-        staleTime: 30000,          // Don't re-fetch if data is fresh within 30s
-        refetchInterval: 60000,    // Background safety net fallback
+        staleTime: 30000,
+        refetchInterval: 60000,
     });
 
     const conversations: Conversation[] = useMemo(() => {
         const raw = Array.isArray(conversationsData) ? conversationsData : [];
         const mapped = raw.map((conv: any) => {
             let partner = conv.partner;
-            // Robust check to ensure partner is NOT the current user
+            
             if (conv.type === 'direct') {
                 const currentIdStr = String(user?._id || '');
                 const partnerIdStr = String(partner?._id || partner || '');
                 
-                // If partner is currently the logged-in user or missing, look in participants
                 if (!partner || partnerIdStr === currentIdStr) {
                     const foundPartner = conv.participants?.find((p: any) => {
                         const pId = String(typeof p.user === 'string' ? p.user : (p.user?._id || p.user || ''));
@@ -111,7 +107,6 @@ const ConversationsList = () => {
             };
         });
 
-        // Sort by latest message date descending
         return mapped.sort((a, b) => {
             const timeA = a.latestMessage ? new Date(a.latestMessage.createdAt).getTime() : 0;
             const timeB = b.latestMessage ? new Date(b.latestMessage.createdAt).getTime() : 0;
@@ -119,18 +114,15 @@ const ConversationsList = () => {
         });
     }, [conversationsData, user?._id]);
 
-    // FIX 3: Typing indicator auto-clear — store per-conversation timers
     const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-    // Socket listeners for real-time updates
     useEffect(() => {
         if (!socket) return;
 
-        // FIX 2: Optimistically move updated conversation to top instead of full refetch
         const handleReceiveMessage = (data: any) => {
             queryClient.setQueryData<any[]>(['conversations'], (old) => {
                 if (!old) return old;
-                // Move the conversation that got a new message to top
+                
                 const convId = data?.conversation || data?.conversationId;
                 if (!convId) {
                     refetch();
@@ -138,7 +130,6 @@ const ConversationsList = () => {
                 }
                 const idx = old.findIndex((c: any) => c._id === convId);
                 if (idx === -1) {
-                    // New conversation not in list — refetch
                     refetch();
                     return old;
                 }
@@ -161,14 +152,12 @@ const ConversationsList = () => {
             });
         };
 
-        // FIX 3: Auto-clear typing indicator after 3s of no update
         const handleUserTyping = (data: any) => {
             if (data.userId === user?._id) return;
             const convId = data.conversationId;
             setTypingUsers(prev => ({ ...prev, [convId]: data.isTyping }));
 
             if (data.isTyping) {
-                // Clear any existing timer for this conversation
                 if (typingTimers.current[convId]) clearTimeout(typingTimers.current[convId]);
                 typingTimers.current[convId] = setTimeout(() => {
                     setTypingUsers(prev => ({ ...prev, [convId]: false }));
@@ -181,7 +170,6 @@ const ConversationsList = () => {
             }
         };
 
-        // FIX: Also update unread count when messages_read socket fires
         const handleMessagesRead = (data: any) => {
             if (data.userId === user?._id) {
                 queryClient.setQueryData<any[]>(['conversations'], (old) => {
@@ -209,22 +197,26 @@ const ConversationsList = () => {
             });
         };
 
-        socket.onReceiveMessage(handleReceiveMessage);
-        socket.onUserTyping(handleUserTyping);
-        socket.onMessagesRead(handleMessagesRead);
-        socket.onUserOnline(handleUserOnline);
-        socket.onUserOffline(handleUserOffline);
+        const s = socket.socket;
+        if (s) {
+          s.on('receive_message', handleReceiveMessage);
+          s.on('user_typing', handleUserTyping);
+          s.on('messages_read', handleMessagesRead);
+          s.on('user_online', handleUserOnline);
+          s.on('user_offline', handleUserOffline);
+        }
 
         const timers = typingTimers.current;
         return () => {
-            socket.offReceiveMessage(handleReceiveMessage);
-            socket.offUserTyping(handleUserTyping);
-            socket.offMessagesRead(handleMessagesRead);
-            socket.offUserOnline(handleUserOnline);
-            socket.offUserOffline(handleUserOffline);
+          if (s) {
+            s.off('receive_message', handleReceiveMessage);
+            s.off('user_typing', handleUserTyping);
+            s.off('messages_read', handleMessagesRead);
+            s.off('user_online', handleUserOnline);
+            s.off('user_offline', handleUserOffline);
+          }
             
-            // Clear all typing timers on cleanup
-            Object.values(timers).forEach(clearTimeout);
+          Object.values(timers).forEach(clearTimeout);
         };
     }, [socket, refetch, queryClient, user?._id]);
 
@@ -279,7 +271,6 @@ const ConversationsList = () => {
         });
     }, [conversations, searchQuery]);
 
-    // Search for new users if searchQuery exists but not in local conversations
     const { data: globalSearchResults } = useQuery({
         queryKey: ['global-user-search', searchQuery],
         queryFn: () => usersAPI.searchUsers(searchQuery),
@@ -366,7 +357,6 @@ const ConversationsList = () => {
                             const partnerId = partner?._id;
                             const partnerUsername = partner?.username;
 
-                            // Robust active check
                             const isActive = activeId === conversation._id ||
                                 (partnerId && activeId === partnerId) ||
                                 (partnerUsername && activeId === partnerUsername);
@@ -456,7 +446,6 @@ const ConversationsList = () => {
                             );
                         })}
 
-                        {/* Global Search Results - When searching for new users */}
                         {searchQuery.length >= 2 && globalSearchResults?.data && globalSearchResults.data.users?.length > 0 && (
                             <div className="global-search-results">
                                 <div className="section-divider">Non-contacts</div>
@@ -466,7 +455,6 @@ const ConversationsList = () => {
                                         <div
                                             key={targetUser._id}
                                             className="conversation-row"
-                                            // FIX 4: Navigate by username (not _id) so ChatPage can fetch profile correctly
                                             onClick={() => navigate(`/messages/${targetUser.username || targetUser._id}`)}
                                         >
                                             <div className="avatar-wrapper">
