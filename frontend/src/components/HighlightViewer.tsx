@@ -117,8 +117,8 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({
   const isOwner = user?._id === highlightData?.data?.highlight?.author?._id;
 
   return (
-    <div className="highlight-viewer-overlay" onClick={onClose}>
-      <div className="highlight-viewer-container" onClick={e => e.stopPropagation()}>
+    <div className="highlight-viewer-overlay">
+      <div className="highlight-viewer-container">
         <div className="highlight-viewer-header">
           <div className="highlight-info">
             <h3>{highlight.title}</h3>
@@ -127,11 +127,11 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({
 
           <div className="highlight-actions">
             {isOwner && onEdit && (
-              <button className="edit-button" onClick={onEdit}>
+              <button className="edit-button" onClick={onEdit} title="Edit Highlight">
                 Edit
               </button>
             )}
-            <button className="close-button" onClick={onClose}>
+            <button className="close-button" onClick={onClose} title="Close" aria-label="Close">
               <FaTimes />
             </button>
           </div>
@@ -191,23 +191,27 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({
           )}
         </div>
 
-        <div className="story-navigation">
-          <button
-            className="nav-button"
-            onClick={handlePrevious}
-            disabled={currentStoryIndex === 0}
-          >
-            <FaChevronLeft />
-          </button>
+        {stories.length > 1 && (
+          <div className="story-navigation">
+            <button
+              className="nav-button prev"
+              onClick={handlePrevious}
+              disabled={currentStoryIndex === 0}
+              aria-label="Previous story"
+            >
+              <FaChevronLeft />
+            </button>
 
-          <button
-            className="nav-button"
-            onClick={handleNext}
-            disabled={currentStoryIndex >= stories.length - 1}
-          >
-            <FaChevronRight />
-          </button>
-        </div>
+            <button
+              className="nav-button next"
+              onClick={handleNext}
+              disabled={currentStoryIndex >= stories.length - 1}
+              aria-label="Next story"
+            >
+              <FaChevronRight />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
