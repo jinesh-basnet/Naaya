@@ -4,13 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
-import { postsAPI, reelsAPI } from './services/api';
+import { postsAPI } from './services/api';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { CreatePostProvider, useCreatePost } from './contexts/CreatePostContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { StoryViewProvider } from './contexts/StoryViewContext';
-import OfflineIndicator from './components/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Pages
@@ -57,7 +56,7 @@ const queryClient = new QueryClient({
 function AppContent() {
 
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router>
       <CreatePostProvider>
         <InnerApp />
       </CreatePostProvider>
@@ -69,7 +68,7 @@ function InnerApp() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { isModalOpen: createPostModalOpen, closeModal: closeCreatePostModal } = useCreatePost();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -103,54 +102,24 @@ function InnerApp() {
 
   const handlePost = async (post: any) => {
     try {
-      if (post.editMode && post.editPost) {
-        const formData = new FormData();
-        formData.append('content', post.caption);
-        if (post.media) formData.append('media', post.media);
-        formData.append('tags', JSON.stringify(post.tags));
-        if (post.location.trim()) {
-          formData.append('location', JSON.stringify({ name: post.location }));
-        }
-        await postsAPI.updatePost(post.editPost._id, formData);
-        toast.success('Post updated!');
-        if (user?.username) queryClient.invalidateQueries({ queryKey: ['userPosts', user.username] });
-        if (user?.username) queryClient.invalidateQueries({ queryKey: ['profile', user.username] });
-        queryClient.invalidateQueries({ queryKey: ['feed'] });
-      } else {
-        const formData = new FormData();
-        const language = user?.languagePreference === 'both' ? 'mixed' : (user?.languagePreference || 'english');
-        formData.append('language', language);
-
-        if (post.postType === 'reel') {
-          formData.append('content', post.caption);
-          if (post.media) formData.append('video', post.media);
-          formData.append('hashtags', JSON.stringify(post.tags));
-          if (post.location.trim()) {
-            formData.append('location', JSON.stringify({ name: post.location }));
-          }
-          await reelsAPI.createReel(formData);
-          queryClient.invalidateQueries({ queryKey: ['reels'] });
-          queryClient.invalidateQueries({ queryKey: ['userReels'] });
-          if (user?.username) queryClient.invalidateQueries({ queryKey: ['profile', user.username] });
-        } else {
-          formData.append('postType', post.postType);
-          formData.append('content', post.caption);
-          if (post.media) formData.append('media', post.media);
-          formData.append('tags', JSON.stringify(post.tags));
-          if (post.location.trim()) {
-            formData.append('location', JSON.stringify({ name: post.location }));
-          }
-          await postsAPI.createPost(formData);
-          if (user?.username) queryClient.invalidateQueries({ queryKey: ['userPosts', user.username] });
-          if (user?.username) queryClient.invalidateQueries({ queryKey: ['profile', user.username] });
-          queryClient.invalidateQueries({ queryKey: ['feed'] });
-        }
-        toast.success(`${post.postType === 'reel' ? 'Reel' : 'Post'} shared!`);
-      }
+      const formData = new FormData();
+      if (post.caption) formData.append('content', post.caption);
+      if (post.media) formData.append('media', post.media);
+      if (post.location) formData.append('location', post.location);
+      if (post.tags && post.tags.length > 0) formData.append('tags', JSON.stringify(post.tags));
+      if (post.hashtags && post.hashtags.length > 0) formData.append('hashtags', JSON.stringify(post.hashtags));
+      if (post.mentions && post.mentions.length > 0) formData.append('mentions', JSON.stringify(post.mentions));
+      if (post.language) formData.append('language', post.language);
+      if (post.visibility) formData.append('visibility', post.visibility);
+      if (post.postType) formData.append('postType', post.postType);
+      
+      await postsAPI.createPost(formData);
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      toast.success('Post shared!');
       closeCreatePostModal();
-    } catch (error: any) {
-      console.error('Error sharing post:', error);
-      toast.error(`Failed to ${post.editMode ? 'update' : 'share'} ${post.postType}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to post');
     }
   };
 
@@ -170,7 +139,6 @@ function InnerApp() {
             },
           }}
         />
-        <OfflineIndicator />
         <Routes>
           <Route
             path="/home"
