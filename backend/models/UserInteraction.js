@@ -122,14 +122,16 @@ userInteractionSchema.methods.updateInteraction = function(interactionType, cont
   return this.save();
 };
 
-userInteractionSchema.methods.getDecayedScore = function(interactionType, halfLifeDays = 7) {
+userInteractionSchema.methods.getDecayedScore = function(interactionType) {
   const interaction = this.interactions[interactionType];
   if (!interaction || interaction.count === 0) return 0;
 
-  const daysSinceLast = (Date.now() - interaction.lastInteraction) / (1000 * 60 * 60 * 24);
-  const decayFactor = Math.pow(0.5, daysSinceLast / halfLifeDays);
-
-  return interaction.count * decayFactor;
+  const hoursSince = (Date.now() - interaction.lastInteraction) / (1000 * 60 * 60);
+  
+  if (hoursSince < 24) return interaction.count * 1.5;
+  if (hoursSince < 168) return interaction.count * 1.0; 
+  
+  return interaction.count * 0.5; 
 };
 
 userInteractionSchema.statics.getUserPreferences = async function(viewerId) {
