@@ -270,17 +270,11 @@ postSchema.index({ 'comments.author': 1, createdAt: -1 });
 
 
 postSchema.methods.calculateEngagementScore = function() {
-  const likesWeight = 1;
-  const commentsWeight = 3;
-  const sharesWeight = 5;
-  const savesWeight = 2;
-  const viewsWeight = 0.1;
-  
-  const score = (this.likes.length * likesWeight) +
-                (this.comments.length * commentsWeight) +
-                (this.shares.length * sharesWeight) +
-                (this.saves.length * savesWeight) +
-                (this.views.length * viewsWeight);
+  const score = (this.likes.length * 1) +
+                (this.comments.length * 3) +
+                (this.shares.length * 5) +
+                (this.saves.length * 2) +
+                (this.views.length * 0.1);
   
   this.engagementScore = score;
   return score;
