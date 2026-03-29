@@ -1,47 +1,47 @@
 const fs = require('fs');
 const path = require('path');
 
-class SecurityLogger {
-  constructor() {
-    this.logFile = path.join(__dirname, '../logs/security.log');
-  }
+const logPath = path.join(__dirname, '../logs');
+const logFile = path.join(logPath, 'security.log');
 
-  _logEntry(type, message, ip, userAgent) {
-    const timestamp = new Date().toISOString();
-    const entry = `[${timestamp}] [${type}] ${message} | IP: ${ip} | User-Agent: ${userAgent}\n`;
-    fs.appendFileSync(this.logFile, entry);
-  }
-
-  logFailedLogin(identifier, reason, ip, userAgent) {
-    const message = `Failed login attempt for ${identifier}: ${reason}`;
-    this._logEntry('FAILED_LOGIN', message, ip, userAgent);
-  }
-
-  logAccountLockout(identifier, ip, userAgent) {
-    const message = `Account lockout for ${identifier}`;
-    this._logEntry('ACCOUNT_LOCKOUT', message, ip, userAgent);
-  }
-
-  logLoginAttempt(identifier, success, ip, userAgent) {
-    const status = success ? 'SUCCESS' : 'FAILED';
-    const message = `Login attempt for ${identifier}: ${status}`;
-    this._logEntry('LOGIN_ATTEMPT', message, ip, userAgent);
-  }
-
-  logSuspiciousActivity(type, data, ip, userAgent) {
-    const message = `Suspicious activity: ${type} | Data: ${JSON.stringify(data)}`;
-    this._logEntry('SUSPICIOUS_ACTIVITY', message, ip, userAgent);
-  }
-
-  logPasswordChange(userId, ip, userAgent) {
-    const message = `Password change for user ${userId}`;
-    this._logEntry('PASSWORD_CHANGE', message, ip, userAgent);
-  }
-
-  log(type, data, ip, userAgent) {
-    const message = `${type}: ${JSON.stringify(data)}`;
-    this._logEntry(type, message, ip, userAgent);
-  }
+if (!fs.existsSync(logPath)) {
+  fs.mkdirSync(logPath, { recursive: true });
 }
 
-module.exports = SecurityLogger;
+const securityLogger = {
+  _write(type, msg, ip = 'unknown', ua = 'unknown') {
+    const time = new Date().toISOString();
+    const line = `[${time}] [${type}] ${msg} | IP: ${ip} | UA: ${ua}\n`;
+    
+    console.log(`[security] ${type}: ${msg}`);
+    
+    try {
+      fs.appendFileSync(logFile, line);
+    } catch (err) {
+      console.error('[security] failed to write to log file:', err.message);
+    }
+  },
+
+  failedLogin(id, reason, ip, ua) {
+    this._write('FAIL_LOGIN', `user ${id} - ${reason}`, ip, ua);
+  },
+
+  lockout(id, ip, ua) {
+    this._write('LOCKOUT', `account locked: ${id}`, ip, ua);
+  },
+
+  suspicious(type, data, ip, ua) {
+    this._write('SUSPICIOUS', `${type} | ${JSON.stringify(data)}`, ip, ua);
+  },
+
+  passwordChange(userId, ip, ua) {
+    this._write('PW_CHANGE', `user ${userId}`, ip, ua);
+  },
+
+  generic(type, data, ip, ua) {
+    this._write(type, JSON.stringify(data), ip, ua);
+  }
+};
+
+module.exports = securityLogger;
+
