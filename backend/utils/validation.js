@@ -1,44 +1,46 @@
-const { body, validationResult } = require('express-validator');
 
-const commonValidations = {
-  username: body('username')
-    .isLength({ min: 3, max: 30 })
-    .withMessage('Username must be between 3 and 30 characters')
-    .matches(/^[a-zA-Z0-9_]+$/)
-    .withMessage('Username can only contain letters, numbers, and underscores'),
+const validate = {
+  username(val) {
+    if (!val || val.length < 3 || val.length > 30) return 'Username must be 3-30 chars';
+    if (!/^[a-zA-Z0-9_]+$/.test(val)) return 'Only letters, numbers and underscores allowed';
+    return null;
+  },
 
-  email: body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email')
-    .normalizeEmail(),
+  email(val) {
+    if (!val || !val.includes('@') || !val.includes('.')) return 'Provide a valid email';
+    return null;
+  },
 
-  password: body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
+  password(val) {
+    if (!val || val.length < 6) return 'Password must be at least 6 characters';
+    return null;
+  },
 
-  fullName: body('fullName')
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Full name must be between 2 and 50 characters')
-    .trim(),
-
-  phone: body('phone')
-    .optional()
-    .isMobilePhone('ne-NP')
-    .withMessage('Please provide a valid Nepali phone number'),
-};
-
-const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Validation failed',
-      errors: errors.array()
-    });
+  fullName(val) {
+    if (!val || val.trim().length < 2) return 'Name is too short';
+    return null;
   }
-  next();
 };
 
-module.exports = {
-  commonValidations,
-  handleValidationErrors
+const quickCheck = (fields = []) => {
+  return (req, res, next) => {
+    const errors = [];
+    
+    fields.forEach(field => {
+      const value = req.body[field];
+      const error = validate[field] ? validate[field](value) : null;
+      if (error) errors.push({ field, message: error });
+    });
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors
+      });
+    }
+    next();
+  };
 };
+
+module.exports = { validate, quickCheck };
+
