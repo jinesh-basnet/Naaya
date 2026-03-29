@@ -106,7 +106,8 @@ const PostCard: React.FC<PostCardProps> = ({
   }, [post._id]);
 
 
-  const handleAction = async (action: string) => {
+  const handleAction = async (action: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setShowActionMenu(false);
     switch (action) {
       case 'delete':
@@ -168,19 +169,17 @@ const PostCard: React.FC<PostCardProps> = ({
         return oldData;
       };
 
+      // Set data locally for immediate feedback
       queryClient.setQueriesData({ queryKey: ['feed'] }, updateFn);
-      queryClient.setQueriesData({ queryKey: ['userPosts'] }, updateFn);
-      queryClient.setQueriesData({ queryKey: ['userContentInfinite'] }, updateFn);
-      queryClient.setQueriesData({ queryKey: ['reels'] }, updateFn);
-      queryClient.setQueriesData({ queryKey: ['userReels'] }, updateFn);
-
+      
+      // Invalidate all related datasets
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       queryClient.invalidateQueries({ queryKey: ['userPosts'] });
+      queryClient.invalidateQueries({ queryKey: ['userReels'] });
+      queryClient.invalidateQueries({ queryKey: ['userContentInfinite'] });
+      queryClient.invalidateQueries({ queryKey: ['reelsFeed'] });
+      
       setShowDeleteModal(false);
-
-      if (user?.username) {
-        navigate(`/profile/${user.username}`);
-      }
     } catch (error) {
       toast.error('Failed to delete post');
     } finally {
@@ -300,19 +299,19 @@ const PostCard: React.FC<PostCardProps> = ({
                     exit={{ opacity: 0, scale: 0.9, y: -10 }}
                     className="action-dropdown-v2"
                   >
-                    <button className="menu-item-v2" onClick={() => handleAction('copy-link')}>
+                    <button className="menu-item-v2" onClick={(e) => handleAction('copy-link', e)}>
                       <FiLink /> <span>Copy Link</span>
                     </button>
                     {!isAuthor && (
-                      <button className="menu-item-v2" onClick={() => handleAction('not-interested')}>
+                      <button className="menu-item-v2" onClick={(e) => handleAction('not-interested', e)}>
                         <FiEyeOff /> <span>Not Interested</span>
                       </button>
                     )}
-                    <button className="menu-item-v2" onClick={() => handleAction('report')}>
+                    <button className="menu-item-v2" onClick={(e) => handleAction('report', e)}>
                       <FiFlag /> <span>Report</span>
                     </button>
                     {isAuthor && (
-                      <button className="menu-item-v2 danger" onClick={() => handleAction('delete')}>
+                      <button className="menu-item-v2 danger" onClick={(e) => handleAction('delete', e)}>
                         <FiTrash2 /> <span>Delete Post</span>
                       </button>
                     )}
