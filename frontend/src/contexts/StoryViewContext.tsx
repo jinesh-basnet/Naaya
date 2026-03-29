@@ -77,13 +77,18 @@ export const StoryViewProvider: React.FC<StoryViewProviderProps> = ({ children, 
 
   useEffect(() => {
     const handleStoryViewed = (data: any) => {
-      queryClient.invalidateQueries(['stories']);
+      queryClient.invalidateQueries(['stories'] as any);
     };
 
-    socket.onStoryViewed(handleStoryViewed);
+    const s = socket.socket;
+    if (s) {
+      s.on('story_viewed', handleStoryViewed);
+    }
 
     return () => {
-      socket.offStoryViewed(handleStoryViewed);
+      if (s) {
+        s.off('story_viewed', handleStoryViewed);
+      }
     };
   }, [socket, queryClient]);
 

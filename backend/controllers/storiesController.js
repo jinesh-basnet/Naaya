@@ -3,6 +3,7 @@ const { validationResult } = require('express-validator');
 const Story = require('../models/Story');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
+const Block = require('../models/Block');
 const storyService = require('../services/storyService');
 
 exports.uploadMedia = (req, res) => {
@@ -26,7 +27,7 @@ exports.createStory = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: 'Validation failed',
+        message: 'Story data is incomplete or has errors.',
         errors: errors.array()
       });
     }
@@ -56,11 +57,10 @@ exports.createStory = async (req, res) => {
       story
     });
 
-  } catch (error) {
-    console.error('Create story error:', error);
+  } catch (err) {
+    console.error('Failed to post story:', err.message);
     res.status(500).json({
-      message: 'Server error creating story',
-      code: 'CREATE_STORY_ERROR'
+      message: 'Internal error while posting your story.'
     });
   }
 };
@@ -133,6 +133,59 @@ exports.getHighlights = async (req, res) => {
   }
 };
 
+exports.getUserHighlightsById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        message: 'Invalid user ID',
+        code: 'INVALID_USER_ID'
+      });
+    }
+
+    if (req.user) {
+      const isBlocked = await Block.areBlocked(req.user._id, userId);
+      if (isBlocked) {
+        return res.status(403).json({
+          message: 'Access denied due to blocking restrictions',
+          code: 'BLOCK_RESTRICTION'
+        });
+      }
+    }
+
+    const user = await User.findById(userId).select('highlights').populate({
+      path: 'highlights.coverStory',
+      select: 'media'
+    }).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const isSameUser = req.user && req.user._id.toString() === userId.toString();
+
+    const highlights = user.highlights
+      .filter(h => !h.isArchived && (isSameUser || h.isPublic !== false))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({
+      message: 'Highlights retrieved successfully',
+      highlights
+    });
+
+  } catch (error) {
+    console.error('Get user highlights error:', error);
+    res.status(500).json({
+      message: 'Server error retrieving user highlights',
+      code: 'GET_USER_HIGHLIGHTS_ERROR'
+    });
+  }
+};
+
 exports.getUserStories = async (req, res) => {
   try {
     const { username } = req.params;
@@ -148,7 +201,6 @@ exports.getUserStories = async (req, res) => {
 
     // Block check
     if (req.user) {
-      const Block = require('../models/Block');
       const isBlocked = await Block.areBlocked(req.user._id, user._id);
       if (isBlocked) {
         return res.status(403).json({
@@ -280,7 +332,6 @@ exports.getStory = async (req, res) => {
 
     // Block check
     if (req.user) {
-      const Block = require('../models/Block');
       const isBlocked = await Block.areBlocked(req.user._id, story.author._id);
       if (isBlocked) {
         return res.status(403).json({
