@@ -244,79 +244,103 @@ const SearchPage: React.FC = () => {
       />
       {loading && <p>Loading...</p>}
       {error && <p className="error">{error}</p>}
-      {!loading && !error && (
+      {!loading && !error && query.trim().length === 0 && (
+        <div className="search-placeholder text-center text-gray-500 py-10 mt-10">
+          <p>Start typing to search users, posts, and reels...</p>
+        </div>
+      )}
+      {!loading && !error && query.trim().length > 0 && (
         <>
-          <h2>Users</h2>
-          <ul className="search-results users-results">
-            {users.length === 0 && <li>No users found.</li>}
-            {users.map((user) => (
-              <li key={user._id} className="user-result">
-                <Avatar
-                  src={user.profilePicture}
-                  alt={`${user.username} profile`}
-                  name={user.fullName}
-                  size={50}
-                />
-                <div>
-                  <strong onClick={user._id !== currentUser?._id ? () => navigate(`/profile/${user.username}`) : undefined} style={user._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{user.fullName}</strong> @{user.username}
-                  {user.isVerified && <span title="Verified">✔️</span>}
-                  <p>{user.bio}</p>
-                  <button
-                    className={`follow-button ${user.isFollowing ? 'following' : 'not-following'}`}
-                    onClick={() => handleFollowToggle(user)}
-                    disabled={loadingUserIds.includes(user._id)}
-                    aria-label={user.isFollowing ? 'Unfollow user' : 'Follow user'}
-                  >
-                    {loadingUserIds.includes(user._id)
-                      ? '...'
-                      : user.isFollowing
-                        ? 'Following'
-                        : 'Follow'}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <h2>Posts</h2>
-          <ul className="search-results posts-results">
-            {posts.length === 0 && <li>No posts found.</li>}
-            {posts.map((post) => (
-              <li key={post._id} className="post-result">
-                {post.media && post.media.length > 0 && post.media[0].type === 'image' && (
-                  <img src={post.media[0].url} alt="Post" style={{ width: '100%', height: 'auto', borderRadius: '8px', marginBottom: '10px' }} />
-                )}
-                {post.content && <p>{post.content}</p>}
-                <small>By <span onClick={post.author._id !== currentUser?._id ? () => navigate(`/profile/${post.author.username}`) : undefined} style={post.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{post.author.fullName}</span> (@{post.author.username})</small>
-              </li>
-            ))}
-          </ul>
-          <h2>Reels</h2>
-          <ul className="search-results reels-results">
-            {reels.length === 0 && <li>No reels found.</li>}
-            {reels.map((reel) => (
-              <li key={reel._id} className="reel-result">
-                <div className="reel-video-container">
-                  <video
-                    ref={(el) => { if (el) videoRefs.current[reel._id] = el; }}
-                    src={reel.video.url}
-                    controls
-                    muted
-                    playsInline
-                    style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px' }}
-                    onPlay={() => handlePlay(reel._id)}
-                    onPause={() => handlePause(reel._id)}
-                    onEnded={() => handlePause(reel._id)}
-                    onError={(e) => {
-                      console.error('Video load error:', e);
-                    }}
-                  />
-                  <div className="play-overlay">{playingReels.has(reel._id) ? '⏸' : '▶'}</div>
-                </div>
-                <p>{reel.caption}</p>
-                <small>By <span onClick={reel.author._id !== currentUser?._id ? () => navigate(`/profile/${reel.author.username}`) : undefined} style={reel.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{reel.author.fullName}</span> (@{reel.author.username})</small>
-              </li>
-            ))}
-          </ul>
+          {users.length === 0 && posts.length === 0 && reels.length === 0 ? (
+            <div className="no-results-global text-center text-gray-500 py-10 mt-10">
+              <p>No results found for "{query}".</p>
+            </div>
+          ) : (
+            <>
+              {users.length > 0 && (
+                <>
+                  <h2>Users</h2>
+                  <ul className="search-results users-results">
+                    {users.map((user) => (
+                      <li key={user._id} className="user-result">
+                        <Avatar
+                          src={user.profilePicture}
+                          alt={`${user.username} profile`}
+                          name={user.fullName}
+                          size={50}
+                        />
+                        <div>
+                          <strong onClick={user._id !== currentUser?._id ? () => navigate(`/profile/${user.username}`) : undefined} style={user._id !== currentUser?._id ? { cursor: 'pointer' } : {}}>{user.fullName}</strong> @{user.username}
+                          {user.isVerified && <span title="Verified">✔️</span>}
+                          <p>{user.bio}</p>
+                          <button
+                            className={`follow-button ${user.isFollowing ? 'following' : 'not-following'}`}
+                            onClick={() => handleFollowToggle(user)}
+                            disabled={loadingUserIds.includes(user._id)}
+                            aria-label={user.isFollowing ? 'Unfollow user' : 'Follow user'}
+                          >
+                            {loadingUserIds.includes(user._id)
+                              ? '...'
+                              : user.isFollowing
+                                ? 'Following'
+                                : 'Follow'}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {posts.length > 0 && (
+                <>
+                  <h2>Posts</h2>
+                  <ul className="search-results posts-results">
+                    {posts.map((post) => (
+                      <li key={post._id} className="post-result">
+                        {post.media && post.media.length > 0 && post.media[0].type === 'image' && (
+                          <img src={post.media[0].url} alt="Post" style={{ width: '100%', height: 'auto', borderRadius: '8px', marginBottom: '10px' }} />
+                        )}
+                        {post.content && <p>{post.content}</p>}
+                        <small>By <span onClick={post.author._id !== currentUser?._id ? () => navigate(`/profile/${post.author.username}`) : undefined} style={post.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{post.author.fullName}</span> (@{post.author.username})</small>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {reels.length > 0 && (
+                <>
+                  <h2>Reels</h2>
+                  <ul className="search-results reels-results">
+                    {reels.map((reel) => (
+                      <li key={reel._id} className="reel-result">
+                        <div className="reel-video-container">
+                          <video
+                            ref={(el) => { if (el) videoRefs.current[reel._id] = el; }}
+                            src={reel.video.url}
+                            controls
+                            muted
+                            playsInline
+                            style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                            onPlay={() => handlePlay(reel._id)}
+                            onPause={() => handlePause(reel._id)}
+                            onEnded={() => handlePause(reel._id)}
+                            onError={(e) => {
+                              console.error('Video load error:', e);
+                            }}
+                          />
+                          <div className="play-overlay">{playingReels.has(reel._id) ? '⏸' : '▶'}</div>
+                        </div>
+                        <p>{reel.caption}</p>
+                        <small>By <span onClick={reel.author._id !== currentUser?._id ? () => navigate(`/profile/${reel.author.username}`) : undefined} style={reel.author._id !== currentUser?._id ? { cursor: 'pointer', textDecoration: 'underline' } : {}}>{reel.author.fullName}</span> (@{reel.author.username})</small>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
         </>
       )}
     </div>
