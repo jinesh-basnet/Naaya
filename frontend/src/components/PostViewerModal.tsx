@@ -363,9 +363,15 @@ const PostViewerModal: React.FC<PostViewerModalProps> = ({
                 await postsAPI.deletePost(currentPost._id);
               }
               toast.success('Deleted successfully');
+
+              queryClient.invalidateQueries({ queryKey: ['userContentInfinite'] });
+              queryClient.invalidateQueries({ queryKey: ['userPosts'] });
+              queryClient.invalidateQueries({ queryKey: ['userReels'] });
+              queryClient.invalidateQueries({ queryKey: ['feed'] });
+              queryClient.invalidateQueries({ queryKey: ['reelsFeed'] });
+
               setShowDeleteModal(false);
               onClose();
-              if (user?.username) navigate(`/profile/${user.username}`);
             } catch (error) {
               toast.error('Failed to delete');
             } finally {
