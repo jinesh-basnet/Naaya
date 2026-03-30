@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MdClose, MdSend, MdSearch, MdImage } from 'react-icons/md';
 import { useAuth } from '../contexts/AuthContext';
 import { usersAPI, api } from '../services/api';
+
 import toast from 'react-hot-toast';
 import Avatar from './Avatar';
 
