@@ -23,16 +23,16 @@ exports.getSimpleFeed = async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .lean();
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .lean();
 
     const reels = await Reel.find({
       author: { $in: [...filteredFollowingIds, userId], $nin: allBlockedIds },
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .lean();
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .lean();
 
     const reelsWithFlag = reels.map(reel => ({
       ...reel,
@@ -86,11 +86,11 @@ exports.getDefaultFeed = async (req, res) => {
       isDeleted: false,
       isArchived: false
     })
-    .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-    .populate('originalAuthor', 'username fullName profilePicture isVerified')
-    .sort({ createdAt: -1 })
-    .limit(parseInt(limit))
-    .skip((parseInt(page) - 1) * parseInt(limit));
+      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+      .populate('originalAuthor', 'username fullName profilePicture isVerified')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
     res.json({
       message: 'Feed retrieved successfully',
@@ -151,11 +151,11 @@ exports.getPersonalizedFeed = async (req, res) => {
         isDeleted: false,
         isArchived: false
       })
-      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-      .lean()
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+        .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+        .lean()
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
 
       posts = posts.map(post => ({
         ...post,
@@ -175,11 +175,11 @@ exports.getPersonalizedFeed = async (req, res) => {
           isArchived: false,
           visibility: 'public'
         })
-        .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-        .lean()
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
+          .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+          .lean()
+          .sort({ createdAt: -1 })
+          .limit(limit * 1)
+          .skip((page - 1) * limit);
 
         posts = posts.map(post => ({
           ...post,
@@ -205,11 +205,11 @@ exports.getPersonalizedFeed = async (req, res) => {
         isArchived: false,
         'location.city': user.location.city
       })
-      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-      .lean()
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+        .populate('author', 'username fullName profilePicture isVerified location languagePreference')
+        .lean()
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
 
       posts = posts.map(post => ({
         ...post,
@@ -225,36 +225,83 @@ exports.getPersonalizedFeed = async (req, res) => {
         isArchived: false,
         visibility: 'public'
       })
-      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-      .lean()
-      .sort({ likesCount: -1, createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    } else if (feedType === 'trending') {
-      posts = await Post.find({
-        author: { $nin: allBlockedIds },
-        isDeleted: false,
-        isArchived: false,
-        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } 
-      })
-      .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-      .lean()
-      .sort({ likesCount: -1, createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+        .populate('author', 'username fullName profilePicture isVerified followersCount location')
+        .lean()
+        .sort({ likesCount: -1, commentsCount: -1, createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
 
       posts = posts.map(post => ({
         ...post,
-        likesCount: post.likesCount,
-        commentsCount: post.commentsCount,
-        savesCount: post.savesCount
+        algo: 'preferential_attachment'
       }));
+
+    } else if (feedType === 'trending') {
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+      posts = await Post.aggregate([
+        {
+          $match: {
+            author: { $nin: allBlockedIds.map(id => new mongoose.Types.ObjectId(id)) },
+            isDeleted: false,
+            isArchived: false,
+            visibility: 'public',
+            createdAt: { $gte: fortyEightHoursAgo }
+          }
+        },
+        {
+          $addFields: {
+            hotness: {
+              $divide: [
+                {
+                  $add: [
+                    { $multiply: ["$likesCount", 1] },
+                    { $multiply: ["$commentsCount", 2] },
+                    { $multiply: ["$sharesCount", 3] },
+                    1 // base offset
+                  ]
+                },
+                {
+                  $pow: [
+                    {
+                      $add: [
+                        { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 3600000] },
+                        2
+                      ]
+                    },
+                    1.5
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        { $sort: { hotness: -1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit * 1 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "author",
+            foreignField: "_id",
+            as: "author"
+          }
+        },
+        { $unwind: "$author" },
+        {
+          $project: {
+            "author.password": 0,
+            "author.email": 0,
+            "author.refreshToken": 0
+          }
+        }
+      ]);
     }
 
     res.json({
       message: 'Feed retrieved successfully',
       posts,
+
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -275,19 +322,20 @@ exports.getPersonalizedFeed = async (req, res) => {
 exports.getExploreOverview = async (req, res) => {
   try {
     const userId = req.user._id;
+    const { limit = 30 } = req.query;
     const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm.js');
     const algo = new RichGetRicherAlgorithm();
     
     const [suggestions, trendingTags] = await Promise.all([
-      algo.getSuggestions(userId, 10),
+      algo.getSuggestions(userId, parseInt(limit)),
       Post.aggregate([
-        { 
-          $match: { 
-            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, 
-            isDeleted: false, 
-            isArchived: false, 
-            visibility: 'public' 
-          } 
+        {
+          $match: {
+            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+            isDeleted: false,
+            isArchived: false,
+            visibility: 'public'
+          }
         },
         { $unwind: "$hashtags" },
         { $group: { _id: "$hashtags", count: { $sum: 1 } } },

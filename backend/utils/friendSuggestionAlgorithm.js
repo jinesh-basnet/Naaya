@@ -64,9 +64,15 @@ class RichGetRicherAlgorithm {
         }
       }
 
-      suggestions.forEach(u => {
+      const followingSet = new Set(following.map(id => id.toString()));
+
+      for (const u of suggestions) {
         u.isFollowing = false;
-      });
+        
+        const suggestedUserFollowers = await Follow.find({ following: u._id }).distinct('follower');
+        const suggestedUserFollowerIds = suggestedUserFollowers.map(id => id.toString());
+        u.mutualConnections = suggestedUserFollowerIds.filter(id => followingSet.has(id)).length;
+      }
 
       return {
         users: suggestions,
