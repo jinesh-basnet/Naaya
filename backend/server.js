@@ -7,6 +7,10 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const connectDB = require('./config/database');
+const mongoose = require('mongoose');
+
+mongoose.set('strictPopulate', false);
+
 const path = require('path');
 const fs = require('fs');
 const app = express();
@@ -15,7 +19,7 @@ app.set('trust proxy', 1);
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // simpler for local dev
+  contentSecurityPolicy: false,
 }));
 
 app.use(cors({
@@ -32,7 +36,6 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Simple logging and req.t polyfill
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   req.t = (key, opts) => opts?.defaultValue || key.split(':').pop();
