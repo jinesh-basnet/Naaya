@@ -26,7 +26,7 @@ interface UserHighlightsProps {
 const UserHighlights: React.FC<UserHighlightsProps> = ({ userId, onHighlightClick, onEditHighlight }) => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['userHighlights', userId],
-    queryFn: () => storiesAPI.getUserHighlights(),
+    queryFn: () => storiesAPI.getUserHighlights(userId),
     enabled: !!userId,
   });
 
