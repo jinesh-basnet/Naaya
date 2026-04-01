@@ -111,12 +111,25 @@ exports.getHighlights = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId).select('highlights').populate({
-      path: 'highlights.coverStory',
-      select: 'media'
-    }).lean();
+    const user = await User.findById(userId)
+      .populate({
+        path: 'highlights.coverStory',
+        select: 'media',
+        strictPopulate: false
+      })
+      .lean();
 
-    const highlights = user.highlights.filter(h => !h.isArchived).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const highlights = (user.highlights || [])
+      .filter(h => !h.isArchived)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
     console.log('Get highlights - highlights count:', highlights.length);
 
     res.json({
@@ -125,7 +138,7 @@ exports.getHighlights = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Get highlights error:', error.stack || error);
+    console.error('Get highlights error:', error);
     res.status(500).json({
       message: 'Server error retrieving highlights',
       code: 'GET_HIGHLIGHTS_ERROR'
@@ -154,10 +167,13 @@ exports.getUserHighlightsById = async (req, res) => {
       }
     }
 
-    const user = await User.findById(userId).select('highlights').populate({
-      path: 'highlights.coverStory',
-      select: 'media'
-    }).lean();
+    const user = await User.findById(userId)
+      .populate({
+        path: 'highlights.coverStory',
+        select: 'media',
+        strictPopulate: false
+      })
+      .lean();
 
     if (!user) {
       return res.status(404).json({
@@ -168,7 +184,7 @@ exports.getUserHighlightsById = async (req, res) => {
 
     const isSameUser = req.user && req.user._id.toString() === userId.toString();
 
-    const highlights = user.highlights
+    const highlights = (user.highlights || [])
       .filter(h => !h.isArchived && (isSameUser || h.isPublic !== false))
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -199,7 +215,6 @@ exports.getUserStories = async (req, res) => {
       });
     }
 
-    // Block check
     if (req.user) {
       const isBlocked = await Block.areBlocked(req.user._id, user._id);
       if (isBlocked) {
@@ -256,7 +271,11 @@ exports.markStoryViewed = async (req, res) => {
     const following = await Follow.find({ follower: userId }).select('following').lean();
     const userFollowing = following.map(f => f.following.toString());
 
-    const user = await User.findById(userId).populate('closeFriends', '_id');
+    const user = await User.findById(userId).populate({
+      path: 'closeFriends',
+      select: '_id',
+      strictPopulate: false
+    });
     const userCloseFriends = user.closeFriends.map(f => f._id.toString());
 
     const story = await Story.findById(storyId);
@@ -314,7 +333,11 @@ exports.getStory = async (req, res) => {
     const following = await Follow.find({ follower: userId }).select('following').lean();
     const userFollowing = following.map(f => f.following.toString());
 
-    const user = await User.findById(userId).populate('closeFriends', '_id');
+    const user = await User.findById(userId).populate({
+      path: 'closeFriends',
+      select: '_id',
+      strictPopulate: false
+    });
     const userCloseFriends = user.closeFriends.map(f => f._id.toString());
 
     const story = await Story.findById(storyId)
@@ -330,7 +353,6 @@ exports.getStory = async (req, res) => {
       });
     }
 
-    // Block check
     if (req.user) {
       const isBlocked = await Block.areBlocked(req.user._id, story.author._id);
       if (isBlocked) {
@@ -770,11 +792,16 @@ exports.getHighlight = async (req, res) => {
     const user = await User.findById(userId).populate({
       path: 'highlights.stories',
       match: { isDeleted: false },
+      strictPopulate: false,
       populate: {
         path: 'author',
         select: 'username fullName profilePicture'
       }
-    }).populate('highlights.coverStory', 'media');
+    }).populate({
+      path: 'highlights.coverStory',
+      select: 'media',
+      strictPopulate: false
+    });
 
     const highlight = user.highlights.id(highlightId);
 
