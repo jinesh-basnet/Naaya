@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const highlightSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  coverStory: { type: mongoose.Schema.Types.ObjectId, ref: 'Story' },
+  stories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Story' }],
+  isPublic: { type: Boolean, default: true },
+  isArchived: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+}, { _id: true, strictPopulate: false });
+
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -97,9 +107,15 @@ const userSchema = new mongoose.Schema({
     emailNotifications: { type: Boolean, default: true },
     pushNotifications: { type: Boolean, default: true },
     soundEffects: { type: Boolean, default: true }
-  }
+  },
+  closeFriends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  highlights: [highlightSchema]
 }, {
-  timestamps: true
+  timestamps: true,
+  strictPopulate: false
 });
 
 userSchema.index({ username: 1 });
