@@ -6,7 +6,7 @@ const Story = require('../models/Story');
 const Follow = require('../models/Follow');
 const Block = require('../models/Block');
 
-const { getFriendSuggestions } = require('../utils/friendSuggestionAlgorithm');
+
 
 
 exports.getUserProfile = async (req, res) => {
@@ -393,22 +393,29 @@ exports.unfollowUser = async (req, res) => {
 
 exports.searchUsers = async (req, res) => {
   try {
-    const { q: query, page = 1, limit = 20 } = req.query;
+    const { q: query, page = 1, limit = 20, excludeFollowing = false } = req.query;
 
-    if (!query || query.trim().length < 2) {
+    if (!query || query.trim().length < 1) {
       return res.status(400).json({
-        message: 'Search query must be at least 2 characters long',
+        message: 'Search query must at least have data',
         code: 'INVALID_SEARCH_QUERY'
       });
     }
 
     const searchRegex = new RegExp(query.trim(), 'i');
 
-    let allBlockedIds = [];
+    let excludeIds = [];
     if (req.user) {
         const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
         const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
-        allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
+        excludeIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
+        
+        if (excludeFollowing === 'true' || excludeFollowing === true) {
+            const followedIds = await Follow.find({ follower: req.user._id }).distinct('following');
+            excludeIds = [...new Set([...excludeIds, ...followedIds.map(id => id.toString()), req.user._id.toString()])];
+        } else {
+            excludeIds.push(req.user._id.toString());
+        }
     }
 
     const users = await User.find({
@@ -416,7 +423,7 @@ exports.searchUsers = async (req, res) => {
         { username: { $regex: searchRegex } },
         { fullName: { $regex: searchRegex } }
       ],
-      _id: { $nin: allBlockedIds },
+      _id: { $nin: excludeIds },
       isDeleted: false
     })
       .select('username fullName profilePicture isVerified bio location followers')
@@ -684,12 +691,16 @@ exports.getFollowing = async (req, res) => {
   }
 };
 
+const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm');
+
 exports.getSuggestions = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
-    const suggestions = await getFriendSuggestions(req.user._id, parseInt(limit));
+    const algo = new RichGetRicherAlgorithm();
+    const suggestions = await algo.getSuggestions(req.user._id, parseInt(limit));
     res.json(suggestions);
   } catch (error) {
+
     console.error('[suggestions] route error:', error.message);
     res.status(500).json({ message: 'Error getting recommendations' });
   }
