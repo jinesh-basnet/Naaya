@@ -12,7 +12,7 @@ const mongoose = require('mongoose');
 mongoose.set('strictPopulate', false);
 
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 const app = express();
 
 app.set('trust proxy', 1);
@@ -148,23 +148,25 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
-app.get('*', (req, res, next) => {
+app.get('*', async (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
 
   const possibleStatic = path.join(__dirname, 'public', req.path === '/' ? 'index.html' : req.path);
-  try {
-    if (req.path !== '/' && fs.existsSync(possibleStatic)) {
+  if (req.path !== '/') {
+    try {
+      await fs.access(possibleStatic);
       return res.sendFile(possibleStatic);
+    } catch (err) {
     }
-  } catch (err) {
   }
 
   const indexPath = path.join(__dirname, 'public', 'index.html');
-  if (fs.existsSync(indexPath)) {
+  try {
+    await fs.access(indexPath);
     return res.sendFile(indexPath);
+  } catch (err) {
+    return next();
   }
-
-  return next();
 });
 
 app.get('/api/health', (req, res) => {
