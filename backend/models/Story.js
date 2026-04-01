@@ -164,7 +164,8 @@ const storySchema = new mongoose.Schema({
     }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  strictPopulate: false
 });
 
 storySchema.index({ author: 1, createdAt: -1 });
