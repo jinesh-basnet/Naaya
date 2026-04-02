@@ -5,6 +5,7 @@ const retrievalController = require('../../controllers/retrievalController');
 const router = express.Router();
 
 router.get('/saved', authenticateToken, retrievalController.getSavedPosts);
+router.get('/bookmarks', authenticateToken, retrievalController.getSavedPosts);
 
 router.get('/user/:username', authenticateToken, retrievalController.getUserPosts);
 
