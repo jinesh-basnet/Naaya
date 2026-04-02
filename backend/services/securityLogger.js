@@ -1,22 +1,23 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
 const logPath = path.join(__dirname, '../logs');
 const logFile = path.join(logPath, 'security.log');
 
-if (!fs.existsSync(logPath)) {
-  fs.mkdirSync(logPath, { recursive: true });
-}
 
 const securityLogger = {
-  _write(type, msg, ip = 'unknown', ua = 'unknown') {
+  async _write(type, msg, ip = 'unknown', ua = 'unknown') {
     const time = new Date().toISOString();
     const line = `[${time}] [${type}] ${msg} | IP: ${ip} | UA: ${ua}\n`;
     
     console.log(`[security] ${type}: ${msg}`);
     
     try {
-      fs.appendFileSync(logFile, line);
+      await fs.mkdir(logPath, { recursive: true });
+    } catch (e) {
+    }
+    try {
+      await fs.appendFile(logFile, line, 'utf8');
     } catch (err) {
       console.error('[security] failed to write to log file:', err.message);
     }
