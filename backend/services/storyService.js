@@ -35,6 +35,14 @@ const storyService = {
     let unseenCount = 0;
 
     for (const story of stories) {
+      const canView = story.canView(
+        userId.toString(), 
+        followingIds,
+        [] 
+      );
+
+      if (!canView) continue;
+
       const authorId = story.author._id.toString();
 
       if (!storiesByAuthor[authorId]) {
