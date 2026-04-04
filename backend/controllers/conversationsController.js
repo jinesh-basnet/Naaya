@@ -9,69 +9,35 @@ exports.createConversation = async (req, res) => {
     const { type, participants, name, description } = req.body;
     const userId = req.user._id;
 
-    if (type === 'direct') {
-      if (!participants || participants.length !== 1) {
-        return res.status(400).json({
-          message: 'Direct conversations must have exactly one other participant',
-          code: 'INVALID_PARTICIPANTS'
-        });
-      }
-
-      const existingConversation = await Conversation.findDirectConversation(userId, participants[0]);
-      if (existingConversation) {
-        return res.status(200).json({
-          message: 'Direct conversation already exists',
-          conversation: existingConversation
-        });
-      }
-
-      const conversation = await Conversation.createDirectConversation(userId, participants[0]);
-      await conversation.populate('participants.user', 'username fullName profilePicture isVerified');
-
-      res.status(201).json({
-        message: 'Direct conversation created successfully',
-        conversation
-      });
-
-    } else if (type === 'group') {
-      if (!participants || participants.length < 1) {
-        return res.status(400).json({
-          message: 'Group conversations must have at least one participant',
-          code: 'INVALID_PARTICIPANTS'
-        });
-      }
-
-      if (!name || name.trim().length === 0) {
-        return res.status(400).json({
-          message: 'Group name is required',
-          code: 'NAME_REQUIRED'
-        });
-      }
-
-      const allParticipants = [userId, ...participants];
-
-      const conversation = new Conversation({
-        type: 'group',
-        participants: allParticipants.map(p => ({ user: p, role: p === userId ? 'admin' : 'member' })),
-        name: name.trim(),
-        description: description ? description.trim() : '',
-        createdBy: userId
-      });
-
-      await conversation.save();
-      await conversation.populate('participants.user', 'username fullName profilePicture isVerified');
-
-      res.status(201).json({
-        message: 'Group conversation created successfully',
-        conversation
-      });
-
-    } else {
+    if (type !== 'direct') {
       return res.status(400).json({
-        message: 'Invalid conversation type',
+        message: 'Invalid conversation type. Only direct messages are supported.',
         code: 'INVALID_TYPE'
       });
     }
+
+    if (!participants || participants.length !== 1) {
+      return res.status(400).json({
+        message: 'Direct conversations must have exactly one other participant',
+        code: 'INVALID_PARTICIPANTS'
+      });
+    }
+
+    const existingConversation = await Conversation.findDirectConversation(userId, participants[0]);
+    if (existingConversation) {
+      return res.status(200).json({
+        message: 'Direct conversation already exists',
+        conversation: existingConversation
+      });
+    }
+
+    const conversation = await Conversation.createDirectConversation(userId, participants[0]);
+    await conversation.populate('participants.user', 'username fullName profilePicture isVerified');
+
+    res.status(201).json({
+      message: 'Direct conversation created successfully',
+      conversation
+    });
 
   } catch (error) {
     console.error('Failed to create new chat:', error.message);
@@ -142,25 +108,13 @@ exports.getConversations = async (req, res) => {
           sender: lastMsg.sender || null
         } : null;
 
-        if (conv.type === 'direct') {
-          const otherParticipant = conv.participants.find(p =>
-            p.user && p.user._id && p.user._id.toString() !== userId.toString()
-          );
-          const partner = otherParticipant?.user || null;
-          if (partner && allBlockedSet.has(partner._id.toString())) return null;
+        const otherParticipant = conv.participants.find(p =>
+          p.user && p.user._id && p.user._id.toString() !== userId.toString()
+        );
+        const partner = otherParticipant?.user || null;
+        if (partner && allBlockedSet.has(partner._id.toString())) return null;
 
-          return { _id: conv._id, type: 'direct', partner, latestMessage, unreadCount };
-        } else {
-          return {
-            _id: conv._id,
-            type: 'group',
-            name: conv.name,
-            avatar: conv.avatar,
-            participants: conv.participants,
-            latestMessage,
-            unreadCount
-          };
-        }
+        return { _id: conv._id, type: 'direct', partner, latestMessage, unreadCount };
       })
       .filter(Boolean);
 
@@ -260,16 +214,9 @@ exports.getConversationById = async (req, res) => {
 
     const participant = conversation.participants.find(p => p.user && p.user._id && p.user._id.toString() === userId.toString());
     if (participant && !participant.isActive) {
-      if (conversation.type === 'direct') {
-        await Conversation.updateOne({ _id: conversationId, 'participants.user': userId }, { $set: { 'participants.$.isActive': true } });
-        participant.isActive = true;
-        console.log(`[Re-activated] User ${userId} re-activated in direct conversation ${conversationId}`);
-      } else {
-        return res.status(403).json({
-          message: 'You are no longer an active participant in this group',
-          code: 'INACTIVE_PARTICIPANT'
-        });
-      }
+      await Conversation.updateOne({ _id: conversationId, 'participants.user': userId }, { $set: { 'participants.$.isActive': true } });
+      participant.isActive = true;
+      console.log(`[Re-activated] User ${userId} re-activated in direct conversation ${conversationId}`);
     }
 
     res.json({ conversation });
@@ -283,124 +230,6 @@ exports.getConversationById = async (req, res) => {
   }
 };
 
-exports.updateConversation = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { name, description, avatar } = req.body;
-    const userId = req.user._id;
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: {
-        $elemMatch: { user: userId, role: 'admin', isActive: true }
-      },
-      type: 'group',
-      isActive: true
-    });
-
-    if (!conversation) {
-      return res.status(404).json({
-        message: 'Group conversation not found or you are not an admin',
-        code: 'CONVERSATION_NOT_FOUND'
-      });
-    }
-
-    if (name !== undefined) conversation.name = name.trim();
-    if (description !== undefined) conversation.description = description ? description.trim() : '';
-    if (avatar !== undefined) conversation.avatar = avatar;
-
-    await conversation.save();
-
-    res.json({
-      message: 'Group conversation updated successfully',
-      conversation
-    });
-
-  } catch (error) {
-    console.error('Update conversation error:', error);
-    res.status(500).json({
-      message: 'Server error updating conversation',
-      code: 'UPDATE_CONVERSATION_ERROR'
-    });
-  }
-};
-
-exports.addParticipant = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { userId } = req.body;
-    const currentUserId = req.user._id;
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: {
-        $elemMatch: { user: currentUserId, role: 'admin', isActive: true }
-      },
-      type: 'group',
-      isActive: true
-    });
-
-    if (!conversation) {
-      return res.status(404).json({
-        message: 'Group conversation not found or you are not an admin',
-        code: 'CONVERSATION_NOT_FOUND'
-      });
-    }
-
-    await conversation.addParticipant(userId);
-    await conversation.populate('participants.user', 'username fullName profilePicture isVerified');
-
-    res.json({
-      message: 'Participant added successfully',
-      conversation
-    });
-
-  } catch (error) {
-    console.error('Add participant error:', error);
-    res.status(500).json({
-      message: 'Server error adding participant',
-      code: 'ADD_PARTICIPANT_ERROR'
-    });
-  }
-};
-
-exports.removeParticipant = async (req, res) => {
-  try {
-    const { conversationId, userId } = req.params;
-    const currentUserId = req.user._id;
-
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      participants: {
-        $elemMatch: { user: currentUserId, role: 'admin', isActive: true }
-      },
-      type: 'group',
-      isActive: true
-    });
-
-    if (!conversation) {
-      return res.status(404).json({
-        message: 'Group conversation not found or you are not an admin',
-        code: 'CONVERSATION_NOT_FOUND'
-      });
-    }
-
-    await conversation.removeParticipant(userId);
-    await conversation.populate('participants.user', 'username fullName profilePicture isVerified');
-
-    res.json({
-      message: 'Participant removed successfully',
-      conversation
-    });
-
-  } catch (error) {
-    console.error('Remove participant error:', error);
-    res.status(500).json({
-      message: 'Server error removing participant',
-      code: 'REMOVE_PARTICIPANT_ERROR'
-    });
-  }
-};
 
 exports.leaveConversation = async (req, res) => {
   try {
@@ -422,20 +251,10 @@ exports.leaveConversation = async (req, res) => {
       });
     }
 
-    if (conversation.type === 'direct') {
-      conversation.participants = conversation.participants.map(p =>
-        p.user.toString() === userId.toString() ? { ...p, isActive: false } : p
-      );
-      await conversation.save();
-    } else {
-      await conversation.removeParticipant(userId);
-
-      const activeParticipants = conversation.participants.filter(p => p.isActive);
-      if (activeParticipants.length === 0) {
-        conversation.isActive = false;
-        await conversation.save();
-      }
-    }
+    conversation.participants = conversation.participants.map(p =>
+      p.user.toString() === userId.toString() ? { ...p, isActive: false } : p
+    );
+    await conversation.save();
 
     res.json({
       message: 'Conversation left successfully'
