@@ -48,7 +48,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const [showBlockModal, setShowBlockModal] = useState(false);
-  
+
   const { data: blockStatus } = useQuery({
     queryKey: ['blockStatus', profile._id],
     queryFn: async () => {
@@ -72,6 +72,18 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       </div>
 
       <div className="profile-main-card">
+        {!isCurrentUser && !isBlocked && (
+          <div className="profile-utility-actions">
+            <button
+              id="block-user-btn"
+              className="utility-icon-btn block"
+              onClick={() => setShowBlockModal(true)}
+              title="Block user"
+            >
+              <IoPersonRemove />
+            </button>
+          </div>
+        )}
         <div className="avatar-side">
           <Avatar
             src={profile.profilePicture}
@@ -137,14 +149,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                       <MdChat />
                     </button>
                   )}
-                  <button
-                    id="block-user-btn"
-                    className="premium-action-btn block"
-                    onClick={() => setShowBlockModal(true)}
-                    title="Block user"
-                  >
-                    <IoPersonRemove />
-                  </button>
                 </>
               )}
             </div>
@@ -227,4 +231,3 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 };
 
 export default ProfileHeader;
-
