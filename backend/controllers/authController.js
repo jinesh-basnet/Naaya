@@ -40,7 +40,6 @@ exports.register = async (req, res) => {
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
 
-    // Simple refresh token push
     if (!user.refreshTokens) {
       user.refreshTokens = [];
     }
@@ -88,7 +87,6 @@ exports.login = async (req, res) => {
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken();
 
-    // Limit to last 5 tokens for some sanity
     if (!user.refreshTokens) {
       user.refreshTokens = [];
     }
@@ -111,7 +109,6 @@ exports.login = async (req, res) => {
 
 exports.getMe = async (req, res) => {
   try {
-    // req.user is usually attached by auth middleware
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -136,11 +133,9 @@ exports.refreshToken = async (req, res) => {
       return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
-    // Generate new ones
     const newAccessToken = generateAccessToken(user._id);
     const newRefreshToken = generateRefreshToken();
 
-    // Replace old token with new one
     if (!user.refreshTokens) {
       user.refreshTokens = [];
     } else {
@@ -181,7 +176,6 @@ exports.sendVerification = async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Use a simple 6-digit code for "human" feel
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationToken = code;
     await user.save();
