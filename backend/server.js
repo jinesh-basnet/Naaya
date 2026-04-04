@@ -63,15 +63,15 @@ const connectWithRetry = async (retries = 5, delay = 2000) => {
   for (let i = 0; i < retries; i++) {
     try {
       await connectDB();
-      console.log('✅ Database connected successfully');
+      console.log(' Database connected successfully');
       break;
     } catch (error) {
-      console.error(`❌ Database connection attempt ${i + 1} failed:`, error.message);
+      console.error(` Database connection attempt ${i + 1} failed:`, error.message);
       if (i < retries - 1) {
-        console.log(`⏳ Retrying in ${delay}ms...`);
+        console.log(` Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        console.error('💥 Failed to connect to database after all retries');
+        console.error(' Failed to connect to database after all retries');
         process.exit(1);
       }
     }
@@ -83,44 +83,44 @@ const validateEnvironment = () => {
   const missing = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
   if (missing.length > 0) {
-    console.error('❌ Missing required environment variables:', missing.join(', '));
-    console.error('💡 Please check your .env file or environment configuration');
+    console.error(' Missing required environment variables:', missing.join(', '));
+    console.error(' Please check your .env file or environment configuration');
     process.exit(1);
   }
 
-  console.log('✅ Environment validation passed');
+  console.log(' Environment validation passed');
 };
 
 process.on('uncaughtException', (error) => {
-  console.error('💥 Uncaught Exception:', error);
+  console.error(' Uncaught Exception:', error);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error(' Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });
 
 const gracefulShutdown = (signal) => {
-  console.log(`\\n🛑 Received ${signal}. Starting graceful shutdown...`);
+  console.log(`\\n Received ${signal}. Starting graceful shutdown...`);
 
   if (global.server) {
     global.server.close((err) => {
       if (err) {
-        console.error('❌ Error during server shutdown:', err);
+        console.error(' Error during server shutdown:', err);
         process.exit(1);
       }
 
-      console.log('✅ Server closed successfully');
+      console.log(' Server closed successfully');
       process.exit(0);
     });
 
     setTimeout(() => {
-      console.error('💥 Could not close connections in time, forcefully shutting down');
+      console.error(' Could not close connections in time, forcefully shutting down');
       process.exit(1);
     }, 10000);
   } else {
-    console.log('✅ No server to close, exiting...');
+    console.log(' No server to close, exiting...');
     process.exit(0);
   }
 };
@@ -250,9 +250,9 @@ const startServer = async () => {
     await connectWithRetry();
 
     const server = app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 Health check available at: http://localhost:${PORT}/api/health`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(` Server running on port ${PORT}`);
+      console.log(` Health check available at: http://localhost:${PORT}/api/health`);
+      console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
     global.server = server;
@@ -270,13 +270,13 @@ const startServer = async () => {
     io.use((socket, next) => {
       const token = socket.handshake.auth.token;
       if (!token) {
-        console.warn('⚠️ Socket connection attempt without token');
+        console.warn(' Socket connection attempt without token');
         return next(new Error('Authentication error: No token provided'));
       }
 
       jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
-          console.warn('⚠️ Socket authentication failed:', err.message);
+          console.warn(' Socket authentication failed:', err.message);
           return next(new Error('Authentication error: Invalid token'));
         }
         socket.userId = decoded.userId;
@@ -301,22 +301,22 @@ const startServer = async () => {
 
       socket.on('join_room', (room) => {
         socket.join(room);
-        console.log(`📱 Socket ${socket.id} joined room: ${room}`);
+        console.log(` Socket ${socket.id} joined room: ${room}`);
       });
 
       socket.on('leave_room', (room) => {
         socket.leave(room);
-        console.log(`📱 Socket ${socket.id} left room: ${room}`);
+        console.log(` Socket ${socket.id} left room: ${room}`);
       });
 
       socket.on('join_conversation', (conversationId) => {
         socket.join(`conversation:${conversationId}`);
-        console.log(`📱 Socket ${socket.id} joined conversation: ${conversationId}`);
+        console.log(` Socket ${socket.id} joined conversation: ${conversationId}`);
       });
 
       socket.on('leave_conversation', (conversationId) => {
         socket.leave(`conversation:${conversationId}`);
-        console.log(`📱 Socket ${socket.id} left conversation: ${conversationId}`);
+        console.log(` Socket ${socket.id} left conversation: ${conversationId}`);
       });
 
       socket.on('send_message', (data) => {
@@ -350,7 +350,7 @@ const startServer = async () => {
       socket.on('disconnect', () => {
         onlineUsers.delete(socket.userId);
         socket.broadcast.emit('user_offline', { userId: socket.userId });
-        console.log(`📱 Socket disconnected: ${socket.id}`);
+        console.log(` Socket disconnected: ${socket.id}`);
       });
     });
 
@@ -361,7 +361,7 @@ const startServer = async () => {
     module.exports = { app, server, io };
 
   } catch (error) {
-    console.error('💥 Failed to start server:', error);
+    console.error(' Failed to start server:', error);
     process.exit(1);
   }
 };
