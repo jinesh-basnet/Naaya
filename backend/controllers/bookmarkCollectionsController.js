@@ -9,17 +9,16 @@ exports.getCollections = async (req, res) => {
   try {
     const collections = await BookmarkCollection.getUserCollections(req.user._id);
 
-    // Block Feature Integration: Filter out items from blocked users
     const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
     const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
 
     const filteredCollections = collections.map(collection => {
       const collectionObj = collection.toObject();
-      collectionObj.posts = (collectionObj.posts || []).filter(post => 
+      collectionObj.posts = (collectionObj.posts || []).filter(post =>
         post.author && !allBlockedIds.includes(post.author._id?.toString())
       );
-      collectionObj.reels = (collectionObj.reels || []).filter(reel => 
+      collectionObj.reels = (collectionObj.reels || []).filter(reel =>
         reel.author && !allBlockedIds.includes(reel.author._id?.toString())
       );
       return collectionObj;
@@ -214,7 +213,6 @@ exports.addPostToCollection = async (req, res) => {
       });
     }
 
-    // Block check
     const isBlocked = await Block.areBlocked(req.user._id, post.author._id);
     if (isBlocked) {
       return res.status(403).json({
@@ -309,7 +307,6 @@ exports.addReelToCollection = async (req, res) => {
       });
     }
 
-    // Block check
     const isBlocked = await Block.areBlocked(req.user._id, reel.author._id);
     if (isBlocked) {
       return res.status(403).json({
