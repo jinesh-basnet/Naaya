@@ -28,13 +28,16 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     setError('');
 
+    console.log("Starting login process with data:", data);
+
     try {
       await login(data.identifier, data.password);
       toast.success('Welcome back to नाया!');
       navigate('/home');
-    } catch (error: any) {
-      setError(error.message);
-      toast.error(error.message);
+    } catch (err: any) {
+      console.error("Login attempt failed:", err);
+      setError(err.message || "An unexpected error occurred during login.");
+      toast.error(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
