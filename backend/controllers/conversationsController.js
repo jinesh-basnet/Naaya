@@ -216,7 +216,6 @@ exports.getOrCreateConversationWithUser = async (req, res) => {
       });
     }
 
-    // createDirectConversation handles both creation and re-activation of left conversations
     const conversation = await Conversation.createDirectConversation(currentUserId, userId);
 
     await conversation.populate('participants.user', 'username fullName profilePicture isVerified lastActive');
@@ -244,7 +243,6 @@ exports.getConversationById = async (req, res) => {
       });
     }
 
-    // Find the conversation where the user is a participant (even if inactive)
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: { $elemMatch: { user: userId } },
@@ -260,11 +258,9 @@ exports.getConversationById = async (req, res) => {
       });
     }
 
-    // Re-activate if direct conversation participant is inactive
     const participant = conversation.participants.find(p => p.user && p.user._id && p.user._id.toString() === userId.toString());
     if (participant && !participant.isActive) {
       if (conversation.type === 'direct') {
-        // Need to update the doc in DB - the find above didn't update isActive in the DB
         await Conversation.updateOne({ _id: conversationId, 'participants.user': userId }, { $set: { 'participants.$.isActive': true } });
         participant.isActive = true;
         console.log(`[Re-activated] User ${userId} re-activated in direct conversation ${conversationId}`);
