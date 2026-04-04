@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { IoClose, IoCheckmarkCircle } from 'react-icons/io5';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -90,7 +91,7 @@ const BlockUserModal: React.FC<BlockUserModalProps> = ({
     setSelectedCategory(category);
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div className="modal-backdrop-wrapper">
@@ -191,7 +192,8 @@ const BlockUserModal: React.FC<BlockUserModalProps> = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.getElementById('modal-root') || document.body
   );
 };
 
