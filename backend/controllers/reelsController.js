@@ -4,13 +4,35 @@ const User = require('../models/User');
 const Follow = require('../models/Follow');
 const Block = require('../models/Block');
 const BookmarkCollection = require('../models/BookmarkCollection');
-const { findCommentById, countTotalComments } = require('../utils/commentUtils');
+const { findCommentById } = require('../utils/commentUtils');
+
+const formatReelResponse = (reel) => {
+  const reelObj = typeof reel.toObject === 'function' ? reel.toObject() : reel;
+  const mediaItem = {
+    type: 'video',
+    url: reelObj.video?.url || '',
+    width: reelObj.video?.width || 0,
+    height: reelObj.video?.height || 0,
+    duration: reelObj.video?.duration || 0,
+    size: reelObj.video?.size || 0,
+    format: reelObj.video?.format || ''
+  };
+  if (reelObj.video?.thumbnail) {
+    mediaItem.thumbnail = reelObj.video.thumbnail;
+  }
+  return {
+    ...reelObj,
+    media: [mediaItem],
+    likesCount: reel.likesCount !== undefined ? reel.likesCount : reelObj.likesCount,
+    commentsCount: reel.commentsCount !== undefined ? reel.commentsCount : reelObj.commentsCount,
+    sharesCount: reel.sharesCount !== undefined ? reel.sharesCount : reelObj.sharesCount,
+    savesCount: reel.savesCount !== undefined ? reel.savesCount : reelObj.savesCount,
+    viewsCount: reel.viewsCount !== undefined ? reel.viewsCount : reelObj.viewsCount
+  };
+};
 
 exports.createReel = async (req, res) => {
   try {
-    console.log('Reel creation request body:', req.body);
-    console.log('Reel creation request file:', req.file ? { originalname: req.file.originalname, size: req.file.size } : 'No file');
-
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -65,16 +87,12 @@ exports.getSavedReels = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const userId = req.user._id;
 
-    console.log('Getting saved reels for user:', userId, 'page:', page, 'limit:', limit);
-
     const totalCount = await Reel.countDocuments({
       'saves.user': userId,
       isDeleted: false,
       isArchived: false,
       'video.url': { $exists: true, $ne: '' }
     });
-
-    console.log('Total saved reels count:', totalCount);
 
     if (totalCount === 0) {
       return res.json({
@@ -159,31 +177,7 @@ exports.getSavedReels = async (req, res) => {
       }
     ]);
 
-    console.log('Aggregation completed, found', savedReels.length, 'saved reels');
-
-    const finalReels = savedReels.map(reel => {
-      const mediaItem = {
-        type: 'video',
-        url: reel.video.url,
-        width: reel.video.width,
-        height: reel.video.height,
-        duration: reel.video.duration,
-        size: reel.video.size,
-        format: reel.video.format
-      };
-      if (reel.video.thumbnail) {
-        mediaItem.thumbnail = reel.video.thumbnail;
-      }
-      return {
-        ...reel,
-        media: [mediaItem],
-        likesCount: reel.likesCount,
-        commentsCount: reel.commentsCount,
-        sharesCount: reel.sharesCount,
-        savesCount: reel.savesCount,
-        viewsCount: reel.viewsCount
-      };
-    });
+    const finalReels = savedReels.map(formatReelResponse);
 
     res.json({
       message: 'Saved reels retrieved successfully',
@@ -214,7 +208,6 @@ exports.getFeed = async (req, res) => {
     const following = await Follow.find({ follower: userId }).select('following').lean();
     const followingIds = following.map(f => f.following.toString());
 
-    // Get all blocked IDs (both who I blocked and who blocked me)
     const blockedUserIds = await Block.getBlockedUserIds(userId);
     const blockerUserIds = await Block.getBlockerUserIds(userId);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
@@ -222,14 +215,14 @@ exports.getFeed = async (req, res) => {
     const authorIds = [...followingIds, userId.toString()].filter(id => !allBlockedIds.includes(id));
 
     const total = await Reel.countDocuments({
-      author: { $in: authorIds, $nin: allBlockedIds },
+      author: { $in: authorIds },
       isDeleted: false,
       isArchived: false,
       'video.url': { $exists: true, $ne: '' }
     });
 
     const allReels = await Reel.find({
-      author: { $in: authorIds, $nin: allBlockedIds },
+      author: { $in: authorIds },
       isDeleted: false,
       isArchived: false,
       'video.url': { $exists: true, $ne: '' }
@@ -240,31 +233,7 @@ exports.getFeed = async (req, res) => {
       .limit(limit * 5)
       .skip((page - 1) * limit);
 
-    console.log('Reels feed count:', allReels.length, 'total:', total);
-
-    const finalReels = allReels.map(reel => {
-      const mediaItem = {
-        type: 'video',
-        url: reel.video.url,
-        width: reel.video.width,
-        height: reel.video.height,
-        duration: reel.video.duration,
-        size: reel.video.size,
-        format: reel.video.format
-      };
-      if (reel.video.thumbnail) {
-        mediaItem.thumbnail = reel.video.thumbnail;
-      }
-      return {
-        ...reel,
-        media: [mediaItem],
-        likesCount: reel.likesCount,
-        commentsCount: reel.commentsCount,
-        sharesCount: reel.sharesCount,
-        savesCount: reel.savesCount,
-        viewsCount: reel.viewsCount
-      };
-    });
+    const finalReels = allReels.map(formatReelResponse);
 
     res.json({
       message: 'Reels feed retrieved successfully',
@@ -290,7 +259,6 @@ exports.getFeed = async (req, res) => {
 exports.searchReels = async (req, res) => {
   try {
     const { q: query, page = 1, limit = 20 } = req.query;
-    console.log('Search reels called by user:', req.user ? req.user._id : null, 'query:', query, 'page:', page, 'limit:', limit);
 
     if (!query || query.trim().length < 1) {
       return res.status(400).json({
@@ -307,9 +275,9 @@ exports.searchReels = async (req, res) => {
 
     let allBlockedIds = [];
     if (req.user) {
-        const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
-        const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
-        allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
+      const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
+      const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
+      allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
     }
 
     const reels = await Reel.find({
@@ -341,30 +309,7 @@ exports.searchReels = async (req, res) => {
       visibility: 'public'
     });
 
-    const finalReels = reels.map(reel => {
-      const reelObj = reel.toObject();
-      const mediaItem = {
-        type: 'video',
-        url: reel.video.url,
-        width: reel.video.width,
-        height: reel.video.height,
-        duration: reel.video.duration,
-        size: reel.video.size,
-        format: reel.video.format
-      };
-      if (reel.video.thumbnail) {
-        mediaItem.thumbnail = reel.video.thumbnail;
-      }
-      return {
-        ...reelObj,
-        media: [mediaItem],
-        likesCount: reel.likesCount,
-        commentsCount: reel.commentsCount,
-        sharesCount: reel.sharesCount,
-        savesCount: reel.savesCount,
-        viewsCount: reel.viewsCount
-      };
-    });
+    const finalReels = reels.map(formatReelResponse);
 
     res.json({
       message: 'Reels searched successfully',
@@ -404,7 +349,6 @@ exports.getReel = async (req, res) => {
       });
     }
 
-    // Block check
     if (req.user) {
       const isBlocked = await Block.areBlocked(req.user._id, reel.author._id);
       if (isBlocked) {
@@ -517,7 +461,6 @@ exports.commentOnReel = async (req, res) => {
       });
     }
 
-    // Block check
     if (req.user) {
       const isBlocked = await Block.areBlocked(req.user._id, reel.author._id);
       if (isBlocked) {
@@ -765,30 +708,7 @@ exports.getUserReels = async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const finalReels = reels.map(reel => {
-      const reelObj = reel.toObject();
-      const mediaItem = {
-        type: 'video',
-        url: reel.video.url,
-        width: reel.video.width,
-        height: reel.video.height,
-        duration: reel.video.duration,
-        size: reel.video.size,
-        format: reel.video.format
-      };
-      if (reel.video.thumbnail) {
-        mediaItem.thumbnail = reel.video.thumbnail;
-      }
-      return {
-        ...reelObj,
-        media: [mediaItem],
-        likesCount: reel.likesCount,
-        commentsCount: reel.commentsCount,
-        sharesCount: reel.sharesCount,
-        savesCount: reel.savesCount,
-        viewsCount: reel.viewsCount
-      };
-    });
+    const finalReels = reels.map(formatReelResponse);
 
     res.json({
       message: 'User reels retrieved successfully',
