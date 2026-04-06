@@ -18,7 +18,6 @@ exports.reportPost = async (req, res) => {
     const { reason, description = '', evidence = [] } = req.body;
     const reporterId = req.user._id;
 
-    // Check if post exists
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({
@@ -27,7 +26,6 @@ exports.reportPost = async (req, res) => {
       });
     }
 
-    // Create report
     const report = await Report.createReport({
       reporter: reporterId,
       contentType: 'post',
@@ -184,7 +182,6 @@ exports.reportUser = async (req, res) => {
     const { reason, description = '', evidence = [] } = req.body;
     const reporterId = req.user._id;
 
-    // Check if user exists
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -258,12 +255,12 @@ exports.getMyReports = async (req, res) => {
 
 exports.getAllReports = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      status, 
-      priority, 
-      contentType, 
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      priority,
+      contentType,
       assignedTo,
       sortBy = 'createdAt',
       sortOrder = 'desc'
