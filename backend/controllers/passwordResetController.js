@@ -6,38 +6,39 @@ const securityLogger = require('../services/securityLogger');
 
 exports.requestReset = async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ message: 'Email is required' });
+    const { email, username } = req.body;
+    if (!email || !username) return res.status(400).json({ message: 'Email and username are required' });
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+      username: username.trim()
+    });
 
     if (!user) {
       console.log(`[auth] reset requested for unknown email: ${email}`);
-      // securityLogger.log(...) - I'll fix this later
       return res.status(200).json({
+        success: true,
         message: 'If an account exists, we sent an OTP to the email.'
       });
     }
 
     const otp = user.generateOTP();
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { otp: user.otp, otpExpires: user.otpExpires } }
+    );
 
-    console.log(`[auth] sending OTP to ${user.email}`);
     const emailResult = await communicationService.sendOTP(user.email, otp, user.fullName);
 
-    if (emailResult.success) {
-      return res.status(200).json({
-        message: 'If an account exists, we sent an OTP to the email.'
-      });
-    } else {
-      return res.status(500).json({
-        message: 'Failed to send email'
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      recoveryToken: otp,
+      message: 'Identity verified. You can now reset your password.'
+    });
 
   } catch (error) {
-    console.error('[auth] reset request error:', error.message);
-    res.status(500).json({ message: 'Server error check logs' });
+    console.error('[auth] reset request error:', error);
+    res.status(500).json({ message: `Server error: ${error.message}`, stack: error.stack });
   }
 };
 
@@ -159,8 +160,8 @@ exports.verifyOTP = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'OTP verified', userId: user._id });
   } catch (error) {
-    console.error('[auth] OTP verify error:', error.message);
-    res.status(500).json({ message: 'Server error check logs' });
+    console.error('[auth] OTP verify error:', error);
+    res.status(500).json({ message: `Server error: ${error.message}` });
   }
 };
 
@@ -180,8 +181,8 @@ exports.resetWithOTP = async (req, res) => {
 
     res.json({ success: true, message: 'Password reset successful' });
   } catch (error) {
-    console.error('[auth] Reset with OTP error:', error.message);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[auth] Reset with OTP error:', error);
+    res.status(500).json({ message: `Server error: ${error.message}` });
   }
 };
 
