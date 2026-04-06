@@ -142,7 +142,6 @@ exports.getPersonalizedFeed = async (req, res) => {
     if (feedType === 'following') {
       const following = await Follow.find({ follower: userId }).select('following').lean();
       const followingIds = following.map(f => f.following.toString());
-      // Combine following and user themselves, then subtract blocked users
       const authorIds = [...followingIds, userId.toString()].filter(id => !allBlockedIds.includes(id));
 
       posts = await Post.find({
@@ -197,26 +196,6 @@ exports.getPersonalizedFeed = async (req, res) => {
         throw queryError;
       }
 
-    } else if (feedType === 'nearby') {
-      posts = await Post.find({
-        author: { $nin: allBlockedIds },
-        postType: 'post',
-        isDeleted: false,
-        isArchived: false,
-        'location.city': user.location.city
-      })
-        .populate('author', 'username fullName profilePicture isVerified location languagePreference')
-        .lean()
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-
-      posts = posts.map(post => ({
-        ...post,
-        likesCount: post.likesCount,
-        commentsCount: post.commentsCount,
-        savesCount: post.savesCount
-      }));
     } else if (feedType === 'explore') {
       posts = await Post.find({
         author: { $nin: allBlockedIds },
@@ -258,7 +237,7 @@ exports.getPersonalizedFeed = async (req, res) => {
                     { $multiply: ["$likesCount", 1] },
                     { $multiply: ["$commentsCount", 2] },
                     { $multiply: ["$sharesCount", 3] },
-                    1 // base offset
+                    1
                   ]
                 },
                 {
@@ -325,7 +304,7 @@ exports.getExploreOverview = async (req, res) => {
     const { limit = 30 } = req.query;
     const RichGetRicherAlgorithm = require('../utils/friendSuggestionAlgorithm.js');
     const algo = new RichGetRicherAlgorithm();
-    
+
     const [suggestions, trendingTags] = await Promise.all([
       algo.getSuggestions(userId, parseInt(limit)),
       Post.aggregate([
@@ -344,7 +323,6 @@ exports.getExploreOverview = async (req, res) => {
       ])
     ]);
 
-    // Format tags
     const tags = trendingTags.map(t => ({
       name: t._id,
       count: t.count
