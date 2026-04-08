@@ -709,11 +709,11 @@ exports.getSuggestions = async (req, res) => {
 
 exports.updateKeys = async (req, res) => {
   try {
-    const { publicKey, privateKeyEncrypted, salt } = req.body;
+    const { publicKey } = req.body;
     const userId = req.user._id;
 
-    if (!publicKey || !privateKeyEncrypted) {
-      return res.status(400).json({ message: 'Public and private keys are required' });
+    if (!publicKey) {
+      return res.status(400).json({ message: 'Public key is required' });
     }
 
     const user = await User.findById(userId);
@@ -722,9 +722,7 @@ exports.updateKeys = async (req, res) => {
     }
 
     user.encryption = {
-      publicKey,
-      privateKeyEncrypted,
-      salt
+      publicKey
     };
 
     await user.save();
