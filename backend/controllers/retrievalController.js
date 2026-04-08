@@ -29,7 +29,7 @@ exports.getSavedPosts = async (req, res) => {
 
     const total = defaultCollection.posts.length;
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const postIdsPage = defaultCollection.posts.slice(skip, skip + parseInt(limit));
 
     const posts = await Post.find({
@@ -43,7 +43,7 @@ exports.getSavedPosts = async (req, res) => {
     const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
     const allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
 
-    const filteredPosts = posts.filter(post => 
+    const filteredPosts = posts.filter(post =>
       post.author && !allBlockedIds.includes(post.author._id?.toString())
     );
 
@@ -86,7 +86,7 @@ exports.getUserPosts = async (req, res) => {
     }
 
     if (req.user) {
-        const isBlocked = await Block.areBlocked(req.user._id, user._id);
+      const isBlocked = await Block.areBlocked(req.user._id, user._id);
       if (isBlocked) {
         return res.status(403).json({
           message: 'Access denied due to blocking restrictions',
@@ -145,9 +145,9 @@ exports.searchPosts = async (req, res) => {
 
     let allBlockedIds = [];
     if (req.user) {
-            const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
-        const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
-        allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
+      const blockedUserIds = await Block.getBlockedUserIds(req.user._id);
+      const blockerUserIds = await Block.getBlockerUserIds(req.user._id);
+      allBlockedIds = [...new Set([...blockedUserIds, ...blockerUserIds])].map(id => id.toString());
     }
 
     const posts = await Post.find({
@@ -245,9 +245,8 @@ exports.getPost = async (req, res) => {
       });
     }
 
-    // Block check
     if (req.user) {
-        const isBlocked = await Block.areBlocked(req.user._id, post.author._id);
+      const isBlocked = await Block.areBlocked(req.user._id, post.author._id);
       if (isBlocked) {
         return res.status(403).json({
           message: 'Access denied due to blocking restrictions',
