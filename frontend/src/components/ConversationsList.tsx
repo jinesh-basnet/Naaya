@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FaEdit, FaSearch, FaUsers } from 'react-icons/fa';
+import { FaEdit, FaSearch } from 'react-icons/fa';
 import { BsCheck2, BsCheck2All } from 'react-icons/bs';
 import { IoTrashOutline } from 'react-icons/io5';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { messagesAPI, usersAPI } from '../services/api';
 import Avatar from './Avatar';
-import CreateGroupModal from './CreateGroupModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import './ConversationsList.css';
 
@@ -23,14 +22,10 @@ interface User {
 
 interface Conversation {
     _id: string;
-    type: 'direct' | 'group';
+    type: 'direct';
     name?: string;
     avatar?: string;
-    participants: Array<{
-        user: any;
-        role: 'admin' | 'member';
-        isActive: boolean;
-    }>;
+    isActive: boolean;
     latestMessage?: {
         _id: string;
         content: string;
@@ -51,7 +46,6 @@ const ConversationsList = () => {
     const queryClient = useQueryClient();
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [showCreateGroup, setShowCreateGroup] = useState(false);
     const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
     const [deleteModalConfig, setDeleteModalConfig] = useState<{ isOpen: boolean; conversationId: string } | null>(null);
@@ -79,11 +73,11 @@ const ConversationsList = () => {
         const raw = Array.isArray(conversationsData) ? conversationsData : [];
         const mapped = raw.map((conv: any) => {
             let partner = conv.partner;
-            
+
             if (conv.type === 'direct') {
                 const currentIdStr = String(user?._id || '');
                 const partnerIdStr = String(partner?._id || partner || '');
-                
+
                 if (!partner || partnerIdStr === currentIdStr) {
                     const foundPartner = conv.participants?.find((p: any) => {
                         const pId = String(typeof p.user === 'string' ? p.user : (p.user?._id || p.user || ''));
@@ -122,7 +116,7 @@ const ConversationsList = () => {
         const handleReceiveMessage = (data: any) => {
             queryClient.setQueryData<any[]>(['conversations'], (old) => {
                 if (!old) return old;
-                
+
                 const convId = data?.conversation || data?.conversationId;
                 if (!convId) {
                     refetch();
@@ -199,24 +193,24 @@ const ConversationsList = () => {
 
         const s = socket.socket;
         if (s) {
-          s.on('receive_message', handleReceiveMessage);
-          s.on('user_typing', handleUserTyping);
-          s.on('messages_read', handleMessagesRead);
-          s.on('user_online', handleUserOnline);
-          s.on('user_offline', handleUserOffline);
+            s.on('receive_message', handleReceiveMessage);
+            s.on('user_typing', handleUserTyping);
+            s.on('messages_read', handleMessagesRead);
+            s.on('user_online', handleUserOnline);
+            s.on('user_offline', handleUserOffline);
         }
 
         const timers = typingTimers.current;
         return () => {
-          if (s) {
-            s.off('receive_message', handleReceiveMessage);
-            s.off('user_typing', handleUserTyping);
-            s.off('messages_read', handleMessagesRead);
-            s.off('user_online', handleUserOnline);
-            s.off('user_offline', handleUserOffline);
-          }
-            
-          Object.values(timers).forEach(clearTimeout);
+            if (s) {
+                s.off('receive_message', handleReceiveMessage);
+                s.off('user_typing', handleUserTyping);
+                s.off('messages_read', handleMessagesRead);
+                s.off('user_online', handleUserOnline);
+                s.off('user_offline', handleUserOffline);
+            }
+
+            Object.values(timers).forEach(clearTimeout);
         };
     }, [socket, refetch, queryClient, user?._id]);
 
@@ -236,10 +230,9 @@ const ConversationsList = () => {
     };
 
     const getConversationDisplayName = (conv: Conversation) => {
-        if (conv.type === 'group') return conv.name || 'Group';
         if (conv.partner) {
             const p = conv.partner;
-            return (typeof p === 'object') 
+            return (typeof p === 'object')
                 ? (p.fullName || p.username || p._id || 'Unknown User')
                 : (p || 'Unknown User');
         }
@@ -305,13 +298,6 @@ const ConversationsList = () => {
                     >
                         <FaEdit />
                     </button>
-                    <button
-                        className="new-message-btn group-btn"
-                        onClick={() => setShowCreateGroup(true)}
-                        title="Create Group"
-                    >
-                        <FaUsers />
-                    </button>
                 </div>
             </div>
 
@@ -328,9 +314,7 @@ const ConversationsList = () => {
                 </div>
             </div>
 
-            {showCreateGroup && (
-                <CreateGroupModal onClose={() => setShowCreateGroup(false)} />
-            )}
+
 
             <div className="conversations-scroll-area">
                 {isLoading ? (
@@ -352,7 +336,6 @@ const ConversationsList = () => {
                         )}
 
                         {filteredConversations.map((conversation: Conversation) => {
-                            const isGroup = conversation.type === 'group';
                             const partner = conversation.partner;
                             const partnerId = partner?._id;
                             const partnerUsername = partner?.username;
@@ -369,27 +352,23 @@ const ConversationsList = () => {
                                     key={conversation._id}
                                     className={`conversation-row ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
                                     onClick={() => {
-                                        if (isGroup) {
-                                            navigate(`/messages/group/${conversation._id}`);
+                                        // Prioritize username for better URL and profile fetching on ChatPage
+                                        const identifier = partnerUsername || partnerId;
+                                        if (identifier) {
+                                            navigate(`/messages/${identifier}`);
                                         } else {
-                                            // Prioritize username for better URL and profile fetching on ChatPage
-                                            const identifier = partnerUsername || partnerId;
-                                            if (identifier) {
-                                                navigate(`/messages/${identifier}`);
-                                            } else {
-                                                navigate(`/messages/conversation/${conversation._id}`);
-                                            }
+                                            navigate(`/messages/conversation/${conversation._id}`);
                                         }
                                     }}
                                 >
                                     <div className="avatar-wrapper">
                                         <Avatar
-                                            src={isGroup ? conversation.avatar : conversation.partner?.profilePicture}
+                                            src={conversation.partner?.profilePicture}
                                             alt={getConversationDisplayName(conversation)}
                                             name={getConversationDisplayName(conversation)}
                                             size="100%"
                                         />
-                                        {!isGroup && isUserOnline(partnerId) && (
+                                        {isUserOnline(partnerId) && (
                                             <span className="online-indicator" />
                                         )}
                                     </div>
@@ -411,11 +390,7 @@ const ConversationsList = () => {
                                                     <>
                                                         {conversation.latestMessage?.sender?._id === user?._id ? (
                                                             <span className="sender-name">You: </span>
-                                                        ) : (
-                                                            isGroup && conversation.latestMessage?.sender ? (
-                                                                <span className="sender-name">{conversation.latestMessage.sender.fullName?.split(' ')[0] || conversation.latestMessage.sender.username}: </span>
-                                                            ) : null
-                                                        )}
+                                                        ) : null}
                                                         {conversation.latestMessage
                                                             ? (conversation.latestMessage.messageType === 'image'
                                                                 ? '📷 Photo'
