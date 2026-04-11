@@ -22,8 +22,8 @@ const Navbar: React.FC<NavbarProps> = ({ setSidebarOpen, isCollapsed = false, se
 
   const navItems = getNavItems(t);
   const userItems = userNavItems(t);
-
   const handleNavigation = (path: string) => {
+    console.log("Navigating to:", path);
     if (path === '/logout') {
       logout();
       navigate('/login');
