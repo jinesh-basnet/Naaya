@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.post('/request', [
   body('email').isEmail().withMessage('Please provide a valid email address'),
+  body('username').notEmpty().withMessage('Please provide your username')
 ], passwordResetController.requestReset);
 
 router.post('/verify', [
