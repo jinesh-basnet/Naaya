@@ -160,7 +160,7 @@ exports.sendMessage = async (req, res) => {
 
     if (global.notificationService) {
       for (const p of otherParticipants) {
-        global.notificationService.message(p.user, senderId, message._id, content);
+        global.notificationService.message(p.user, senderId, message._id, content, actualConversationId);
       }
     }
 
