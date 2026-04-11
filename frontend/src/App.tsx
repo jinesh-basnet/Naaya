@@ -34,6 +34,7 @@ import FollowingPage from './pages/FollowingPage';
 import SettingsPage from './pages/SettingsPage';
 import BlockedUsersPage from './pages/BlockedUsersPage';
 import PrivacySettingsPage from './pages/PrivacySettingsPage';
+import PostPage from './pages/PostPage';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
@@ -80,6 +81,8 @@ function InnerApp() {
       const width = window.innerWidth;
       setIsMobile(width < 768);
       setIsDesktop(width > 1024);
+
+      console.log("Current Screen Width:", width);
     };
 
     checkScreenSize();
@@ -101,6 +104,7 @@ function InnerApp() {
   };
 
   const handlePost = async (post: any) => {
+    console.log("Submitting new post payload:", post);
     try {
       const formData = new FormData();
       if (post.caption) formData.append('content', post.caption);
@@ -112,7 +116,7 @@ function InnerApp() {
       if (post.language) formData.append('language', post.language);
       if (post.visibility) formData.append('visibility', post.visibility);
       if (post.postType) formData.append('postType', post.postType);
-      
+
       await postsAPI.createPost(formData);
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       toast.success('Post shared!');
@@ -148,13 +152,10 @@ function InnerApp() {
               </ProtectedRoute>
             }
           />
-          { /* public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          { /* Protected Routes */}
-
           <Route
             path="/messages"
             element={
@@ -173,14 +174,6 @@ function InnerApp() {
           />
           <Route
             path="/messages/conversation/:conversationId"
-            element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/messages/group/:groupId"
             element={
               <ProtectedRoute>
                 <ChatPage />
@@ -284,6 +277,15 @@ function InnerApp() {
             }
           />
 
+
+          <Route
+            path="/post/:postId"
+            element={
+              <ProtectedRoute>
+                <PostPage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
