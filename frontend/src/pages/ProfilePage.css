@@ -568,10 +568,12 @@
 .stat-value {
   font-size: 1.8rem;
   font-weight: 900;
+  color: var(--primary-main);
   background: var(--premium-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  display: block;
 }
 
 .stat-label {

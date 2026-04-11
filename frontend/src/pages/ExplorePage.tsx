@@ -1,54 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { postsAPI, usersAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { usersAPI, postsAPI } from '../services/api';
+import toast from 'react-hot-toast';
 import {
   IoSearch,
   IoClose,
-  IoHeart,
-  IoChatbubble,
-  IoCompass,
-  IoTrendingUp,
+  IoStar,
+  IoFlash,
   IoPeople,
-  IoPlay,
-  IoImages,
+  IoPersonAdd,
+  IoCheckmarkCircle,
+  IoShieldCheckmark,
+  IoLocation,
   IoGrid,
-  IoList,
-  IoSparkles,
-  IoPricetag
 } from 'react-icons/io5';
-import Suggestions from '../components/Suggestions';
 import Avatar from '../components/Avatar';
+import PostViewerModal from '../components/PostViewerModal';
 import './ExplorePage.css';
-
-interface Post {
-  _id: string;
-  content: string;
-  media: Array<{
-    type: string;
-    url: string;
-    thumbnail?: string;
-  }>;
-  author: {
-    _id: string;
-    username: string;
-    fullName: string;
-    profilePicture: string;
-    isVerified: boolean;
-  };
-  location: {
-    city: string;
-    district: string;
-  };
-  language: string;
-  likes: Array<{ user: string }>;
-  comments: Array<any>;
-  createdAt: string;
-  likesCount: number;
-  commentsCount: number;
-}
 
 interface User {
   _id: string;
@@ -56,554 +26,375 @@ interface User {
   fullName: string;
   profilePicture: string;
   isVerified: boolean;
+  followersCount?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
+  location?: { city: string; district?: string };
+  bio?: string;
+  interests?: string[];
+  suggestionScore?: number;
+  mutualConnections?: number;
 }
 
-const BACKEND_BASE_URL = 'http://localhost:5000';
-
-const categories = [
-  { id: 'all', label: 'All', icon: <IoGrid /> },
-  { id: 'photos', label: 'Photos', icon: <IoImages /> },
-  { id: 'videos', label: 'Videos', icon: <IoPlay /> },
-];
-
-const ExplorePage: React.FC = () => {
-  const { user } = useAuth();
+const DiscoverPeoplePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [loadingUserIds, setLoadingUserIds] = useState<string[]>([]);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isPostViewerOpen, setIsPostViewerOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'posts' | 'people'>('posts');
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const { data: overviewData } = useQuery({
-    queryKey: ['explore-overview'],
-    queryFn: () => postsAPI.getExploreOverview().then(res => res.data),
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'people') {
+      setActiveView('people');
+    } else if (tab === 'posts') {
+      setActiveView('posts');
+    }
+
+    if (tab) {
+    }
+  }, [location.search]);
+
+  const { data: suggestionData, isLoading: isLoadingSuggestions } = useQuery({
+    queryKey: ['suggested-users-rgr'],
+    queryFn: () => postsAPI.getExploreOverview(50).then(res => res.data),
+    staleTime: 60000
   });
 
-  const { data: exploreData, isLoading } = useQuery({
-    queryKey: ['explore', activeTab],
-    queryFn: () => {
-      switch (activeTab) {
-        case 0:
-          return postsAPI.getFeed('explore');
-        case 1:
-          return postsAPI.getFeed('trending');
-        case 2:
-          return Promise.resolve({ data: { posts: [] } } as any);
-        default:
-          return postsAPI.getFeed('explore');
-      }
-    },
-  });
-
-  const { data: postSearchResults, isLoading: isSearchingPosts } = useQuery({
-    queryKey: ['search-posts', debouncedSearch],
-    queryFn: () => postsAPI.searchPosts(debouncedSearch),
-    enabled: debouncedSearch.length > 1,
-  });
-
-  const { data: userSearchResults, isLoading: isSearchingUsers } = useQuery({
+  const { data: searchResults, isLoading: isSearching } = useQuery({
     queryKey: ['search-users', debouncedSearch],
-    queryFn: () => usersAPI.searchUsers(debouncedSearch),
-    enabled: debouncedSearch.length > 1,
+    queryFn: () => usersAPI.searchUsers(debouncedSearch, true).then(res => res.data),
+    enabled: debouncedSearch.length > 0,
   });
 
-  const isActuallySearching = debouncedSearch.length > 1;
+  // Recommended Posts (Explore Feed)
+  const { data: explorePosts, isLoading: isLoadingPosts } = useQuery({
+    queryKey: ['explore-posts'],
+    queryFn: () => postsAPI.getFeed('explore', 1, 30).then(res => res.data),
+    staleTime: 60000,
+  });
 
-  let posts = isActuallySearching
-    ? (postSearchResults?.data?.posts || (postSearchResults as any)?.posts || (postSearchResults as any)?.data || [])
-    : (exploreData?.data?.posts || (exploreData as any)?.posts || (exploreData as any)?.data || []);
+  const displayUsers: User[] = useMemo(() => {
+    if (debouncedSearch.length > 0) {
+      return searchResults?.users || searchResults || [];
+    }
+    return suggestionData?.suggestedUsers || [];
+  }, [debouncedSearch, searchResults, suggestionData]);
 
-  const foundUsers: User[] = isActuallySearching
-    ? (userSearchResults?.data?.users || (userSearchResults as any)?.users || (userSearchResults as any)?.data || [])
-    : [];
+  useEffect(() => {
+    const handleFollowUpdate = () => {
+      queryClient.invalidateQueries(['suggested-users-rgr']);
+      queryClient.invalidateQueries(['search-users']);
+    };
 
-  if (selectedCategory !== 'all') {
-    posts = posts.filter((post: Post) => {
-      if (selectedCategory === 'photos') {
-        return post.media?.[0]?.type === 'image';
+    const socket = (window as any).socket;
+    if (socket) {
+      socket.on('user_followed', handleFollowUpdate);
+      socket.on('user_unfollowed', handleFollowUpdate);
+    }
+    return () => {
+      if (socket) {
+        socket.off('user_followed', handleFollowUpdate);
+        socket.off('user_unfollowed', handleFollowUpdate);
       }
-      if (selectedCategory === 'videos') {
-        return post.media?.[0]?.type === 'video';
-      }
-      return true;
-    });
-  }
+    };
+  }, [queryClient]);
 
-  const tabLabels = [
-    { id: 0, label: 'For You', icon: <IoCompass /> },
-    { id: 1, label: 'Trending', icon: <IoTrendingUp /> },
-    { id: 2, label: 'Friends', icon: <IoPeople /> },
-  ];
-
-  const queryClient = useQueryClient();
-
-  const likeMutation = useMutation({
-    mutationFn: (postId: string) => postsAPI.likePost(postId),
+  const followMutation = useMutation({
+    mutationFn: (userId: string) => usersAPI.followUser(userId),
+    onMutate: (userId) => {
+      setLoadingUserIds(prev => [...prev, userId]);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(['explore']);
-      queryClient.invalidateQueries(['search-posts']);
-      if (selectedPost) {
-        const isLiked = selectedPost.likes?.some(l => l.user === user?._id);
-        setSelectedPost(prev => prev ? {
-          ...prev,
-          likesCount: isLiked ? Math.max(0, prev.likesCount - 1) : prev.likesCount + 1,
-          likes: isLiked 
-            ? prev.likes.filter(l => l.user !== user?._id)
-            : [...(prev.likes || []), { user: user?._id as string }]
-        } : null);
-      }
+      queryClient.invalidateQueries(['suggested-users-rgr']);
+      queryClient.invalidateQueries(['search-users']);
+      toast.success('Following creator');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to follow');
+    },
+    onSettled: (_, __, userId) => {
+      setLoadingUserIds(prev => prev.filter(id => id !== userId));
     }
   });
 
-  const handleLike = (e: React.MouseEvent) => {
+  const unfollowMutation = useMutation({
+    mutationFn: (userId: string) => usersAPI.unfollowUser(userId),
+    onMutate: (userId) => {
+      setLoadingUserIds(prev => [...prev, userId]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['suggested-users-rgr']);
+      queryClient.invalidateQueries(['search-users']);
+      toast.success('Unfollowed');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to unfollow');
+    },
+    onSettled: (_, __, userId) => {
+      setLoadingUserIds(prev => prev.filter(id => id !== userId));
+    }
+  });
+
+  const handleFollowToggle = (e: React.MouseEvent, user: User) => {
     e.stopPropagation();
-    if (selectedPost) {
-      likeMutation.mutate(selectedPost._id);
+    if (loadingUserIds.includes(user._id)) return;
+
+    if (user.isFollowing) {
+      unfollowMutation.mutate(user._id);
+    } else {
+      followMutation.mutate(user._id);
     }
   };
 
-  const handleGoToPost = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (selectedPost) {
-      navigate(`/post/${selectedPost._id}`);
-      handleCloseModal();
-    }
-  };
-
-  const handlePostClick = (post: Post) => {
-    setSelectedPost(post);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedPost(null);
-  };
-
-  const getMediaUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    const normalizedUrl = url.replace(/\\/g, '/').replace(/^\/?/, '/');
-    return `${BACKEND_BASE_URL}${normalizedUrl}`;
+  const handlePostClick = (postId: string) => {
+    setSelectedPostId(postId);
+    setIsPostViewerOpen(true);
   };
 
   return (
-    <div className="explore-page">
-      <div className="stardust-bg">
-        {Array.from({ length: 20 }).map((_, i) => (
-          <div key={i} className="star cursor-star" style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 5}s`
-          }}></div>
-        ))}
+    <div className="discover-page premium-interface">
+      <div className="discovery-aura">
+        <div className="aura-orb one" />
+        <div className="aura-orb two" />
       </div>
 
-      <div className="explore-header sticky-header">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="explore-title-section"
-        >
-          <h1 className="explore-title">Explore</h1>
-          <p className="explore-subtitle">Discover trending content and creators</p>
-        </motion.div>
-
+      <header className="discovery-hero">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="search-container"
+          className="hero-text"
         >
-          <div className={`search-box ${isSearchFocused ? 'focused' : ''}`}>
-            <div className="search-icon-wrapper">
-              {isSearchingPosts || isSearchingUsers ? (
-                <div className="search-loading-spinner" />
-              ) : (
-                <IoSearch className="search-icon" />
-              )}
-            </div>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search posts, people, or places..."
-              value={searchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button className="clear-btn" onClick={() => { setSearchQuery(''); setDebouncedSearch(''); }}>
-                <IoClose />
-              </button>
-            )}
-          </div>
+          <h1 className="hero-title">Connect with <span className="highlight">more friends</span></h1>
+          <p className="hero-subtitle">Discover new users suggested for you by Naaya's recommendation systems.</p>
         </motion.div>
 
-        {!searchQuery && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="tabs-section"
-          >
-            <div className="tabs">
-              {tabLabels.map((tab) => (
+        <div className={`search-super-box ${isSearchFocused ? 'focused' : ''}`}>
+          <div className="search-prefix">
+            {isSearching && searchQuery ? <div className="loader-spin" /> : <IoSearch />}
+          </div>
+          <input
+            type="text"
+            placeholder="Search communities or creators..."
+            value={searchQuery}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button className="search-clear" onClick={() => setSearchQuery('')}>
+              <IoClose />
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="discovery-content">
+        <div className="content-stratifier">
+          <div className="stratifier-left">
+            {!debouncedSearch && (
+              <div className="view-selector">
                 <button
-                  key={tab.id}
-                  className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  className={`view-tab ${activeView === 'posts' ? 'active' : ''}`}
+                  onClick={() => setActiveView('posts')}
                 >
-                  {tab.icon}
-                  <span>{tab.label}</span>
+                  <IoGrid /> Recommended Posts
                 </button>
+                <button
+                  className={`view-tab ${activeView === 'people' ? 'active' : ''}`}
+                  onClick={() => setActiveView('people')}
+                >
+                  <IoPeople /> Discover People
+                </button>
+              </div>
+            )}
+
+            <h3 className="discovery-section-label">
+              {debouncedSearch ? (<><IoSearch /> Search Results</>) : activeView === 'posts' ? (<><IoFlash /> Recommended for You</>) : (<><IoPeople /> Recommended for You</>)}
+            </h3>
+            <span className="algo-badge">
+              <IoShieldCheckmark /> {debouncedSearch ? 'Global Search' : 'Curated for you'}
+            </span>
+          </div>
+          <div className="stratifier-right">
+            <div className="user-count">
+              {debouncedSearch ? `${displayUsers.length} users found` : activeView === 'posts' ? `${explorePosts?.posts?.length || 0} posts suggested` : `${displayUsers.length} creators suggested`}
+            </div>
+          </div>
+        </div>
+
+        {debouncedSearch || activeView === 'people' ? (
+          isLoadingSuggestions || (isSearching && searchQuery) ? (
+            <div className="discovery-grid">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="user-skeleton-card" />
               ))}
             </div>
-          </motion.div>
-        )}
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="controls-section"
-        >
-          <div className="category-filters">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                className={`category-btn ${selectedCategory === category.id ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category.id)}
-              >
-                {category.icon}
-                <span>{category.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="view-controls">
-            <button
-              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => setViewMode('grid')}
-              aria-label="Grid view"
-            >
-              <IoGrid />
-            </button>
-            <button
-              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              aria-label="List view"
-            >
-              <IoList />
-            </button>
-          </div>
-        </motion.div>
-      </div>
-
-      {isActuallySearching && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="search-results-layout"
-        >
-          {foundUsers.length > 0 && (
-            <div className="found-users-section">
-              <h3 className="section-subtitle">People</h3>
-              <div className="found-users-grid">
-                {foundUsers.slice(0, 5).map((u: any) => (
-                  <div key={u._id} className="user-search-card" onClick={() => navigate(`/profile/${u.username}`)}>
-                    <Avatar src={u.profilePicture} alt={u.fullName} size={48} />
-                    <div className="user-search-info">
-                      <span className="user-full-name">{u.fullName}</span>
-                      <span className="user-username">@{u.username}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="search-results-header">
-            <h3 className="section-subtitle">Top Results</h3>
-            <p className="results-count">{posts.length} results found</p>
-          </div>
-        </motion.div>
-      )}
-
-      {!isActuallySearching && activeTab === 0 && overviewData && (
-        <motion.div 
-          className="explore-overview-section"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          {overviewData.suggestedUsers && overviewData.suggestedUsers.length > 0 && (
-            <div className="creators-carousel">
-              <h3 className="section-subtitle"><IoSparkles className="accent-icon" /> Discover Creators</h3>
-              <div className="carousel-track">
-                {overviewData.suggestedUsers.map((u: any) => (
-                  <div key={u._id} className="creator-card" onClick={() => navigate(`/profile/${u.username}`)}>
-                    <div className="creator-avatar-wrap">
-                      <Avatar src={u.profilePicture} alt={u.fullName} size={64} />
-                    </div>
-                    <span className="creator-name">{u.fullName}</span>
-                    <span className="creator-username">@{u.username}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {overviewData.trendingTags && overviewData.trendingTags.length > 0 && (
-            <div className="trending-tags">
-              <h3 className="section-subtitle"><IoPricetag className="accent-icon" /> Trending Tags</h3>
-              <div className="tags-container">
-                {overviewData.trendingTags.map((tag: any) => (
-                  <button 
-                    key={tag.name} 
-                    className="tag-chip"
-                    onClick={() => {
-                      setSearchQuery(tag.name);
-                    }}
-                  >
-                    <span className="tag-hash">#</span>{tag.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      <div className="explore-content">
-        {isLoading ? (
-          <div className={`posts-${viewMode}`}>
-            {Array.from({ length: 12 }).map((_, index) => (
-              <div key={index} className="skeleton-card"></div>
-            ))}
-          </div>
-        ) : posts.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="empty-state"
-          >
-            {activeTab === 2 ? null : (
-              <>
-                <IoCompass className="empty-icon" />
-                <h2>{searchQuery ? 'No results found' : 'No posts yet'}</h2>
-                <p>
-                  {searchQuery
-                    ? 'Try adjusting your search terms'
-                    : 'Discover amazing content from your community'}
-                </p>
-              </>
-            )}
-          </motion.div>
-        ) : (
-          <div className={`posts-${viewMode}`}>
-            <AnimatePresence mode="popLayout">
-              {posts.map((post: Post, index: number) => {
-                const fullUrl = getMediaUrl(post.media?.[0]?.url);
-
-                return (
-                  <motion.div
-                    key={post._id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{
-                      duration: 0.5,
-                      delay: index % 10 * 0.05,
-                      ease: [0.16, 1, 0.3, 1]
-                    }}
-                    className="post-card"
-                    onClick={() => handlePostClick(post)}
-                  >
-                    {post.media?.[0] && (
-                      <div className="post-media-container">
-                        {post.media[0].type === 'image' ? (
-                          <img className="post-media" src={fullUrl} alt="Post" loading="lazy" />
-                        ) : (
-                          <video className="post-media" src={fullUrl} muted playsInline loop onMouseOver={e => e.currentTarget.play()} onMouseOut={e => e.currentTarget.pause()} />
-                        )}
-
-                        <div className="post-overlay">
-                          <div className="overlay-stats">
-                            <div className="stat">
-                              <IoHeart />
-                              <span>{post.likesCount}</span>
-                            </div>
-                            <div className="stat">
-                              <IoChatbubble />
-                              <span>{post.commentsCount}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {post.media.length > 1 && (
-                          <div className="media-badge">
-                            <IoImages />
-                            <span>{post.media.length}</span>
-                          </div>
-                        )}
-
-                        {post.media[0]?.type === 'video' && (
-                          <div className="video-badge">
-                            <IoPlay />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {viewMode === 'list' && (
-                      <div className="post-info">
-                        <div className="post-author">
-                          <Avatar
-                            src={post.author.profilePicture}
-                            alt={post.author.fullName}
-                            name={post.author.fullName}
-                            size={36}
-                            className="author-avatar"
-                          />
-                          <div className="author-meta">
-                            <p className="author-name">{post.author.fullName}</p>
-                            <p className="post-location">
-                              {post.location?.city && `📍 ${post.location.city}`}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="post-content">{post.content}</p>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {activeTab === 2 && !searchQuery && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="suggestions-container"
-            style={{ marginTop: 0 }}
-          >
-            <h2 className="section-subtitle" style={{ marginBottom: '24px', fontSize: '1.5rem' }}>
-              <IoPeople className="accent-icon" /> Discover Friends
-            </h2>
-            <Suggestions limit={20} />
-          </motion.div>
-        )}
-      </div>
-
-      <AnimatePresence>
-        {selectedPost && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="modal-overlay"
-            onClick={handleCloseModal}
-          >
+          ) : displayUsers.length === 0 ? (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="modal-container"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="discovery-empty"
             >
-              <button className="modal-close" onClick={handleCloseModal}>
-                <IoClose />
-              </button>
-
-              <div className="modal-content">
-                <div className="modal-media">
-                  {selectedPost.media?.[0] && (
-                    <>
-                      {selectedPost.media[0].type === 'image' ? (
-                        <img
-                          src={getMediaUrl(selectedPost.media[0].url)}
-                          alt="Post"
-                        />
-                      ) : (
-                        <video
-                          src={getMediaUrl(selectedPost.media[0].url)}
-                          controls
-                          autoPlay
-                          loop
-                        />
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div className="modal-details">
-                  <div className="modal-header">
-                    <img
-                      src={selectedPost.author?.profilePicture || ''}
-                      alt={selectedPost.author?.fullName || 'User'}
-                      className="modal-avatar"
-                      onClick={() => {
-                        if (selectedPost.author?._id !== user?._id) {
-                          navigate(`/profile/${selectedPost.author?.username}`);
-                          handleCloseModal();
-                        }
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    />
-                    <div className="modal-author-info">
-                      <p
-                        className="modal-author-name"
-                        onClick={() => {
-                          if (selectedPost.author?._id !== user?._id) {
-                            navigate(`/profile/${selectedPost.author?.username}`);
-                            handleCloseModal();
-                          }
-                        }}
-                      >
-                        {selectedPost.author?.fullName}
-                      </p>
-                      {selectedPost.location?.city && (
-                        <p className="modal-location">📍 {selectedPost.location.city}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="modal-body" onClick={handleGoToPost} style={{ cursor: 'pointer' }}>
-                    <p className="modal-content-text">{selectedPost.content}</p>
-                  </div>
-
-                  <div className="modal-footer">
-                    <div className="modal-actions">
-                      <button 
-                        className="action-btn" 
-                        onClick={handleLike}
-                        style={{ color: selectedPost.likes?.some(l => l.user === user?._id) ? 'var(--primary-main)' : '' }}
-                      >
-                        <IoHeart />
-                      </button>
-                      <button className="action-btn" onClick={handleGoToPost}>
-                        <IoChatbubble />
-                      </button>
-                    </div>
-                    <p className="likes-count">{selectedPost.likesCount || 0} likes</p>
-                  </div>
-                </div>
-              </div>
+              <div className="empty-icon-wrap"><IoPeople /></div>
+              <h3>No Users Found</h3>
+              <p>The cosmos is quiet. Try another search or refresh your suggestions.</p>
             </motion.div>
-          </motion.div>
+          ) : (
+            <div className="discovery-grid wide-grid">
+              <AnimatePresence mode="popLayout">
+                {displayUsers.map((user, idx) => (
+                  <motion.div
+                    layout
+                    key={user._id}
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: (idx % 20) * 0.05, duration: 0.4 }}
+                    className="user-premium-card"
+                    onClick={() => navigate(`/profile/${user.username}`)}
+                  >
+                    <div className="card-top-accent" />
+
+                    <div className="premium-card-header">
+                      <div className="avatar-stack">
+                        <div className="avatar-aura" />
+                        <Avatar src={user.profilePicture} alt={user.username} size={80} />
+                        {user.isVerified && <div className="verify-badge-large"><IoStar /></div>}
+                      </div>
+
+                      <div className="action-hub">
+                        <button
+                          className={`follow-btn-round ${user.isFollowing ? 'following' : ''}`}
+                          onClick={(e) => handleFollowToggle(e, user)}
+                          disabled={loadingUserIds.includes(user._id)}
+                        >
+                          {loadingUserIds.includes(user._id) ? (
+                            <div className="spinner-mini" />
+                          ) : user.isFollowing ? (
+                            <IoCheckmarkCircle />
+                          ) : (
+                            <IoPersonAdd />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="premium-card-body">
+                      <div className="user-identity">
+                        <h4 className="user-full-name">
+                          {user.fullName}
+                          {user.followersCount && user.followersCount > 1000 && <span className="influence-tag"><IoFlash /> Influencer</span>}
+                        </h4>
+                        <span className="user-handle">@{user.username}</span>
+                      </div>
+
+                      {user.bio && <p className="user-story">{user.bio}</p>}
+
+                      <div className="user-social-stats">
+                        <div className="stat-pill">
+                          <span className="stat-value">{user.followersCount || 0}</span>
+                          <span className="stat-label">Followers</span>
+                        </div>
+                        {user.mutualConnections !== undefined && user.mutualConnections > 0 && (
+                          <div className="stat-pill accent">
+                            <span className="stat-value">{user.mutualConnections}</span>
+                            <span className="stat-label">Mutual</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {user.interests && user.interests.length > 0 && (
+                        <div className="interest-tags">
+                          {user.interests.slice(0, 3).map((interest, i) => (
+                            <span key={i} className="tag-chip">#{interest}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="premium-card-footer">
+                      {user.location?.city ? (
+                        <span className="location-hint">
+                          <IoLocation /> {user.location.city}
+                          {user.location.district ? `, ${user.location.district}` : ''}
+                        </span>
+                      ) : (
+                        <span className="location-hint empty">
+                          <IoPeople /> Based in the web
+                        </span>
+                      )}
+
+                      <button className="view-profile-btn">
+                        View Profile
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )
+        ) : (
+          isLoadingPosts ? (
+            <div className="explore-posts-grid">
+              {Array.from({ length: 15 }).map((_, i) => (
+                <div key={i} className="post-skeleton-card" />
+              ))}
+            </div>
+          ) : explorePosts?.posts?.length === 0 ? (
+            <div className="discovery-empty">
+              <div className="empty-icon-wrap"><IoGrid /></div>
+              <h3>No Recommended Posts</h3>
+              <p>Start following people to see recommendations here.</p>
+            </div>
+          ) : (
+            <div className="explore-posts-grid">
+              {explorePosts.posts.map((post: any, idx: number) => (
+                <motion.div
+                  key={post._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: (idx % 15) * 0.03 }}
+                  className="explore-post-card"
+                  onClick={() => handlePostClick(post._id)}
+                >
+                  <img
+                    src={post.media?.[0]?.url.startsWith('http') ? post.media[0].url : `http://localhost:5000${post.media?.[0]?.url}`}
+                    alt="Explore"
+                  />
+                  <div className="post-overlay">
+                    <div className="overlay-stats">
+                      <span><IoStar /> {post.likesCount || 0}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )
         )}
-      </AnimatePresence>
+
+        {isPostViewerOpen && selectedPostId && (
+          <PostViewerModal
+            isOpen={isPostViewerOpen}
+            onClose={() => setIsPostViewerOpen(false)}
+            username={explorePosts?.posts?.find((p: any) => p._id === selectedPostId)?.author?.username || ''}
+            initialPostId={selectedPostId}
+          />
+        )}
+      </main>
     </div>
   );
 };
 
-export default ExplorePage;
+export default DiscoverPeoplePage;

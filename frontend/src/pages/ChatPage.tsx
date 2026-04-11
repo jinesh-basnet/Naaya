@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaArrowLeft, FaPaperPlane, FaImage, FaTimes, FaVideo, FaLock, FaSearch } from 'react-icons/fa';
-import { BsEmojiSmile, BsInfoCircle, BsCheck2, BsCheck2All, BsFileEarmarkText, BsPaperclip } from 'react-icons/bs';
+import { BsEmojiSmile, BsCheck2, BsCheck2All, BsFileEarmarkText, BsPaperclip } from 'react-icons/bs';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { messagesAPI, usersAPI, api } from '../services/api';
@@ -12,7 +12,6 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 import ConversationsList from '../components/ConversationsList';
 import MessageActions from '../components/MessageActions';
 import Avatar from '../components/Avatar';
-import GroupInfoModal from '../components/GroupInfoModal';
 import MessageSearch from '../components/MessageSearch';
 import { messageCache } from '../utils/localCache';
 import { generateKeyPair, encryptContent, decryptContent, deriveSharedSecret } from '../utils/encryptionUtils';
@@ -61,7 +60,7 @@ interface Message {
 
 interface Conversation {
   _id: string;
-  type: 'direct' | 'group';
+  type: 'direct';
   participants: Array<{
     user: {
       _id: string;
@@ -71,11 +70,8 @@ interface Conversation {
       isVerified: boolean;
       lastActive?: string;
     };
-    role: 'admin' | 'member';
     isActive: boolean;
   }>;
-  name?: string;
-  avatar?: string;
 }
 
 const DecryptedText: React.FC<{ message: Message, currentUser: any, conversation: any }> = ({ message, currentUser, conversation }) => {
@@ -118,7 +114,7 @@ const DecryptedText: React.FC<{ message: Message, currentUser: any, conversation
 };
 
 const ChatPage: React.FC = () => {
-  const { userId, conversationId, groupId } = useParams<{ userId?: string; conversationId?: string; groupId?: string }>();
+  const { userId, conversationId } = useParams<{ userId?: string; conversationId?: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -132,7 +128,6 @@ const ChatPage: React.FC = () => {
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [cachedMessages, setCachedMessages] = useState<Message[]>([]);
   const [isPartnerOnline, setIsPartnerOnline] = useState(false);
-  const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -144,8 +139,7 @@ const ChatPage: React.FC = () => {
 
   const isDirectMessage = !!userId && userId !== 'new';
   const isNewMessage = userId === 'new';
-  const effectiveConversationId = conversationId || groupId;
-  const currentConversationId = effectiveConversationId || (isDirectMessage ? `direct_${[user?._id, userId].sort().join('_')}` : '');
+  const currentConversationId = conversationId || (isDirectMessage ? `direct_${[user?._id, userId].sort().join('_')}` : '');
 
   useEffect(() => {
     let delayDebounceFn: NodeJS.Timeout | undefined;
@@ -183,8 +177,8 @@ const ChatPage: React.FC = () => {
     queryKey: ['conversation', currentConversationId, targetUserId],
     queryFn: () => isDirectMessage
       ? messagesAPI.getConversationByUserId(targetUserId!)
-      : messagesAPI.getConversation(effectiveConversationId!),
-    enabled: (!!effectiveConversationId || (isDirectMessage && !!targetUserId)) && userId !== 'new',
+      : messagesAPI.getConversation(conversationId!),
+    enabled: (!!conversationId || (isDirectMessage && !!targetUserId)) && userId !== 'new',
   });
 
   useEffect(() => {
@@ -228,16 +222,16 @@ const ChatPage: React.FC = () => {
   }, [conversationData, user?._id]);
 
   const { data: messagesData, isLoading: messagesLoading, refetch: refetchMessages, error: messagesError } = useQuery({
-    queryKey: ['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)],
+    queryKey: ['messages', conversation?._id || (isDirectMessage ? targetUserId : conversationId)],
     queryFn: () => {
       if (conversation?._id) {
         return messagesAPI.getConversationMessages(conversation._id);
       }
       return isDirectMessage
         ? messagesAPI.getMessages(targetUserId!)
-        : messagesAPI.getConversationMessages(effectiveConversationId!);
+        : messagesAPI.getConversationMessages(conversationId!);
     },
-    enabled: (!!conversation?._id || !!effectiveConversationId || (isDirectMessage && !!targetUserId)) && userId !== 'new',
+    enabled: (!!conversation?._id || !!conversationId || (isDirectMessage && !!targetUserId)) && userId !== 'new',
   });
 
   useEffect(() => {
@@ -311,8 +305,6 @@ const ChatPage: React.FC = () => {
 
       if (isNewMessage && response.data?.participantId) {
         navigate(`/messages/${response.data.participantId}`, { replace: true });
-      } else if (isNewMessage && response.data?.conversationId) {
-        navigate(`/messages/group/${response.data.conversationId}`, { replace: true });
       }
     },
     onError: (error: any, variables) => {
@@ -335,7 +327,7 @@ const ChatPage: React.FC = () => {
     const lastMessage = messages[messages.length - 1];
     if (lastMessage && lastMessage.sender._id !== user?._id && !lastMessage.isRead) {
       messagesAPI.markMessageAsRead(lastMessage._id).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['messages', isDirectMessage ? userId : effectiveConversationId] });
+        queryClient.invalidateQueries({ queryKey: ['messages', isDirectMessage ? userId : conversationId] });
         if (conversation?._id) {
           queryClient.invalidateQueries({ queryKey: ['messages', conversation._id] });
         }
@@ -343,7 +335,7 @@ const ChatPage: React.FC = () => {
         console.error('Failed to mark message as read:', err);
       });
     }
-  }, [messages, user?._id, currentConversationId, queryClient, isDirectMessage, userId, effectiveConversationId, conversation?._id]);
+  }, [messages, user?._id, currentConversationId, queryClient, isDirectMessage, userId, conversationId, conversation?._id]);
 
   useEffect(() => {
     const roomToJoin = conversation?._id || currentConversationId;
@@ -387,7 +379,7 @@ const ChatPage: React.FC = () => {
       const msgConvId = data.conversationId?._id || data.conversationId;
       if (msgConvId === currentConversationId || (conversation?._id && msgConvId === conversation._id)) {
         // Update local cache or refetch
-        queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)], (prev: any) => {
+        queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : conversationId)], (prev: any) => {
           if (!prev) return prev;
           const messages = (prev.data?.messages || prev.messages || prev.data || []);
           const updatedMessages = messages.map((m: any) =>
@@ -401,7 +393,7 @@ const ChatPage: React.FC = () => {
     const handleMessageDeleted = (data: any) => {
       const msgConvId = data.conversationId?._id || data.conversationId;
       if (msgConvId === currentConversationId || (conversation?._id && msgConvId === conversation._id)) {
-        queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)], (prev: any) => {
+        queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : conversationId)], (prev: any) => {
           if (!prev) return prev;
           const messages = (prev.data?.messages || prev.messages || prev.data || []);
           const updatedMessages = messages.map((m: any) =>
@@ -414,7 +406,7 @@ const ChatPage: React.FC = () => {
 
     const handleReactionAdded = (data: any) => {
       const msgId = data.messageId;
-      queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : effectiveConversationId)], (prev: any) => {
+      queryClient.setQueryData(['messages', conversation?._id || (isDirectMessage ? targetUserId : conversationId)], (prev: any) => {
         if (!prev) return prev;
         const messages = (prev.data?.messages || prev.messages || prev.data || []);
         const updatedMessages = messages.map((m: any) =>
@@ -440,7 +432,7 @@ const ChatPage: React.FC = () => {
         s.off('reaction_added', handleReactionAdded);
       }
     };
-  }, [socket, currentConversationId, refetchMessages, queryClient, conversation?._id, isDirectMessage, targetUserId, effectiveConversationId]);
+  }, [socket, currentConversationId, refetchMessages, queryClient, conversation?._id, isDirectMessage, targetUserId, conversationId]);
 
   useEffect(() => {
     const handleUserTyping = (data: any) => {
@@ -472,9 +464,8 @@ const ChatPage: React.FC = () => {
           const keys = await generateKeyPair();
           localStorage.setItem(`e2ee_keys_${user._id}`, JSON.stringify(keys));
           await usersAPI.updateKeys({
-            publicKey: keys.publicKey,
-            privateKeyEncrypted: keys.privateKey
-          });
+            publicKey: keys.publicKey
+          } as any);
           toast.success('Secure messaging enabled');
         } catch (err) {
           console.error('E2EE setup error:', err);
@@ -660,8 +651,6 @@ const ChatPage: React.FC = () => {
           return otherParticipant.user.fullName || otherParticipant.user.username;
         }
       }
-
-      if (conversation.name) return conversation.name;
     }
 
     if (messages && messages.length > 0) {
@@ -697,8 +686,6 @@ const ChatPage: React.FC = () => {
       if (otherParticipant?.user?.profilePicture) {
         return otherParticipant.user.profilePicture;
       }
-
-      if (conversation.avatar) return conversation.avatar;
     }
 
     if (messages && messages.length > 0) {
@@ -823,7 +810,7 @@ const ChatPage: React.FC = () => {
               />
             </div>
           ) : (
-            <div className={`chat-profile ${conversation?.type === 'group' ? 'is-group' : ''}`} onClick={() => conversation?.type === 'group' && setShowGroupInfo(true)}>
+            <div className="chat-profile">
               <Avatar
                 src={getChatAvatar()}
                 alt={getChatTitle()}
@@ -838,13 +825,9 @@ const ChatPage: React.FC = () => {
                     <span className={`status-dot ${isPartnerOnline ? 'online' : 'offline'}`} />
                   )}
                 </div>
-                {(conversation?.type === 'direct' || conversation?.participants?.length === 2 || isDirectMessage) ? (
                   <span className={isPartnerOnline ? "online-status-text" : "offline-status-text"}>
                     {isPartnerOnline ? 'Active now' : 'Offline'}
                   </span>
-                ) : (
-                  <span className="member-count">{conversation?.participants?.length || 0} members</span>
-                )}
               </div>
             </div>
           )}
@@ -856,15 +839,6 @@ const ChatPage: React.FC = () => {
               title="Search Messages"
             >
               <FaSearch size={20} />
-            </button>
-          )}
-          {!isNewMessage && conversation?.type === 'group' && (
-            <button
-              className="info-button"
-              onClick={() => setShowGroupInfo(true)}
-              title="Group Info"
-            >
-              <BsInfoCircle size={24} />
             </button>
           )}
         </div>
@@ -887,12 +861,7 @@ const ChatPage: React.FC = () => {
           />
         )}
 
-        {showGroupInfo && conversation && (
-          <GroupInfoModal
-            conversation={conversation as any}
-            onClose={() => setShowGroupInfo(false)}
-          />
-        )}
+
 
         <div className="messages-container">
           <div className="messages-list">
@@ -1084,8 +1053,8 @@ const ChatPage: React.FC = () => {
                               }
                             }}
                             senderName={message.sender.fullName}
-                            partnerPublicKey={conversation?.type === 'direct' ? (conversation as any).partner?.encryption?.publicKey : undefined}
-                            conversationType={conversation?.type}
+                            partnerPublicKey={(conversation as any)?.partner?.encryption?.publicKey}
+                            conversationType="direct"
                           />
                         )}
                       </div>

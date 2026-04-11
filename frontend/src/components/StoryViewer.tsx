@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaXmark, FaPlay, FaPause, FaHeart, FaPaperPlane, FaUsers, FaPlus, FaVolumeHigh, FaVolumeXmark } from 'react-icons/fa6';
+import { X, Play, Pause, Heart, Send, Users, Plus, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStoryView } from '../contexts/StoryViewContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -216,7 +216,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
             </div>
             {currentStory.visibility === 'close_friends' && (
               <div className="visibility-badge close-friends">
-                <FaUsers size={10} />
+                <Users size={10} />
                 <span>Close Friends</span>
               </div>
             )}
@@ -224,17 +224,17 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
 
           <div className="header-actions">
             <button onClick={() => setIsMuted(prev => !prev)} className="action-icon">
-              {isMuted ? <FaVolumeXmark size={18} /> : <FaVolumeHigh size={18} />}
+              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
             <button onClick={() => setIsPlaying(!isPlaying)} className="action-icon">
-              {isPlaying ? <FaPause size={18} /> : <FaPlay size={18} />}
+              {isPlaying ? <Pause size={18} /> : <Play size={18} />}
             </button>
             {onCreateStory && (
               <button onClick={onCreateStory} className="action-icon">
-                <FaPlus size={18} />
+                <Plus size={18} />
               </button>
             )}
-            <button onClick={onClose} className="close-icon"><FaXmark size={24} /></button>
+            <button onClick={onClose} className="close-icon"><X size={24} /></button>
           </div>
         </div>
 
@@ -301,7 +301,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               />
               {replyText && (
                 <button className="send-btn" onClick={handleReply}>
-                  <FaPaperPlane />
+                  <Send size={18} />
                 </button>
               )}
             </div>
@@ -309,7 +309,7 @@ const StoryViewer: React.FC<StoryViewerProps> = ({
               className={`like-btn ${isLiked ? 'liked' : ''}`}
               onClick={toggleLike}
             >
-              <FaHeart />
+              <Heart size={24} fill={isLiked ? "currentColor" : "none"} />
             </button>
           </div>
 

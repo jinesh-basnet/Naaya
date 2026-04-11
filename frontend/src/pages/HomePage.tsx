@@ -56,10 +56,15 @@ interface Post {
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const { locationData } = useLocation();
   const { feedData } = useFeed(locationData);
+
   const { heartBurst, expandedCaptions, setExpandedCaptions, handleLike, handleSave, handleShare, handleDoubleTap } = usePostInteractions(locationData, () => { });
+
   useSocketUpdates(locationData, () => { });
+
+  console.log("Current Feed Data:", feedData);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -122,7 +127,7 @@ const HomePage: React.FC = () => {
             <div className="sidebar-suggestions-box">
               <div className="box-header">
                 <h3>Recommended for you</h3>
-                <button onClick={() => navigate('/explore')}>See All</button>
+                <button onClick={() => navigate('/explore?tab=people')}>See All</button>
               </div>
               <Suggestions limit={10} />
             </div>

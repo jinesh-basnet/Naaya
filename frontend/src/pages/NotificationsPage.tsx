@@ -12,12 +12,21 @@ import './NotificationsPage.css';
 interface Notification {
   _id: string;
   sender: {
+    _id: string;
     username: string;
     fullName: string;
     profilePicture: string;
   };
+  type: 'like' | 'comment' | 'follow' | 'mention' | 'message' | 'story_reply' | 'post_shared' | 'post_saved' | 'system';
   title: string;
   message: string;
+  data?: {
+    postId?: string;
+    commentId?: string;
+    storyId?: string;
+    messageId?: string;
+    conversationId?: string;
+  };
   isRead: boolean;
   createdAt: string;
 }
@@ -77,6 +86,40 @@ const NotificationsPage: React.FC = () => {
       toast.success('All notifications marked as read');
     } catch (error) {
       toast.error('Failed to mark all notifications as read');
+    }
+  };
+
+  const handleNotificationClick = (notif: Notification) => {
+    if (!notif.isRead) {
+      markAsRead(notif._id);
+    }
+
+    switch (notif.type) {
+      case 'follow':
+        navigate(`/profile/${notif.sender.username}`);
+        break;
+      case 'like':
+      case 'comment':
+      case 'mention':
+      case 'post_shared':
+      case 'post_saved':
+        if (notif.data?.postId) {
+          navigate(`/post/${notif.data.postId}`);
+        }
+        break;
+      case 'message':
+        if (notif.data?.conversationId) {
+          navigate(`/messages/conversation/${notif.data.conversationId}`);
+        } else if (notif.sender?._id) {
+          navigate(`/messages/${notif.sender._id}`);
+        }
+        break;
+      case 'story_reply':
+        navigate('/stories'); // Could be more specific if we have story ID and a way to view it directly
+        break;
+      default:
+        // For system notifications, maybe just show details or do nothing
+        break;
     }
   };
 
@@ -203,12 +246,19 @@ const NotificationsPage: React.FC = () => {
                 size={40}
                 className="notification-avatar"
               />
-              <div className="notification-content">
+              <div 
+                className="notification-content"
+                onClick={() => handleNotificationClick(notif)}
+                style={{ cursor: 'pointer' }}
+              >
                 <h3>{notif.title}</h3>
                 <p>
                   <span
                     className="sender-name"
-                    onClick={() => navigate(`/profile/${notif.sender.username}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/profile/${notif.sender.username}`);
+                    }}
                   >
                     {notif.sender.fullName}
                   </span> — {notif.message}

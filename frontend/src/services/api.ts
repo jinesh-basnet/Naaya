@@ -72,7 +72,7 @@ export const postsAPI = {
   getUserPosts: (username: string, page: number = 1, limit: number = 10) => api.get(`/posts/user/${username}?page=${page}&limit=${limit}`),
   getUserBookmarks: (page: number = 1, limit: number = 10) => api.get(`/posts/bookmarks?page=${page}&limit=${limit}`),
   searchPosts: (query: string) => api.get(`/posts/search?q=${encodeURIComponent(query)}`),
-  getExploreOverview: () => api.get('/posts/explore'),
+  getExploreOverview: (limit: number = 30) => api.get(`/posts/explore-overview?limit=${limit}`),
 };
 
 export const reelsAPI = {
@@ -95,11 +95,12 @@ export const reelsAPI = {
 
 export const usersAPI = {
   getProfile: (usernameOrId: string) => api.get(`/users/${usernameOrId}`),
-  searchUsers: (query: string) => api.get(`/users/search?q=${encodeURIComponent(query)}`),
+  searchUsers: (query: string, excludeFollowing: boolean = false) => 
+    api.get(`/users/search?q=${encodeURIComponent(query)}${excludeFollowing ? '&excludeFollowing=true' : ''}`),
   followUser: (userId: string) => api.post(`/users/${userId}/follow`),
-  unfollowUser: (userId: string) => api.delete(`/users/${userId}/follow`),
-  getFollowers: (username: string) => api.get(`/users/${username}/followers`),
-  getFollowing: (username: string) => api.get(`/users/${username}/following`),
+  unfollowUser: (userId: string) => api.post(`/users/${userId}/unfollow`),
+  getFollowers: (username: string) => api.get(`/users/followers/${username}`),
+  getFollowing: (username: string) => api.get(`/users/following/${username}`),
   getSuggestions: (limit: number = 5) => api.get(`/users/suggestions?limit=${limit}`),
   updateProfile: (formData: FormData) => api.put('/users/profile', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   updateKeys: (data: any) => api.put('/users/keys', data),
@@ -147,13 +148,7 @@ export const messagesAPI = {
   getConversation: (conversationId: string) => api.get(`/conversations/${conversationId}`),
   getConversationByUserId: (userId: string) => api.get(`/conversations/user/${userId}`),
   getConversationMessages: (conversationId: string) => api.get(`/messages/conversation/${conversationId}`),
-  createGroup: (data: { name: string, participants: string[], description?: string }) => api.post('/conversations/group', data),
   deleteConversation: (conversationId: string) => api.delete(`/conversations/${conversationId}`),
-  updateGroup: (conversationId: string, data: any) => api.put(`/conversations/${conversationId}`, data),
-  leaveGroup: (conversationId: string) => api.post(`/conversations/${conversationId}/leave`),
-  removeParticipant: (conversationId: string, userId: string) => api.post(`/conversations/${conversationId}/remove/${userId}`),
-  updateParticipantRole: (conversationId: string, userId: string, role: 'admin' | 'member') => api.put(`/conversations/${conversationId}/roles/${userId}`, { role }),
-  addParticipants: (conversationId: string, userIds: string[]) => api.post(`/conversations/${conversationId}/add`, { userIds }),
   editMessage: (messageId: string, content: any, iv?: string, isEncrypted?: boolean) => api.put(`/messages/${messageId}`, { content, iv, isEncrypted }),
   deleteMessage: (messageId: string) => api.delete(`/messages/${messageId}`),
   addReaction: (messageId: string, emoji: string) => api.post(`/messages/${messageId}/reactions`, { emoji }),

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { MdAdd } from 'react-icons/md';
+import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,7 +38,7 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [currentViewingStories, setCurrentViewingStories] = useState<Story[]>([]);
 
-  const { data: storiesData } = useQuery({
+  const { data: storiesData, isLoading } = useQuery({
     queryKey: ['storiesFeed'],
     queryFn: () => storiesAPI.getStoriesFeed({ sort: 'unseen_first', includeViewStatus: true }),
     staleTime: 5 * 60 * 1000,
@@ -89,12 +89,48 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, scale: 0.8, y: 10 },
+    visible: { opacity: 1, scale: 1, y: 0 }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="stories-bar loading">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="story-item-loading">
+            <div className="skeleton-circle-ring">
+              <div className="skeleton-avatar-circle" />
+            </div>
+            <div className="skeleton-text-line" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className={`stories-bar ${isCollapsed ? 'collapsed' : 'expanded'}`}>
-        {displayStories.map((item, index) => (
-          <div
+      <motion.div 
+        className={`stories-bar ${isCollapsed ? 'collapsed' : 'expanded'}`}
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {displayStories.map((item) => (
+          <motion.div
             key={item.id || item.author._id}
+            variants={itemVariants}
             className="story-item"
             onClick={() => {
               if (item.isOwn && item.id === 'add-story') {
@@ -119,12 +155,12 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
             <motion.div
               className={`story-avatar-container ${item.hasUnseen ? 'has-unseen' : 'viewed'}`}
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.92 }}
             >
               <div className="avatar-ring">
                 {item.isOwn && item.id === 'add-story' ? (
                   <div className="story-avatar-add">
-                    <MdAdd />
+                    <Plus size={32} />
                   </div>
                 ) : (
                   <Avatar
@@ -138,16 +174,16 @@ const StoriesBar: React.FC<StoriesBarProps> = ({ isCollapsed }) => {
               </div>
               {item.isOwn && item.id === 'add-story' && (
                 <div className="add-icon-badge">
-                  <MdAdd />
+                  <Plus size={14} strokeWidth={3} />
                 </div>
               )}
             </motion.div>
             <p className="story-username">
               {item.isOwn && item.id === 'add-story' ? 'Add story' : item.author?.username}
             </p>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {createPortal(
         <>
