@@ -23,13 +23,6 @@ router.put('/:messageId', authenticateToken, messagesController.editMessage);
 router.delete('/:messageId', authenticateToken, messagesController.deleteMessage);
 router.put('/:messageId/seen', authenticateToken, messagesController.markMessageSeen);
 
-// Group Management
-router.post('/groups', authenticateToken, messagesController.createGroup);
-router.put('/conversations/:conversationId/participants', authenticateToken, messagesController.addGroupParticipants);
-router.delete('/conversations/:conversationId/leave', authenticateToken, messagesController.leaveGroup);
-router.put('/conversations/:conversationId', authenticateToken, messagesController.updateGroup);
-router.delete('/conversations/:conversationId/participants/:targetUserId', authenticateToken, messagesController.removeGroupParticipant);
-router.put('/conversations/:conversationId/participants/:targetUserId/role', authenticateToken, messagesController.changeGroupParticipantRole);
 
 module.exports = router;
 
