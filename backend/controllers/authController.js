@@ -20,11 +20,16 @@ exports.register = async (req, res) => {
     const { username, email, password, fullName, phone } = req.body;
 
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      $or: [{ email }, { username }, { phone }]
     });
 
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      let field = 'User';
+      if (existingUser.email === email) field = 'Email';
+      else if (existingUser.username === username) field = 'Username';
+      else if (existingUser.phone === phone) field = 'Phone number';
+      
+      return res.status(400).json({ message: `${field} already exists` });
     }
 
     const user = new User({
