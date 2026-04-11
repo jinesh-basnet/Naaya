@@ -10,9 +10,19 @@ window.addEventListener('unhandledrejection', (event) => {
   event.preventDefault();
 });
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
+console.log(" ");
+console.log(" Naaya App Initializing...");
+console.log("Environment: Production");
+console.log(" ");
+
+const rootElement = document.getElementById('root') as HTMLElement;
+const root = ReactDOM.createRoot(rootElement);
+
+console.log(" ");
+console.log(" Naaya App Booting up...");
+console.log("Developed for College Project purposes.");
+console.log(" ");
+
 root.render(
   <React.StrictMode>
     <App />
@@ -21,7 +31,4 @@ root.render(
 
 
 reportWebVitals();
-
-// Service Worker registration is handled in PushNotificationService via AuthContext
-
 
