@@ -86,10 +86,12 @@ const userSchema = new mongoose.Schema({
   lastActive: { type: Date, default: Date.now },
   isActive: { type: Boolean, default: true },
   role: { type: String, default: 'user' },
+  otp: String,
+  otpExpires: Date,
   resetToken: String,
   resetTokenExpires: Date,
   verificationToken: String,
-  refreshTokens: [String], 
+  refreshTokens: [String],
   encryption: {
     publicKey: String,
     privateKeyEncrypted: { type: String, select: false }
@@ -134,6 +136,13 @@ userSchema.pre('save', async function (next) {
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.generateOTP = function () {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  this.otp = otp;
+  this.otpExpires = Date.now() + 10 * 60 * 1000;
+  return otp;
 };
 
 userSchema.methods.getPublicProfile = function () {
