@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const conversationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['direct', 'group'],
+    enum: ['direct'],
     required: true
   },
   participants: [{
@@ -16,28 +16,11 @@ const conversationSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
-    role: {
-      type: String,
-      enum: ['admin', 'member'],
-      default: 'member'
-    },
     isActive: {
       type: Boolean,
       default: true
     }
   }],
-  name: {
-    type: String,
-    required: function() { return this.type === 'group'; },
-    maxlength: 100
-  },
-  description: {
-    type: String,
-    maxlength: 500
-  },
-  avatar: {
-    type: String, 
-  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -53,16 +36,6 @@ const conversationSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  },
-  settings: {
-    allowInvites: {
-      type: Boolean,
-      default: true
-    },
-    isPublic: {
-      type: Boolean,
-      default: false
-    }
   }
 }, {
   timestamps: true
@@ -77,24 +50,6 @@ conversationSchema.index({ createdBy: 1 });
 conversationSchema.virtual('unreadCount').get(function() {
   return 0;
 });
-
-conversationSchema.methods.addParticipant = function(userId, role = 'member') {
-  if (this.participants.some(p => p.user.toString() === userId.toString())) {
-    throw new Error('User is already a participant');
-  }
-  this.participants.push({
-    user: userId,
-    role,
-    joinedAt: new Date(),
-    isActive: true
-  });
-  return this.save();
-};
-
-conversationSchema.methods.removeParticipant = function(userId) {
-  this.participants = this.participants.filter(p => p.user.toString() !== userId.toString());
-  return this.save();
-};
 
 conversationSchema.methods.updateLastMessage = function(messageId, timestamp) {
   this.lastMessage = messageId;
