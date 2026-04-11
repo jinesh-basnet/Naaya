@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaXmark, FaImages, FaEarthAmericas, FaUsers, FaLock } from 'react-icons/fa6';
+import { X, Images, Globe, Users, Lock, ChevronLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { storiesAPI, usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -123,7 +123,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
             >
                 <header className="create-story-header">
                     <button className="back-btn" onClick={step === 2 ? () => setStep(1) : onClose}>
-                        {step === 2 ? 'Back' : <FaXmark size={20} />}
+                        {step === 2 ? <ChevronLeft size={24} /> : <X size={24} />}
                     </button>
                     <h2>Create Story</h2>
                     {step === 2 ? (
@@ -140,7 +140,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
                         <div className="media-selector">
                             <div className="selector-content">
                                 <div className="icon-circle">
-                                    <FaImages size={48} />
+                                    <Images size={48} />
                                 </div>
                                 <h3>Select Media</h3>
                                 <p>Photos and videos will be added to your story for 24 hours.</p>
@@ -183,21 +183,21 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({ isOpen, onClose, ge
                                             className={`visibility-opt ${visibility === 'public' ? 'active' : ''}`}
                                             onClick={() => setVisibility('public')}
                                         >
-                                            <FaEarthAmericas size={18} />
+                                            <Globe size={18} />
                                             <span>Public</span>
                                         </button>
                                         <button
                                             className={`visibility-opt ${visibility === 'close_friends' ? 'active' : ''}`}
                                             onClick={() => setVisibility('close_friends')}
                                         >
-                                            <FaUsers size={18} />
+                                            <Users size={18} />
                                             <span>Close Friends</span>
                                         </button>
                                         <button
                                             className={`visibility-opt ${visibility === 'private' ? 'active' : ''}`}
                                             onClick={() => setVisibility('private')}
                                         >
-                                            <FaLock size={18} />
+                                            <Lock size={18} />
                                             <span>Private</span>
                                         </button>
                                     </div>
