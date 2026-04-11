@@ -28,7 +28,6 @@ const Avatar: React.FC<AvatarProps> = ({
     const imageUrl = getProfileImageUrl(src);
     const sizeStyle = typeof size === 'number' ? { width: size, height: size, fontSize: size * 0.4 } : { width: size, height: size };
 
-    // Generate initials if no name provided
     const initials = name ? name.charAt(0).toUpperCase() : '?';
 
     return (
