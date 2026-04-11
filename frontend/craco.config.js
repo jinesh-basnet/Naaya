@@ -1,16 +1,13 @@
 module.exports = {
+  devServer: (devServerConfig) => {
+    devServerConfig.allowedHosts = 'all';
+    devServerConfig.setupMiddlewares = (middlewares, devServer) => {
+      return middlewares;
+    };
+    return devServerConfig;
+  },
   webpack: {
     configure: (webpackConfig) => {
-      if (webpackConfig.devServer) {
-        delete webpackConfig.devServer.onAfterSetupMiddleware;
-        delete webpackConfig.devServer.onBeforeSetupMiddleware;
-        webpackConfig.devServer.setupMiddlewares = (middlewares, devServer) => {
-          if (!devServer) {
-            throw new Error('webpack-dev-server is not defined');
-          }
-          return middlewares;
-        };
-      }
       return webpackConfig;
     }
   }
