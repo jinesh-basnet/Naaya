@@ -12,12 +12,6 @@ router.get('/user/:userId', authenticateToken, conversationsController.getOrCrea
 
 router.get('/:conversationId', authenticateToken, conversationsController.getConversationById);
 
-router.put('/:conversationId', authenticateToken, conversationsController.updateConversation);
-
-router.post('/:conversationId/participants', authenticateToken, conversationsController.addParticipant);
-
-router.delete('/:conversationId/participants/:userId', authenticateToken, conversationsController.removeParticipant);
-
 router.delete('/:conversationId', authenticateToken, conversationsController.leaveConversation);
 
 module.exports = router;
