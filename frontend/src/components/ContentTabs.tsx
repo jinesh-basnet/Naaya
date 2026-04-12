@@ -63,7 +63,6 @@ const EmptyState: React.FC<{ icon: React.ReactNode; message: string; subtext?: s
   </div>
 );
 
-/* ── Single Grid Item ──────────────────────────────── */
 const ContentItem: React.FC<{
   post: any;
   isReel: boolean;
@@ -130,16 +129,16 @@ const ContentItem: React.FC<{
         {(isOwner || isBookmark) && (
           <div className="grid-item-quick-actions">
             {isBookmark ? (
-              <button 
-                className="quick-action-btn unsave" 
+              <button
+                className="quick-action-btn unsave"
                 onClick={onUnsaveClick}
                 title="Unsave item"
               >
                 <BsBookmarkDashFill />
               </button>
             ) : isOwner ? (
-              <button 
-                className="quick-action-btn delete" 
+              <button
+                className="quick-action-btn delete"
                 onClick={onDeleteClick}
                 title="Delete item"
               >
@@ -215,7 +214,7 @@ const ContentGrid: React.FC<{
     setIsUnsaving(true);
     try {
       const isReelItem = itemToUnsave.isReel;
-      
+
       if (isRemovingFromCollection) {
         // Remove from specific collection
         if (isReelItem) {
@@ -425,7 +424,7 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
       );
     }
 
-    case 'bookmarks': {     
+    case 'bookmarks': {
       const collections = collectionsData?.data?.collections || [];
       const selectedCollection = collections.find((c: any) => c._id === selectedCollectionId);
 
@@ -460,8 +459,8 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
         <div className="bookmarks-view">
           {selectedCollectionId && selectedCollection ? (
             <div className="collection-header-row">
-              <button 
-                className="back-btn-minimal" 
+              <button
+                className="back-btn-minimal"
                 onClick={() => setSelectedCollectionId(null)}
               >
                 ← All Bookmarks
@@ -475,9 +474,9 @@ const ContentTabs: React.FC<ContentTabsProps> = ({
             collections.length > 0 && (
               <div className="collections-row">
                 {collections.map((collection: any) => (
-                  <div 
-                    key={collection._id} 
-                    className="collection-folder-item" 
+                  <div
+                    key={collection._id}
+                    className="collection-folder-item"
                     onClick={() => setSelectedCollectionId(collection._id)}
                   >
                     <div className="collection-preview">
