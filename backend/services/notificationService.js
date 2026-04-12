@@ -36,9 +36,12 @@ const notificationService = {
       }
 
       if (recipient.pushSubscriptions?.length > 0 && recipient.notificationPreferences?.pushNotifications) {
+        const sender = await User.findById(senderId);
+        const resolvedMessage = sender ? message.replace(/^Someone/, sender.fullName) : message;
+
         const payload = JSON.stringify({
           title,
-          body: message,
+          body: resolvedMessage,
           icon: '/logo.png',
           data: { url: `/posts/${extraData.postId || ''}`, ...extraData }
         });

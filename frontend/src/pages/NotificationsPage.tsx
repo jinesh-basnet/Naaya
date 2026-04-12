@@ -261,7 +261,7 @@ const NotificationsPage: React.FC = () => {
                     }}
                   >
                     {notif.sender.fullName}
-                  </span> — {notif.message}
+                  </span> {notif.message.replace(/^Someone /, '')}
                 </p>
               </div>
               <div className="notification-actions" style={{ display: 'flex', gap: '0.5rem' }}>
