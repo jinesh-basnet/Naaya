@@ -326,8 +326,9 @@
   }
 
   .reel-item-motion {
-    width: 330px;
-    height: min(720px, 90vh);
+    height: min(850px, 90vh);
+    aspect-ratio: 9/16;
+    width: auto;
     border-radius: 12px;
     left: 50%;
     transform: translateX(-50%);

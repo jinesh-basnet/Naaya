@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import './ReelsPage.css';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { reelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -10,8 +10,10 @@ import ReelItem from '../components/ReelItem';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ReelsPage: React.FC = () => {
+  const queryClient = useQueryClient();
   const [currentReelIndex, setCurrentReelIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [pendingAdvance, setPendingAdvance] = useState(false);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -19,7 +21,6 @@ const ReelsPage: React.FC = () => {
   const { user } = useAuth();
   const { onFeedReelLiked, offFeedReelLiked, onFeedReelSaved, offFeedReelSaved } = useSocket();
   const [videoErrors, setVideoErrors] = useState<Record<string, boolean>>({});
-  const [savedReels] = useState<Set<string>>(new Set());
   const [commentsModalOpen, setCommentsModalOpen] = useState(false);
   const [selectedReelId, setSelectedReelId] = useState<string>('');
   const [selectedReelAuthorId, setSelectedReelAuthorId] = useState<string>('');
@@ -44,6 +45,66 @@ const ReelsPage: React.FC = () => {
     }
     previousReelsLength.current = reels.length;
   }, [isFetchingNextPage, reels.length, pendingAdvance]);
+
+  const handleOptimisticLike = async (id: string) => {
+    queryClient.setQueryData(['reels'], (oldData: any) => {
+      if (!oldData) return oldData;
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: any) => ({
+          ...page,
+          data: {
+            ...page.data,
+            reels: (page.data.reels || []).map((reel: any) => {
+              if (reel._id === id) {
+                const isLiked = reel.likes?.some((like: any) => like.user === user?._id) ?? false;
+                const newLikes = isLiked
+                  ? reel.likes.filter((like: any) => like.user !== user?._id)
+                  : [...(reel.likes || []), { user: user?._id }];
+                return { ...reel, likes: newLikes, likesCount: newLikes.length };
+              }
+              return reel;
+            })
+          }
+        }))
+      };
+    });
+    try {
+      await reelsAPI.likeReel(id);
+    } catch {
+      toast.error('Failed to like');
+    }
+  };
+
+  const handleOptimisticSave = async (id: string) => {
+    queryClient.setQueryData(['reels'], (oldData: any) => {
+      if (!oldData) return oldData;
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: any) => ({
+          ...page,
+          data: {
+            ...page.data,
+            reels: (page.data.reels || []).map((reel: any) => {
+              if (reel._id === id) {
+                const isSaved = reel.saves?.some((save: any) => save.user === user?._id) ?? false;
+                const newSaves = isSaved
+                  ? (reel.saves || []).filter((save: any) => save.user !== user?._id)
+                  : [...(reel.saves || []), { user: user?._id }];
+                return { ...reel, saves: newSaves, savesCount: newSaves.length };
+              }
+              return reel;
+            })
+          }
+        }))
+      };
+    });
+    try {
+      await reelsAPI.saveReel(id);
+    } catch {
+      toast.error('Failed to save');
+    }
+  };
 
   useEffect(() => {
     const handleLiked = (data: any) => { /* Update Cache */ };
@@ -160,15 +221,16 @@ const ReelsPage: React.FC = () => {
               index={currentReelIndex}
               isActive={true}
               isPlaying={isPlaying}
-              isMuted={true}
+              isMuted={isMuted}
+              toggleMute={() => setIsMuted(!isMuted)}
               progress={progress}
               user={user}
-              savedReels={savedReels}
+              savedReels={new Set()}
               videoRefs={videoRefs}
               videoErrors={videoErrors}
               setVideoErrors={setVideoErrors}
-              handleLike={(id) => reelsAPI.likeReel(id).catch(() => toast.error('Failed to like'))}
-              handleSave={(id) => reelsAPI.saveReel(id).catch(() => toast.error('Failed to save'))}
+              handleLike={handleOptimisticLike}
+              handleSave={handleOptimisticSave}
               handleVideoProgress={handleVideoProgress}
               handleVideoClick={() => setIsPlaying(!isPlaying)}
               handleVideoEnd={() => { }}

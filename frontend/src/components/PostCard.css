@@ -34,6 +34,11 @@
   justify-content: center;
 }
 
+.post-media-stage.reel-format {
+  aspect-ratio: 9/16;
+  max-height: 80vh;
+}
+
 .canvas-media-item {
   width: 100%;
   height: 100%;

@@ -203,7 +203,7 @@ const PostCard: React.FC<PostCardProps> = ({
     >
       <div className="post-interaction-container">
         <div
-          className="post-media-stage"
+          className={`post-media-stage ${post.isReel ? 'reel-format' : ''}`}
           onDoubleClick={() => handleDoubleTap(post._id, filteredPosts, post.isReel)}
         >
           <div className="post-user-plate" onClick={handleAuthorClick}>

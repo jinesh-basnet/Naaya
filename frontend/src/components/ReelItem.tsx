@@ -59,6 +59,7 @@ interface Reel {
   };
   language: string;
   likes: Array<{ user: string }>;
+  saves?: Array<{ user: string }>;
   comments: Array<{
     _id: string;
     author: {
@@ -81,6 +82,7 @@ interface ReelItemProps {
   isActive: boolean;
   isPlaying: boolean;
   isMuted: boolean;
+  toggleMute: () => void;
   progress: number;
   user: any;
   savedReels: Set<string>;
@@ -107,6 +109,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
   isActive,
   isPlaying,
   isMuted,
+  toggleMute,
   progress,
   user,
   savedReels,
@@ -136,7 +139,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
   const lastTap = useRef<number>(0);
 
   const isLiked = reel.likes?.some(like => like.user === user?._id) ?? false;
-  const isSaved = savedReels.has(reel._id);
+  const isSaved = reel.saves?.some(save => save.user === user?._id) ?? savedReels.has(reel._id);
   const isAuthor = reel.author?._id === user?._id;
 
   const handleAction = async (action: string, e?: React.MouseEvent) => {
@@ -238,9 +241,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
           )}
         </AnimatePresence>
 
-        <div className={`play-overlay ${!isPlaying ? 'visible' : ''}`}>
-          <MdPlayArrow size={60} />
-        </div>
+
 
         <div className="top-actions-row">
           <span className="top-title">Reels</span>
@@ -337,7 +338,7 @@ const ReelItem: React.FC<ReelItemProps> = ({
           </div>
 
           <div className="action-item-v2">
-            <button className="icon-btn-minimal" onClick={(e) => e.stopPropagation()}>
+            <button className="icon-btn-minimal" onClick={(e) => { e.stopPropagation(); toggleMute(); }}>
               {isMuted ? <HiSpeakerXMark size={24} /> : <HiSpeakerWave size={24} />}
             </button>
           </div>
