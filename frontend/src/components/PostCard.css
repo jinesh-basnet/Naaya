@@ -117,49 +117,80 @@
 
 .post-user-plate {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  right: 20px;
-  display: flex;
+  top: 16px;
+  left: 16px;
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  padding: 12px 20px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 14px 6px 6px;
+  border-radius: 40px;
   z-index: 10;
   cursor: pointer;
   transition: var(--transition-bounce);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  max-width: calc(100% - 32px);
 }
 
 .post-user-plate:hover {
-  background: rgba(0, 0, 0, 0.5);
-  transform: translateX(6px);
-  border-color: var(--primary-light);
-}
-
-.plate-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 2px solid white;
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+[data-theme='dark'] .post-user-plate:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.plate-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
 .plate-username {
-  color: white;
+  color: #ffffff;
   font-weight: 800;
   font-size: 1rem;
   letter-spacing: -0.2px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 
 .plate-location {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255,255,255,0.85);
   font-size: 0.8rem;
   font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.plate-menu {
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.plate-menu:hover {
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+}
+
+[data-theme='dark'] .plate-menu:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .post-caption-plate {
@@ -218,9 +249,7 @@
   .post-user-plate {
     top: 12px;
     left: 12px;
-    right: 12px;
-    padding: 8px 12px;
-    border-radius: 16px;
+    padding: 4px 12px 4px 4px;
   }
 
   .plate-avatar {

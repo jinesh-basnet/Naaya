@@ -206,6 +206,58 @@ const PostCard: React.FC<PostCardProps> = ({
           className="post-media-stage"
           onDoubleClick={() => handleDoubleTap(post._id, filteredPosts, post.isReel)}
         >
+          <div className="post-user-plate" onClick={handleAuthorClick}>
+            <div className="plate-avatar">
+              <Avatar
+                src={post.author?.profilePicture}
+                alt={post.author?.username}
+                name={post.author?.fullName}
+                size="100%"
+              />
+            </div>
+            <div className="plate-details">
+              <span className="plate-username">@{post.author?.username}</span>
+              {post.location?.city && (
+                <span className="plate-location">{post.location.city}</span>
+              )}
+            </div>
+            <button className="plate-menu" onClick={(e) => { e.stopPropagation(); setShowActionMenu(!showActionMenu); }}>
+              <FaEllipsisV />
+            </button>
+
+            <AnimatePresence>
+              {showActionMenu && (
+                <>
+                  <div className="menu-backdrop-v2" onClick={() => setShowActionMenu(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    className="action-dropdown-v2"
+                  >
+                    <button className="menu-item-v2" onClick={(e) => handleAction('copy-link', e)}>
+                      <FiLink /> <span>Copy Link</span>
+                    </button>
+                    {!isAuthor && (
+                      <button className="menu-item-v2" onClick={(e) => handleAction('not-interested', e)}>
+                        <FiEyeOff /> <span>Not Interested</span>
+                      </button>
+                    )}
+                    <button className="menu-item-v2" onClick={(e) => handleAction('report', e)}>
+                      <FiFlag /> <span>Report</span>
+                    </button>
+                    {isAuthor && (
+                      <button className="menu-item-v2 danger" onClick={(e) => handleAction('delete', e)}>
+                        <FiTrash2 /> <span>Delete Post</span>
+                      </button>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+
           {post.media && post.media.length > 0 && (
             <div className="media-canvas">
               {post.isReel ? (
@@ -268,57 +320,6 @@ const PostCard: React.FC<PostCardProps> = ({
                 {isSaved ? <BsBookmarkFill /> : <BsBookmark />}
               </button>
             </motion.div>
-          </div>
-
-          <div className="post-user-plate" onClick={handleAuthorClick}>
-            <div className="plate-avatar">
-              <Avatar
-                src={post.author?.profilePicture}
-                alt={post.author?.username}
-                name={post.author?.fullName}
-                size="100%"
-              />
-            </div>
-            <div className="plate-details">
-              <span className="plate-username">@{post.author?.username}</span>
-              {post.location?.city && (
-                <span className="plate-location">{post.location.city}</span>
-              )}
-            </div>
-            <button className="plate-menu" onClick={(e) => { e.stopPropagation(); setShowActionMenu(!showActionMenu); }}>
-              <FaEllipsisV />
-            </button>
-
-            <AnimatePresence>
-              {showActionMenu && (
-                <>
-                  <div className="menu-backdrop-v2" onClick={() => setShowActionMenu(false)} />
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                    className="action-dropdown-v2"
-                  >
-                    <button className="menu-item-v2" onClick={(e) => handleAction('copy-link', e)}>
-                      <FiLink /> <span>Copy Link</span>
-                    </button>
-                    {!isAuthor && (
-                      <button className="menu-item-v2" onClick={(e) => handleAction('not-interested', e)}>
-                        <FiEyeOff /> <span>Not Interested</span>
-                      </button>
-                    )}
-                    <button className="menu-item-v2" onClick={(e) => handleAction('report', e)}>
-                      <FiFlag /> <span>Report</span>
-                    </button>
-                    {isAuthor && (
-                      <button className="menu-item-v2 danger" onClick={(e) => handleAction('delete', e)}>
-                        <FiTrash2 /> <span>Delete Post</span>
-                      </button>
-                    )}
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
           </div>
 
           <div className="post-caption-plate">
