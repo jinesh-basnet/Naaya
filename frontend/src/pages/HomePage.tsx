@@ -134,7 +134,7 @@ const HomePage: React.FC = () => {
 
 
             <footer className="sidebar-footer-text">
-              <p>© 2026 NAAYA • BY JINESH</p>
+              <p>© 2026 NAAYA • BY JINESH & RACHANA</p>
             </footer>
           </div>
         </aside>
