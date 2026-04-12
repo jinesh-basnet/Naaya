@@ -76,6 +76,7 @@ export const postsAPI = {
 };
 
 export const reelsAPI = {
+  createReel: (formData: FormData) => api.post('/reels', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   getFeed: (page: number = 1) => api.get(`/reels/feed?page=${page}`),
   getUserReels: (userId: string, page: number = 1, limit: number = 12) => api.get(`/reels/user/${userId}?page=${page}&limit=${limit}`),
   searchReels: (query: string) => api.get(`/reels/search?q=${encodeURIComponent(query)}`),

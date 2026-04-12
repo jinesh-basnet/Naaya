@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
-import { postsAPI } from './services/api';
+import { postsAPI, reelsAPI } from './services/api';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { CreatePostProvider, useCreatePost } from './contexts/CreatePostContext';
@@ -106,20 +106,36 @@ function InnerApp() {
   const handlePost = async (post: any) => {
     console.log("Submitting new post payload:", post);
     try {
-      const formData = new FormData();
-      if (post.caption) formData.append('content', post.caption);
-      if (post.media) formData.append('media', post.media);
-      if (post.location) formData.append('location', post.location);
-      if (post.tags && post.tags.length > 0) formData.append('tags', JSON.stringify(post.tags));
-      if (post.hashtags && post.hashtags.length > 0) formData.append('hashtags', JSON.stringify(post.hashtags));
-      if (post.mentions && post.mentions.length > 0) formData.append('mentions', JSON.stringify(post.mentions));
-      if (post.language) formData.append('language', post.language);
-      if (post.visibility) formData.append('visibility', post.visibility);
-      if (post.postType) formData.append('postType', post.postType);
+      if (post.postType === 'reel') {
+        const formData = new FormData();
+        if (post.caption) formData.append('caption', post.caption);
+        if (post.media) formData.append('video', post.media);
+        if (post.location) formData.append('location', post.location);
+        if (post.tags && post.tags.length > 0) formData.append('tags', JSON.stringify(post.tags));
+        if (post.hashtags && post.hashtags.length > 0) formData.append('hashtags', JSON.stringify(post.hashtags));
+        if (post.mentions && post.mentions.length > 0) formData.append('mentions', JSON.stringify(post.mentions));
+        if (post.language) formData.append('language', post.language);
+        if (post.visibility) formData.append('visibility', post.visibility);
 
-      await postsAPI.createPost(formData);
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
-      toast.success('Post shared!');
+        await reelsAPI.createReel(formData);
+        queryClient.invalidateQueries({ queryKey: ['feed'] });
+        toast.success('Reel shared!');
+      } else {
+        const formData = new FormData();
+        if (post.caption) formData.append('content', post.caption);
+        if (post.media) formData.append('media', post.media);
+        if (post.location) formData.append('location', post.location);
+        if (post.tags && post.tags.length > 0) formData.append('tags', JSON.stringify(post.tags));
+        if (post.hashtags && post.hashtags.length > 0) formData.append('hashtags', JSON.stringify(post.hashtags));
+        if (post.mentions && post.mentions.length > 0) formData.append('mentions', JSON.stringify(post.mentions));
+        if (post.language) formData.append('language', post.language);
+        if (post.visibility) formData.append('visibility', post.visibility);
+        if (post.postType) formData.append('postType', post.postType);
+
+        await postsAPI.createPost(formData);
+        queryClient.invalidateQueries({ queryKey: ['feed'] });
+        toast.success('Post shared!');
+      }
       closeCreatePostModal();
     } catch (err) {
       console.error(err);
