@@ -1,7 +1,6 @@
 const path = require('path');
 const Post = require('../models/Post');
 const mongoose = require('mongoose');
-const User = require('../models/User');
 const { validationResult } = require('express-validator');
 
 exports.createPost = async (req, res) => {
@@ -68,7 +67,6 @@ exports.createPost = async (req, res) => {
             postData.location = parsed;
           }
         } catch (e) {
-          // If it's not valid JSON, treat the plain string as the location name
           postData.location = { name: req.body.location.trim() };
         }
       } else {
@@ -81,38 +79,10 @@ exports.createPost = async (req, res) => {
         try {
           postData.tags = JSON.parse(req.body.tags);
         } catch (e) {
-          // Fallback to comma-separated string
           postData.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
         }
       } else {
         postData.tags = req.body.tags;
-      }
-    }
-
-    if (req.body.hashtags) {
-      if (typeof req.body.hashtags === 'string') {
-        try {
-          postData.hashtags = JSON.parse(req.body.hashtags);
-        } catch (e) {
-          postData.hashtags = req.body.hashtags.split(',').map(t => t.trim()).filter(Boolean);
-        }
-      } else {
-        postData.hashtags = req.body.hashtags;
-      }
-    }
-
-    if (req.body.mentions) {
-      if (typeof req.body.mentions === 'string') {
-        try {
-          const parsedMentions = JSON.parse(req.body.mentions);
-          const usernames = parsedMentions.map(m => m.replace('@', '').toLowerCase());
-          const users = await User.find({ username: { $in: usernames } }).select('_id');
-          postData.mentions = users.map(u => u._id);
-        } catch (e) {
-          postData.mentions = [];
-        }
-      } else {
-        postData.mentions = req.body.mentions;
       }
     }
 

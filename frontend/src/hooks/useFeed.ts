@@ -13,13 +13,11 @@ export const useFeed = (locationData: any) => {
     queryKey: ['feed', 'posts', locationData?.city],
     queryFn: ({ pageParam = 1 }) => postsAPI.getFeed('fyp', pageParam, 10),
     getNextPageParam: (lastPage: any, allPages: any) => {
-      // Assuming lastPage.data.posts handles pagination
       if (lastPage.data.posts.length < 10) return undefined;
       return allPages.length + 1;
     },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
-    // cacheTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) return false;
       if (error?.response?.status === 429) return false;
