@@ -20,8 +20,8 @@ class RichGetRicherAlgorithm {
       const pool = await User.find({
         _id: { $nin: excludeIds },
         isActive: true,
-        isBanned: false,
-        isDeleted: false
+        isBanned: { $ne: true },
+        isDeleted: { $ne: true }
       })
         .select('username fullName profilePicture isVerified followersCount location interests')
         .limit(500)
