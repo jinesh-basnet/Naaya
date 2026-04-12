@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { postsAPI } from '../services/api';
@@ -9,12 +9,17 @@ export const useFeed = (locationData: any) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: feedData, isLoading, refetch, error } = useQuery({
+  const { data: feedData, isLoading, refetch, error, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['feed', 'posts', locationData?.city],
-    queryFn: () => postsAPI.getFeed('fyp'),
+    queryFn: ({ pageParam = 1 }) => postsAPI.getFeed('fyp', pageParam, 10),
+    getNextPageParam: (lastPage: any, allPages: any) => {
+      // Assuming lastPage.data.posts handles pagination
+      if (lastPage.data.posts.length < 10) return undefined;
+      return allPages.length + 1;
+    },
     enabled: !!user,
     staleTime: 2 * 60 * 1000,
-    cacheTime: 5 * 60 * 1000,
+    // cacheTime: 5 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) return false;
       if (error?.response?.status === 429) return false;
@@ -25,7 +30,7 @@ export const useFeed = (locationData: any) => {
 
   useEffect(() => {
     if (error) {
-      const status = error?.response?.status;
+      const status = (error as any)?.response?.status;
       if (status === 401) {
         toast.error('Please log in to view your feed');
         navigate('/login');
@@ -43,5 +48,5 @@ export const useFeed = (locationData: any) => {
     await refetch();
   };
 
-  return { feedData, isLoading, handleRefresh };
+  return { feedData, isLoading, handleRefresh, fetchNextPage, hasNextPage, isFetchingNextPage };
 };

@@ -118,6 +118,7 @@ function InnerApp() {
         if (post.visibility) formData.append('visibility', post.visibility);
 
         await reelsAPI.createReel(formData);
+        queryClient.invalidateQueries({ queryKey: ['reels'] });
         queryClient.invalidateQueries({ queryKey: ['feed'] });
         toast.success('Reel shared!');
       } else {

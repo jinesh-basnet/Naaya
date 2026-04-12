@@ -58,7 +58,7 @@ const HomePage: React.FC = () => {
   const { user } = useAuth();
 
   const { locationData } = useLocation();
-  const { feedData } = useFeed(locationData);
+  const { feedData, fetchNextPage, hasNextPage, isFetchingNextPage } = useFeed(locationData);
 
   const { heartBurst, expandedCaptions, setExpandedCaptions, handleLike, handleSave, handleShare, handleDoubleTap } = usePostInteractions(locationData, () => { });
 
@@ -78,9 +78,23 @@ const HomePage: React.FC = () => {
     return date.toLocaleDateString();
   };
 
-  const posts = feedData?.data?.posts || [];
+  const posts = feedData?.pages?.flatMap((page: any) => page.data?.posts || []) || [];
   const [isCollapsed, setIsCollapsed] = useState(false);
   const filteredPosts = posts.filter((post: Post) => post.postType === 'post');
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500 &&
+        hasNextPage &&
+        !isFetchingNextPage
+      ) {
+        fetchNextPage();
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="home-page-container">
@@ -107,6 +121,11 @@ const HomePage: React.FC = () => {
                 filteredPosts={filteredPosts}
               />
             ))}
+            {isFetchingNextPage && (
+              <div className="feed-loading-more" style={{ padding: '20px', textAlign: 'center' }}>
+                <div className="spinner-glow" style={{ margin: '0 auto' }} />
+              </div>
+            )}
           </div>
         </main>
 
