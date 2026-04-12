@@ -1,0 +1,112 @@
+.bottom-nav-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: var(--glass-bg);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border-top: 1px solid var(--glass-border);
+  padding: 8px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.nav-item {
+  background: none;
+  border: none;
+  padding: 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 24px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex: 1;
+  position: relative;
+}
+
+.nav-item:hover {
+  color: var(--primary-main);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+.nav-item.active {
+  color: var(--primary-main);
+  animation: navHaptic 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes navHaptic {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  width: 4px;
+  height: 4px;
+  background: var(--primary-main);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--primary-main);
+}
+
+.add-fab-v2 {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-main), var(--accent-main));
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  margin: 0 8px;
+}
+
+.add-fab-v2:hover {
+  transform: scale(1.15) rotate(90deg);
+  box-shadow: 0 12px 25px rgba(59, 130, 246, 0.6);
+}
+
+.add-fab-v2:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 480px) {
+  .nav-item {
+    font-size: 22px;
+    padding: 10px;
+  }
+
+  .add-fab-v2 {
+    width: 46px;
+    height: 46px;
+    font-size: 24px;
+  }
+}
