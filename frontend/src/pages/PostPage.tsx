@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { postsAPI } from '../services/api';
@@ -42,7 +42,7 @@ const PostPage: React.FC = () => {
   };
 
   const handleDoubleTap = (id: string) => {
-    const isLiked = post?.likes?.some((l: any) => l.user === id);
+
     handleLike(id);
     setHeartBurst(prev => ({ ...prev, [id]: true }));
     setTimeout(() => setHeartBurst(prev => ({ ...prev, [id]: false })), 500);
