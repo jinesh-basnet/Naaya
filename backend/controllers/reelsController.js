@@ -1,10 +1,12 @@
 const path = require('path');
 const Reel = require('../models/Reel');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Follow = require('../models/Follow');
 const Block = require('../models/Block');
 const BookmarkCollection = require('../models/BookmarkCollection');
 const { findCommentById } = require('../utils/commentUtils');
+const { validationResult } = require('express-validator');
 
 const formatReelResponse = (reel) => {
   const reelObj = typeof reel.toObject === 'function' ? reel.toObject() : reel;
@@ -62,6 +64,50 @@ exports.createReel = async (req, res) => {
         format: path.extname(req.file.originalname).slice(1)
       }
     };
+
+    if (req.body.location && req.body.location.trim()) {
+      if (typeof req.body.location === 'string') {
+        try {
+          const parsed = JSON.parse(req.body.location);
+          if (typeof parsed === 'string') {
+            reelData.location = { name: parsed };
+          } else {
+            reelData.location = parsed;
+          }
+        } catch (e) {
+          reelData.location = { name: req.body.location.trim() };
+        }
+      } else {
+        reelData.location = req.body.location;
+      }
+    }
+
+    if (req.body.hashtags) {
+      if (typeof req.body.hashtags === 'string') {
+        try {
+          reelData.hashtags = JSON.parse(req.body.hashtags);
+        } catch (e) {
+          reelData.hashtags = req.body.hashtags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+      }
+    }
+
+    if (req.body.mentions) {
+      if (typeof req.body.mentions === 'string') {
+        try {
+          const parsedMentions = JSON.parse(req.body.mentions);
+          const usernames = parsedMentions.map(m => m.replace('@', '').toLowerCase());
+          const users = await User.find({ username: { $in: usernames } }).select('_id');
+          reelData.mentions = users.map(u => u._id);
+        } catch (e) {
+          reelData.mentions = [];
+        }
+      }
+    }
+    
+    // Remove tags if present because Reel schema has no tags field
+    delete reelData.tags;
+
 
     const reel = new Reel(reelData);
     await reel.save();

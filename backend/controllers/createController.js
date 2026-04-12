@@ -1,6 +1,7 @@
 const path = require('path');
 const Post = require('../models/Post');
 const mongoose = require('mongoose');
+const User = require('../models/User');
 const { validationResult } = require('express-validator');
 
 exports.createPost = async (req, res) => {
@@ -58,35 +59,60 @@ exports.createPost = async (req, res) => {
     }
 
     if (req.body.location && req.body.location.trim()) {
-      try {
-        const parsed = JSON.parse(req.body.location);
-        if (typeof parsed === 'string') {
-          postData.location = { name: parsed };
-        } else {
-          postData.location = parsed;
+      if (typeof req.body.location === 'string') {
+        try {
+          const parsed = JSON.parse(req.body.location);
+          if (typeof parsed === 'string') {
+            postData.location = { name: parsed };
+          } else {
+            postData.location = parsed;
+          }
+        } catch (e) {
+          // If it's not valid JSON, treat the plain string as the location name
+          postData.location = { name: req.body.location.trim() };
         }
-      } catch (e) {
-        console.error('Location parsing error:', e);
-        return res.status(400).json({
-          message: req.t('posts:invalidLocation'),
-          code: 'INVALID_LOCATION'
-        });
+      } else {
+        postData.location = req.body.location;
       }
     }
 
     if (req.body.tags) {
-      try {
-        if (typeof req.body.tags === 'string') {
+      if (typeof req.body.tags === 'string') {
+        try {
           postData.tags = JSON.parse(req.body.tags);
-        } else {
-          postData.tags = req.body.tags;
+        } catch (e) {
+          // Fallback to comma-separated string
+          postData.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
         }
-      } catch (e) {
-        console.error('Tags parsing error:', e);
-        return res.status(400).json({
-          message: req.t('posts:invalidTags'),
-          code: 'INVALID_TAGS'
-        });
+      } else {
+        postData.tags = req.body.tags;
+      }
+    }
+
+    if (req.body.hashtags) {
+      if (typeof req.body.hashtags === 'string') {
+        try {
+          postData.hashtags = JSON.parse(req.body.hashtags);
+        } catch (e) {
+          postData.hashtags = req.body.hashtags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+      } else {
+        postData.hashtags = req.body.hashtags;
+      }
+    }
+
+    if (req.body.mentions) {
+      if (typeof req.body.mentions === 'string') {
+        try {
+          const parsedMentions = JSON.parse(req.body.mentions);
+          const usernames = parsedMentions.map(m => m.replace('@', '').toLowerCase());
+          const users = await User.find({ username: { $in: usernames } }).select('_id');
+          postData.mentions = users.map(u => u._id);
+        } catch (e) {
+          postData.mentions = [];
+        }
+      } else {
+        postData.mentions = req.body.mentions;
       }
     }
 
